@@ -249,6 +249,34 @@ db.exec(`
     updated_at TEXT NOT NULL,
     FOREIGN KEY (source_id) REFERENCES company_sources(id) ON DELETE CASCADE
   );
+
+  -- ─── Phase 2.1: Source Discovery Queue ──────────────────────
+
+  CREATE TABLE IF NOT EXISTS discovery_queue (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    company_name TEXT NOT NULL,
+    domain TEXT,
+    known_careers_url TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    last_attempt_at TEXT,
+    next_attempt_at TEXT,
+    discovered_provider TEXT,
+    discovered_source_url TEXT,
+    confidence REAL DEFAULT 0,
+    evidence TEXT DEFAULT '[]',
+    careers_pages_found TEXT DEFAULT '[]',
+    multi_source TEXT DEFAULT '[]',
+    manual_review_required INTEGER NOT NULL DEFAULT 0,
+    failure_reason TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_dq_status ON discovery_queue(status);
+  CREATE INDEX IF NOT EXISTS idx_dq_company ON discovery_queue(company_id);
+  CREATE INDEX IF NOT EXISTS idx_dq_next ON discovery_queue(next_attempt_at);
 `)
 
 // ─── Migrations for existing databases ─────────────────────────
@@ -669,6 +697,58 @@ export function updatePollScheduleAfterRun(sourceId, success, error) {
     consecutive_failures = ?, poll_interval_ms = ?, last_error = ?, updated_at = ?
     WHERE source_id = ?
   `).run(nextCheck, ts, success ? ts : schedule.last_success_at, failures, newInterval, error || null, ts, sourceId)
+}
+
+// ─── Phase 2.1: Discovery Queue ───────────────────────────────
+
+export function createDiscoveryTarget(companyId, companyName, domain, knownCareersUrl) {
+  const ts = new Date().toISOString()
+  const id = `dq_${companyId}_${Date.now()}`
+  db.prepare(`
+    INSERT OR IGNORE INTO discovery_queue
+    (id, company_id, company_name, domain, known_careers_url, status, attempt_count, evidence, careers_pages_found, multi_source, manual_review_required, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 'pending', 0, '[]', '[]', '[]', 0, ?, ?)
+  `).run(id, companyId, companyName, domain, knownCareersUrl, ts, ts)
+  return id
+}
+
+export function getDiscoveryTarget(companyId) {
+  return db.prepare(`SELECT * FROM discovery_queue WHERE company_id = ?`).get(companyId) || null
+}
+
+export function getDiscoveryTargetsByStatus(status, limit = 50) {
+  return db.prepare(`SELECT * FROM discovery_queue WHERE status = ? ORDER BY next_attempt_at ASC NULLS LAST LIMIT ?`).all(status, limit)
+}
+
+export function getAllDiscoveryTargets() {
+  return db.prepare(`SELECT * FROM discovery_queue ORDER BY status, company_name`).all()
+}
+
+export function updateDiscoveryTarget(companyId, updates) {
+  const ts = new Date().toISOString()
+  const fields = []
+  const values = []
+  for (const [key, value] of Object.entries(updates)) {
+    if (key === 'id' || key === 'company_id' || key === 'created_at') continue
+    const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase()
+    fields.push(`${dbKey} = ?`)
+    values.push(typeof value === 'object' ? JSON.stringify(value) : value)
+  }
+  fields.push('updated_at = ?')
+  values.push(ts)
+  values.push(companyId)
+  db.prepare(`UPDATE discovery_queue SET ${fields.join(', ')} WHERE company_id = ?`).run(...values)
+}
+
+export function getDiscoveryStats() {
+  const rows = db.prepare(`SELECT status, COUNT(*) as count FROM discovery_queue GROUP BY status`).all()
+  const stats = { pending: 0, discovering: 0, supported_source_found: 0, unsupported_ats_found: 0, custom_careers_found: 0, multiple_sources_found: 0, access_restricted: 0, no_careers_source_found: 0, ambiguous: 0, failed: 0, manual_review: 0, total: 0 }
+  for (const row of rows) {
+    const key = row.status.replace(/-/g, '_')
+    if (key in stats) stats[key] = row.count
+    stats.total += row.count
+  }
+  return stats
 }
 
 // ─── Users ─────────────────────────────────────────────────────

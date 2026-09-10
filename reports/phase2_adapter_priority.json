@@ -1,0 +1,66 @@
+[
+  {
+    "provider": "custom",
+    "firmsBlocked": 42,
+    "estimatedEffort": 2,
+    "strategicImportance": 2,
+    "weightedScore": "42.00",
+    "note": "Various custom career sites"
+  },
+  {
+    "provider": "workday",
+    "firmsBlocked": 6,
+    "estimatedEffort": 3,
+    "strategicImportance": 2,
+    "weightedScore": "4.00",
+    "note": ""
+  },
+  {
+    "provider": "successfactors",
+    "firmsBlocked": 2,
+    "estimatedEffort": 3,
+    "strategicImportance": 4,
+    "weightedScore": "2.67",
+    "note": "SAP SuccessFactors — common in European finance"
+  },
+  {
+    "provider": "eightfold",
+    "firmsBlocked": 2,
+    "estimatedEffort": 4,
+    "strategicImportance": 4,
+    "weightedScore": "2.00",
+    "note": "Eightfold AI — used by Morgan Stanley, Millennium"
+  },
+  {
+    "provider": "oracle_hcm",
+    "firmsBlocked": 2,
+    "estimatedEffort": 4,
+    "strategicImportance": 3,
+    "weightedScore": "1.50",
+    "note": "Oracle HCM — used by JPMorgan, Schroders"
+  },
+  {
+    "provider": "avature",
+    "firmsBlocked": 2,
+    "estimatedEffort": 4,
+    "strategicImportance": 2,
+    "weightedScore": "1.00",
+    "note": "Avature — used by Carlyle"
+  },
+  {
+    "provider": "oleeo_rss",
+    "firmsBlocked": 1,
+    "estimatedEffort": 3,
+    "strategicImportance": 2,
+    "weightedScore": "0.67",
+    "note": ""
+  },
+  {
+    "provider": "workable",
+    "firmsBlocked": 1,
+    "estimatedEffort": 2,
+    "strategicImportance": 1,
+    "weightedScore": "0.50",
+    "note": "Workable — Interpath only"
+  }
+]

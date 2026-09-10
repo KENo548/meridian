@@ -71,6 +71,7 @@ const FIRMS = [
   {
     id: 'bank-of-america',
     name: 'Bank of America',
+    aliases: ['BofA', 'BAC', 'Bank of America Merrill Lynch', 'BAML'],
     category: 'bulge_bracket',
     careersUrl: 'https://ghr.wd1.myworkdayjobs.com/Bank_of_America_Careers',
     enabled: false,
@@ -79,7 +80,7 @@ const FIRMS = [
     atsSlug: 'bankofamerica.wd1.myworkdayjobs.com',
     workdayTenant: 'bankofamerica',
     workdaySite: 'Bank_of_America_Careers',
-    notes: 'Workday API returns 422 — Cloudflare anti-bot protection blocks programmatic access',
+    notes: 'Phase 2.1 verified: Workday API returns 422 (Cloudflare anti-bot). Needs source discovery to find current careers infrastructure.',
     sources: [
       makeSource('workday', {
         careersUrl: 'https://ghr.wd1.myworkdayjobs.com/Bank_of_America_Careers',
@@ -88,12 +89,14 @@ const FIRMS = [
         atsSlug: 'bankofamerica.wd1.myworkdayjobs.com',
         workdayTenant: 'bankofamerica',
         workdaySite: 'Bank_of_America_Careers',
+        sourceNote: 'Workday 422 Cloudflare blocked',
       }),
     ],
   },
   {
     id: 'citi',
     name: 'Citi',
+    aliases: ['Citigroup', 'Citigroup Inc', 'Citi Group'],
     category: 'bulge_bracket',
     careersUrl: 'https://citi.wd5.myworkdayjobs.com/citi',
     enabled: false,
@@ -102,7 +105,7 @@ const FIRMS = [
     atsSlug: 'citi.wd5.myworkdayjobs.com',
     workdayTenant: 'citi',
     workdaySite: 'citi',
-    notes: 'Workday API returns 404 — site name may have changed; main careers portal at jobs.citi.com',
+    notes: 'Phase 2.1 verified: Workday API returns 404 — site name changed. Tested 6 alternate site names, all 404. Needs source discovery.',
     sources: [
       makeSource('workday', {
         careersUrl: 'https://citi.wd5.myworkdayjobs.com/citi',
@@ -111,12 +114,14 @@ const FIRMS = [
         atsSlug: 'citi.wd5.myworkdayjobs.com',
         workdayTenant: 'citi',
         workdaySite: 'citi',
+        sourceNote: 'Workday 404 site changed',
       }),
     ],
   },
   {
     id: 'barclays',
     name: 'Barclays',
+    aliases: ['Barclays PLC', 'Barclays Bank'],
     category: 'bulge_bracket',
     careersUrl: 'https://barclays.wd3.myworkdayjobs.com/barclays',
     enabled: false,
@@ -125,7 +130,7 @@ const FIRMS = [
     atsSlug: 'barclays.wd3.myworkdayjobs.com',
     workdayTenant: 'barclays',
     workdaySite: 'barclays',
-    notes: 'Workday API returns 404 — site name may have changed',
+    notes: 'Phase 2.1 verified: Workday API returns 404 — site name changed. Tested 6 alternate site names, all 404. Needs source discovery.',
     sources: [
       makeSource('workday', {
         careersUrl: 'https://barclays.wd3.myworkdayjobs.com/barclays',
@@ -134,6 +139,7 @@ const FIRMS = [
         atsSlug: 'barclays.wd3.myworkdayjobs.com',
         workdayTenant: 'barclays',
         workdaySite: 'barclays',
+        sourceNote: 'Workday 404 site changed',
       }),
     ],
   },
@@ -195,6 +201,7 @@ const FIRMS = [
   {
     id: 'lazard',
     name: 'Lazard',
+    aliases: ['Lazard Ltd', 'Lazard Frères'],
     category: 'elite_boutique',
     careersUrl: 'https://lazard-careers.tal.net/vx/lang-en-GB/mobile-0/appcentre1/brand-3/emp-1/Home',
     enabled: false,
@@ -202,19 +209,21 @@ const FIRMS = [
     careersProvider: 'oleeo_rss',
     atsSlug: 'lazard',
     oleeoRssUrl: 'https://lazard-careers.tal.net/vx/mobile-0/appcentre-ext/brand-3/candidate/jobboard/vacancy/2/feed',
-    notes: 'Oleeo RSS returns 0 entries (board may be empty); professional careers on Oracle HCM (icbpjb.fa.ocs.oraclecloud.com)',
+    notes: 'Phase 2.1 verified: Oleeo RSS returns 0 entries (board valid but empty). Professional careers on Oracle HCM (icbpjb.fa.ocs.oraclecloud.com). Needs source discovery.',
     sources: [
       makeSource('oleeo_rss', {
         careersUrl: 'https://lazard-careers.tal.net/vx/mobile-0/appcentre-ext/brand-3/candidate/jobboard/vacancy/2/feed',
         enabled: false,
         verified: false,
         atsSlug: 'lazard',
+        sourceNote: 'Oleeo RSS valid but empty board',
       }),
     ],
   },
   {
     id: 'moelis',
     name: 'Moelis & Company',
+    aliases: ['Moelis & Company LLC', 'Moelis'],
     category: 'elite_boutique',
     careersUrl: 'https://moelis-careers.tal.net/vx/mobile-0/appcentre-1/brand-4/candidate/jobboard/vacancy/2',
     enabled: true,
@@ -233,6 +242,7 @@ const FIRMS = [
   {
     id: 'pjt-partners',
     name: 'PJT Partners',
+    aliases: ['PJT Capital Partners', 'PJT'],
     category: 'elite_boutique',
     careersUrl: 'https://pjtpartners.wd1.myworkdayjobs.com/Students',
     enabled: true,
@@ -254,6 +264,7 @@ const FIRMS = [
   {
     id: 'rothschild',
     name: 'Rothschild & Co',
+    aliases: ['Rothschild', 'Rothschild & Co Multilateral', 'Rothschild & Co Investment Banking'],
     category: 'elite_boutique',
     careersUrl: 'https://rothschild.wd3.myworkdayjobs.com/rothschildandco',
     enabled: false,
@@ -262,7 +273,7 @@ const FIRMS = [
     atsSlug: 'rothschild.wd3.myworkdayjobs.com',
     workdayTenant: 'rothschild',
     workdaySite: 'rothschildandco',
-    notes: 'Workday API returns 422 — Cloudflare anti-bot protection blocks programmatic access',
+    notes: 'Phase 2.1 verified: Workday API returns 422 (Cloudflare anti-bot). Needs source discovery to find current careers infrastructure.',
     sources: [
       makeSource('workday', {
         careersUrl: 'https://rothschild.wd3.myworkdayjobs.com/rothschildandco',
@@ -290,6 +301,7 @@ const FIRMS = [
   {
     id: 'houlihan-lokey',
     name: 'Houlihan Lokey',
+    aliases: ['Houlihan Lokey Inc', 'Houlihan'],
     category: 'middle_market',
     careersUrl: 'https://houlihanlokey.wd1.myworkdayjobs.com/houlihanlokey',
     enabled: false,
@@ -298,7 +310,7 @@ const FIRMS = [
     atsSlug: 'houlihanlokey.wd1.myworkdayjobs.com',
     workdayTenant: 'houlihanlokey',
     workdaySite: 'houlihanlokey',
-    notes: 'Workday API returns 422 — Cloudflare anti-bot protection blocks programmatic access',
+    notes: 'Phase 2.1 verified: Workday API returns 422 (Cloudflare anti-bot). Needs source discovery to find current careers infrastructure.',
     sources: [
       makeSource('workday', {
         careersUrl: 'https://houlihanlokey.wd1.myworkdayjobs.com/houlihanlokey',
@@ -313,6 +325,7 @@ const FIRMS = [
   {
     id: 'jefferies',
     name: 'Jefferies',
+    aliases: ['Jefferies Financial Group', 'Jefferies LLC', 'Jefferies & Company'],
     category: 'middle_market',
     careersUrl: 'https://jefferies.tal.net/vx/mobile-0/appcentre-ext/brand-4/candidate/jobboard/vacancy/2/adv/',
     enabled: true,
@@ -382,6 +395,7 @@ const FIRMS = [
   {
     id: 'apollo',
     name: 'Apollo Global Management',
+    aliases: ['Apollo', 'Apollo Management'],
     category: 'private_equity',
     careersUrl: 'https://apollo.wd1.myworkdayjobs.com/apollo',
     enabled: false,
@@ -390,7 +404,7 @@ const FIRMS = [
     atsSlug: 'apollo.wd1.myworkdayjobs.com',
     workdayTenant: 'apollo',
     workdaySite: 'apollo',
-    notes: 'Workday API returns 422 — Cloudflare anti-bot protection blocks programmatic access',
+    notes: 'Phase 2.1 verified: Workday API returns 422 (Cloudflare anti-bot). Needs source discovery to find current careers infrastructure.',
     sources: [
       makeSource('workday', {
         careersUrl: 'https://apollo.wd1.myworkdayjobs.com/apollo',
@@ -551,7 +565,9 @@ const FIRMS = [
     priority: 'P1',
     careersProvider: 'custom',
     atsSlug: null,
-    sources: [],
+    sources: [
+      { provider: 'custom', careersUrl: 'https://www.deshaw.com/careers', enabled: true, sourceOrigin: 'discovered' },
+    ],
     careerSources: [],
   },
   {
@@ -561,21 +577,25 @@ const FIRMS = [
     careersUrl: 'https://careers.macquarie.com',
     enabled: true,
     priority: 'P1',
-    careersProvider: 'custom',
+    careersProvider: 'avature',
     atsSlug: null,
-    sources: [],
+    sources: [
+      { provider: 'avature', careersUrl: 'https://careers.macquarie.com', enabled: true, sourceOrigin: 'discovered' },
+    ],
     careerSources: [],
   },
   {
     id: 'nomura',
     name: 'Nomura',
     category: 'bulge_bracket',
-    careersUrl: 'https://www.nomura.com/careers/',
+    careersUrl: 'https://careers.nomura.com',
     enabled: true,
     priority: 'P1',
-    careersProvider: 'custom',
+    careersProvider: 'successfactors',
     atsSlug: null,
-    sources: [],
+    sources: [
+      { provider: 'successfactors', careersUrl: 'https://careers.nomura.com', enabled: true, sourceOrigin: 'discovered' },
+    ],
     careerSources: [],
   },
   {
@@ -606,12 +626,14 @@ const FIRMS = [
     id: 'man-group',
     name: 'Man Group',
     category: 'hedge_fund',
-    careersUrl: 'https://www.man.com/careers',
+    careersUrl: 'https://boards.greenhouse.io/mangroup',
     enabled: true,
     priority: 'P1',
-    careersProvider: 'custom',
-    atsSlug: null,
-    sources: [],
+    careersProvider: 'greenhouse',
+    atsSlug: 'mangroup',
+    sources: [
+      { provider: 'greenhouse', careersUrl: 'https://boards.greenhouse.io/mangroup', enabled: true, sourceOrigin: 'discovered', atsSlug: 'mangroup' },
+    ],
     careerSources: [],
   },
   {
@@ -623,7 +645,9 @@ const FIRMS = [
     priority: 'P1',
     careersProvider: 'custom',
     atsSlug: null,
-    sources: [],
+    sources: [
+      { provider: 'custom', careersUrl: 'https://www.brevanhoward.com/careers', enabled: true, sourceOrigin: 'discovered' },
+    ],
     careerSources: [],
   },
   {
@@ -690,24 +714,28 @@ const FIRMS = [
     id: 'da-vinci-trading',
     name: 'Da Vinci Trading',
     category: 'hedge_fund',
-    careersUrl: null,
+    careersUrl: 'https://job-boards.eu.greenhouse.io/davinciderivatives',
     enabled: true,
     priority: 'P2',
-    careersProvider: 'custom',
-    atsSlug: null,
-    sources: [],
+    careersProvider: 'greenhouse',
+    atsSlug: 'davinciderivatives',
+    sources: [
+      { provider: 'greenhouse', careersUrl: 'https://job-boards.eu.greenhouse.io/davinciderivatives', enabled: true, sourceOrigin: 'curated', atsSlug: 'davinciderivatives' }
+    ],
     careerSources: [],
   },
   {
     id: 'maven-securities',
     name: 'Maven Securities',
-    category: 'hedge_fund',
-    careersUrl: 'https://www.mavensecurities.com/careers',
+    category: 'broker_dealer',
+    careersUrl: 'https://boards.greenhouse.io/mavensecuritiesholdingltd',
     enabled: true,
     priority: 'P1',
-    careersProvider: 'custom',
-    atsSlug: null,
-    sources: [],
+    careersProvider: 'greenhouse',
+    atsSlug: 'mavensecuritiesholdingltd',
+    sources: [
+      { provider: 'greenhouse', careersUrl: 'https://boards.greenhouse.io/mavensecuritiesholdingltd', enabled: true, sourceOrigin: 'curated', atsSlug: 'mavensecuritiesholdingltd' }
+    ],
     careerSources: [],
   },
   {
@@ -726,7 +754,7 @@ const FIRMS = [
     id: 'kpmg',
     name: 'KPMG',
     category: 'consulting',
-    careersUrl: 'https://jobs.kpmg.com',
+    careersUrl: 'https://kpmg.com/xx/en/careers/job-search.html',
     enabled: true,
     priority: 'P1',
     careersProvider: 'custom',
@@ -738,7 +766,7 @@ const FIRMS = [
     id: 'cd-r',
     name: 'Clayton, Dubilier & Rice',
     category: 'private_equity',
-    careersUrl: 'https://www.cdr.com/careers',
+    careersUrl: 'https://www.cdr.com/working-at-cdr',
     enabled: true,
     priority: 'P1',
     careersProvider: 'custom',
@@ -963,13 +991,15 @@ const FIRMS = [
     id: 'interpath',
     name: 'Interpath Advisory',
     category: 'advisory',
-    careersUrl: 'https://apply.workable.com/interpath-advisory',
-    enabled: false,
+    careersUrl: 'https://www.interpath.com/careers',
+    enabled: true,
     priority: 'P2',
     careersProvider: 'workable',
     atsSlug: null,
     notes: 'Workable — needs custom adapter',
-    sources: [],
+    sources: [
+      { provider: 'workable', careersUrl: 'https://www.interpath.com/careers', enabled: true, sourceOrigin: 'discovered' },
+    ],
     careerSources: [],
   },
   {

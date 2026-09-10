@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-09-10T18:16:19.022Z",
+  "summary": {
+    "unknownFirmsBefore": 26,
+    "totalProcessed": 21,
+    "resolvedSupported": 0,
+    "resolvedUnsupported": 7,
+    "noCareersSource": 9,
+    "ambiguous": 4,
+    "failed": 1,
+    "discoveryResolutionRate": "33.3%"
+  },
+  "providerBreakdown": {
+    "supported": {},
+    "unsupported": {
+      "oracle_hcm": { "firms": ["JPMorgan", "Schroders"], "count": 2 },
+      "eightfold": { "firms": ["Morgan Stanley", "Millennium Management"], "count": 2 },
+      "avature": { "firms": ["HSBC", "The Carlyle Group"], "count": 2 },
+      "icims": { "firms": ["Susquehanna (SIG)"], "count": 1 },
+      "taleo": { "firms": ["Morgan Stanley (secondary)"], "count": 1 }
+    }
+  },
+  "unresolvedFirms": {
+    "noCareersSource": [
+      { "name": "Bank of America", "reason": "Workday URL changed (404)", "oldUrl": "ghr.wd1.myworkdayjobs.com/Bank_of_America_Careers" },
+      { "name": "Citi", "reason": "Workday URL changed (404)", "oldUrl": "citi.wd5.myworkdayjobs.com/citi" },
+      { "name": "Barclays", "reason": "Workday URL changed (404)", "oldUrl": "barclays.wd3.myworkdayjobs.com/barclays" },
+      { "name": "Lazard", "reason": "Oleeo RSS URL changed (404)", "oldUrl": "lazard-careers.tal.net" },
+      { "name": "Rothschild & Co", "reason": "Workday Cloudflare blocked (422)", "oldUrl": "rothschild.wd3.myworkdayjobs.com" },
+      { "name": "Houlihan Lokey", "reason": "Workday Cloudflare blocked (422)", "oldUrl": "houlihanlokey.wd1.myworkdayjobs.com" },
+      { "name": "Apollo Global Management", "reason": "Workday Cloudflare blocked (422)", "oldUrl": "apollo.wd1.myworkdayjobs.com" },
+      { "name": "Centerview Partners", "reason": "Careers page returns 403", "oldUrl": "centerviewpartners.com/careers" },
+      { "name": "Citadel", "reason": "Careers page returns 403", "oldUrl": "citadel.com/careers" }
+    ],
+    "ambiguous": [
+      { "name": "UBS", "reason": "24 student pages found, no clear ATS", "note": "Custom careers site with embedded job board" },
+      { "name": "Deutsche Bank", "reason": "17 student pages found, no clear ATS", "note": "SuccessFactors provider but not detected in crawl" },
+      { "name": "Interpath Advisory", "reason": "Workable detected but redirects to /oops", "note": "Workable board may be empty or misconfigured" },
+      { "name": "Rede Partners", "reason": "1 student page, no ATS detected", "note": "Very small firm, minimal web presence" }
+    ],
+    "failed": [
+      { "name": "KKR", "reason": "Greenhouse detected but no board token", "note": "May use private Greenhouse board" }
+    ]
+  },
+  "nextAdapterRecommendation": {
+    "primary": "oracle_hcm",
+    "reasoning": "3 firms blocked (JPMorgan, Schroders + potential from unresolved), medium effort, high strategic value (bulge bracket + asset management)",
+    "alternatives": [
+      { "provider": "eightfold", "firms": 2, "effort": "medium", "note": "Morgan Stanley + Millennium" },
+      { "provider": "avature", "firms": 2, "effort": "medium", "note": "HSBC + Carlyle" }
+    ]
+  }
+}

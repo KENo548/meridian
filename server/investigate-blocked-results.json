@@ -1,0 +1,1352 @@
+[
+  {
+    "firm": "Bank of America",
+    "provider": "workday",
+    "config": {
+      "careersUrl": "https://ghr.wd1.myworkdayjobs.com/Bank_of_America_Careers",
+      "atsSlug": "bankofamerica.wd1.myworkdayjobs.com",
+      "tenant": "bankofamerica",
+      "site": "Bank_of_America_Careers",
+      "wdVersion": "wd1"
+    },
+    "tests": [
+      {
+        "label": "Current API: bankofamerica.wd1.myworkdayjobs.com /wday/cxs/bankofamerica/Bank_of_America_Careers/jobs",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"80C7C9MTVVBLBJ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Careers page: https://ghr.wd1.myworkdayjobs.com/Bank_of_America_Careers",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "\n\n<!DOCTYPE HTML>\n<html>\n    <head>\n        <script type=\"text/javascript\">\n        \n            window.location.href = \"https://community.workday.com/invalid-url\"\n        \n        </script>\n    </head>\n    <body>\n    </body>\n</html>",
+        "hasWorkdayInBody": true,
+        "hasCloudflare": false,
+        "hasIframe": null
+      },
+      {
+        "label": "Alt tenant: bankofamerica.wd3.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"75B837MTVVBM6A\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: bankofamerica.wd5.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"98B8CCMTVVBMHV\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: bankofamericacareers.wd1.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"9522A9MTVVBMTQ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: bankofamericacareers.wd3.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"FE7225MTVVBN6Z\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: bankofamericacareers.wd5.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"D7F783MTVVBNI2\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: bankofamerica_careers.wd1.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"73FB44MTVVBNUV\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: bankofamerica_careers.wd3.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"4B19E2MTVVBO19\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: bankofamerica_careers.wd5.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"CAF96AMTVVBOEE\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: bankofamerica.wd3.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"565DFCMTVVBOM2\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: bankofamerica.wd5.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"E1E4E2MTVVBOTF\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / bank_of_america_careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"A488A8MTVVBP2E\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / BANK_OF_AMERICA_CAREERS",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"CE6BDBMTVVBP95\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / Bank-of-America-Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"076CC6MTVVBPGO\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / BankofAmericaCareers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"D4C3C3MTVVBPLO\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / External",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"076CC6MTVVBPTZ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / All_Locations",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"CC0C70MTVVBPZN\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / Search_Opportunities",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"0C0A66MTVVBQ7C\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"14586DMTVVBQCJ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / bankofamerica_careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"B056BAMTVVBRI6\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / bankofamerica_external",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"972DF5MTVVBRN9\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: bankofamerica.wd1.myworkdayjobs.com / bankofamerica_professional",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"0C0A66MTVVBRS9\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd3.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"8578F3MTVVBRXU\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd5.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"5D16EAMTVVBS2I\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd11.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND bankofamerica.wd11.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd12.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"CDC64BMTVVBSNO\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd14.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND bankofamerica.wd14.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd16.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND bankofamerica.wd16.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd17.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND bankofamerica.wd17.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd19.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND bankofamerica.wd19.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd21.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND bankofamerica.wd21.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd24.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND bankofamerica.wd24.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: bankofamerica.wd25.myworkdayjobs.com / Bank_of_America_Careers",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND bankofamerica.wd25.myworkdayjobs.com",
+        "bodySnippet": ""
+      }
+    ],
+    "verdict": "BLOCKED_PERMANENT",
+    "action": "DISABLE",
+    "findings": []
+  },
+  {
+    "firm": "Citi",
+    "provider": "workday",
+    "config": {
+      "careersUrl": "https://citi.wd5.myworkdayjobs.com/citi",
+      "atsSlug": "citi.wd5.myworkdayjobs.com",
+      "tenant": "citi",
+      "site": "citi",
+      "wdVersion": "wd5"
+    },
+    "tests": [
+      {
+        "label": "Current API: citi.wd5.myworkdayjobs.com /wday/cxs/citi/citi/jobs",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"F98E48MTVVBT2C\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dciti\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Careers page: https://citi.wd5.myworkdayjobs.com/citi",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "\n\n<!DOCTYPE HTML>\n<html>\n    <head>\n        <script type=\"text/javascript\">\n        \n            window.location.href = \"https://community.workday.com/invalid-url\"\n        \n        </script>\n    </head>\n    <body>\n    </body>\n</html>",
+        "hasWorkdayInBody": true,
+        "hasCloudflare": false,
+        "hasIframe": null
+      },
+      {
+        "label": "Alt tenant: citi.wd1.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"97EEBDMTVVBTMZ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: citi.wd3.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"EE5DA3MTVVBTTQ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: citicareers.wd1.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"89FE60MTVVBUBG\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: citicareers.wd3.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"7D1783MTVVBUFV\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: citicareers.wd5.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"5D16EAMTVVBUQ9\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: citi_careers.wd1.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"ACC870MTVVBW4H\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: citi_careers.wd3.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"4C0626MTVVBW9A\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: citi_careers.wd5.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"79B82DMTVVBWL5\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: citi.wd1.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"B056BAMTVVBWQK\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: citi.wd3.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"FC6C4FMTVVBWUG\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: citi.wd5.myworkdayjobs.com / CITI",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"7B4307MTVVBX0B\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dCITI\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: citi.wd5.myworkdayjobs.com / External",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"544D0FMTVVBX8M\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dExternal\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: citi.wd5.myworkdayjobs.com / All_Locations",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"F0EA42MTVVBXG5\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dAll_Locations\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: citi.wd5.myworkdayjobs.com / Search_Opportunities",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"7B4307MTVVBXNE\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dSearch_Opportunities\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: citi.wd5.myworkdayjobs.com / Careers",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"69676AMTVVBXUW\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dCareers\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: citi.wd5.myworkdayjobs.com / citi_careers",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"017F29MTVVBY2G\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dciti_careers\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: citi.wd5.myworkdayjobs.com / citi_external",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"376015MTVVBY9R\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dciti_external\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: citi.wd5.myworkdayjobs.com / citi_professional",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"68ED9BMTVVBYH4\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dciti_professional\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: citi.wd1.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"7F47EFMTVVBZRH\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: citi.wd3.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"2310D5MTVVBZV7\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: citi.wd11.myworkdayjobs.com / citi",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND citi.wd11.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: citi.wd12.myworkdayjobs.com / citi",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"CDC64BMTVVC06S\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: citi.wd14.myworkdayjobs.com / citi",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND citi.wd14.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: citi.wd16.myworkdayjobs.com / citi",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND citi.wd16.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: citi.wd17.myworkdayjobs.com / citi",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND citi.wd17.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: citi.wd19.myworkdayjobs.com / citi",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND citi.wd19.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: citi.wd21.myworkdayjobs.com / citi",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND citi.wd21.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: citi.wd24.myworkdayjobs.com / citi",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND citi.wd24.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: citi.wd25.myworkdayjobs.com / citi",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND citi.wd25.myworkdayjobs.com",
+        "bodySnippet": ""
+      }
+    ],
+    "verdict": "BLOCKED_PERMANENT",
+    "action": "DISABLE",
+    "findings": []
+  },
+  {
+    "firm": "Barclays",
+    "provider": "workday",
+    "config": {
+      "careersUrl": "https://barclays.wd3.myworkdayjobs.com/barclays",
+      "atsSlug": "barclays.wd3.myworkdayjobs.com",
+      "tenant": "barclays",
+      "site": "barclays",
+      "wdVersion": "wd3"
+    },
+    "tests": [
+      {
+        "label": "Current API: barclays.wd3.myworkdayjobs.com /wday/cxs/barclays/barclays/jobs",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"4E936EMTVVC0GL\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dbarclays\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Careers page: https://barclays.wd3.myworkdayjobs.com/barclays",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "\n\n<!DOCTYPE HTML>\n<html>\n    <head>\n        <script type=\"text/javascript\">\n        \n            window.location.href = \"https://community.workday.com/invalid-url\"\n        \n        </script>\n    </head>\n    <body>\n    </body>\n</html>",
+        "hasWorkdayInBody": true,
+        "hasCloudflare": false,
+        "hasIframe": null
+      },
+      {
+        "label": "Alt tenant: barclays.wd1.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"581985MTVVC0UG\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: barclays.wd5.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"DCE077MTVVC19X\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: barclayscareers.wd1.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"93BC67MTVVC1MB\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: barclayscareers.wd3.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"A35352MTVVC1V5\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: barclayscareers.wd5.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"98A9D9MTVVC2DM\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: barclays_careers.wd1.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"0D7134MTVVC2PS\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: barclays_careers.wd3.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"0D006AMTVVC2VQ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: barclays_careers.wd5.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"FCB757MTVVC36R\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: barclays.wd1.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"73FB44MTVVC3CC\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: barclays.wd5.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"BE9014MTVVC3J5\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: barclays.wd3.myworkdayjobs.com / BARCLAYS",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"372934MTVVC3PS\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dBARCLAYS\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: barclays.wd3.myworkdayjobs.com / External",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"567A0CMTVVC3T7\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dExternal\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: barclays.wd3.myworkdayjobs.com / All_Locations",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"322570MTVVC3WW\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dAll_Locations\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: barclays.wd3.myworkdayjobs.com / Search_Opportunities",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"7D1783MTVVC41Q\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dSearch_Opportunities\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: barclays.wd3.myworkdayjobs.com / Careers",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"183EFEMTVVC453\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dCareers\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: barclays.wd3.myworkdayjobs.com / barclays_careers",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"1B696FMTVVC48E\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dbarclays_careers\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: barclays.wd3.myworkdayjobs.com / barclays_external",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"E0A3B9MTVVC4M9\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dbarclays_external\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: barclays.wd3.myworkdayjobs.com / barclays_professional",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"S21\",\"errorCaseId\":\"0D006AMTVVC4PY\",\"httpStatus\":404,\"message\":\"not found: Job_Posting_Site_ID\\u003dbarclays_professional\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: barclays.wd1.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"0598D4MTVVC4T7\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: barclays.wd5.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"A84E14MTVVC4Z7\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: barclays.wd11.myworkdayjobs.com / barclays",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND barclays.wd11.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: barclays.wd12.myworkdayjobs.com / barclays",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"CB1322MTVVC5H4\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: barclays.wd14.myworkdayjobs.com / barclays",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND barclays.wd14.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: barclays.wd16.myworkdayjobs.com / barclays",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND barclays.wd16.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: barclays.wd17.myworkdayjobs.com / barclays",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND barclays.wd17.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: barclays.wd19.myworkdayjobs.com / barclays",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND barclays.wd19.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: barclays.wd21.myworkdayjobs.com / barclays",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND barclays.wd21.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: barclays.wd24.myworkdayjobs.com / barclays",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND barclays.wd24.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: barclays.wd25.myworkdayjobs.com / barclays",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND barclays.wd25.myworkdayjobs.com",
+        "bodySnippet": ""
+      }
+    ],
+    "verdict": "BLOCKED_PERMANENT",
+    "action": "DISABLE",
+    "findings": []
+  },
+  {
+    "firm": "Lazard",
+    "provider": "oleeo_rss",
+    "config": {
+      "careersUrl": "https://lazard-careers.tal.net/vx/lang-en-GB/mobile-0/appcentre1/brand-3/emp-1/Home",
+      "oleeoRssUrl": "https://lazard-careers.tal.net/vx/mobile-0/appcentre-ext/brand-3/candidate/jobboard/vacancy/2/feed"
+    },
+    "tests": [
+      {
+        "label": "Current RSS: https://lazard-careers.tal.net/vx/mobile-0/appcentre-ext/brand-3/candidate/jobboard/vacancy/2/feed",
+        "status": 200,
+        "error": null,
+        "bodySnippet": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\">\n  <id>https://lazard-careers.tal.net/vx/mobile-0/appcentre-1/brand-4/candidate/jobboard/vacancy/2/feed</id>\n  <link rel=\"self\" href=\"https://lazard-careers.tal.net/vx/mobile-0/appcentre-1/brand-4/candidate/jobboard/vacancy/2/feed\" type=\"application/atom+xml\"/>\n  <title>Students</title>\n  <author>\n    <name>Lazard Careers</name>\n  </author>\n  <updated>2026-09-10T18:34:19Z</updated>\n  <link rel=\"alternate\" href=\"http",
+        "hasItems": false,
+        "itemCount": 0
+      },
+      {
+        "label": "Oleeo page: https://lazard-careers.tal.net/vx/lang-en-GB/mobile-0/appcentre1/brand-3/emp-1/Home",
+        "status": 404,
+        "error": null,
+        "bodySnippet": "<!DOCTYPE html>\n<html lang=\"en-GB\" dir=\"ltr\" xml:lang=\"en-GB\" class=\"\" prefix=\"og: https://ogp.me/ns#\">\n  <head>\n    <!-- LEGACY CANDIDATE TEMPLATES -->\n\n    <!-- Google Tag Manager -->\n    <script nonce=\"462e94797491ec45fcaab46d8e9dcb83ca1c7300\">\n    dataLayer = [{\"form_id\":null,\"cand_id\":null,\"adhoc_referrer\":null,\"is_submit\":0}];\n      function includeGTM() {\n              }\n          </script>\n    <!-- End Google Tag Manager -->\n\n    \n    <title>Candidate System - Lazard Careers</title>\n    ",
+        "hasWorkday": false,
+        "hasOracle": false,
+        "hasGreenhouse": false,
+        "hasLever": false
+      },
+      {
+        "label": "Oracle HCM: https://icbpjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/jobs",
+        "status": 200,
+        "error": null,
+        "bodySnippet": "<!DOCTYPE html>\n<html lang=\"en\" dir=\"ltr\">\n    <head>\n        <meta charset=\"utf-8\"></meta>\n        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=1, minimum-scale=1\"></meta>\n        \n                \n                        \n                   \n            <meta p"
+      },
+      {
+        "label": "Oracle HCM: https://icbpjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2/jobs",
+        "status": 200,
+        "error": null,
+        "bodySnippet": "<!DOCTYPE html>\n<html lang=\"en\" dir=\"ltr\">\n    <head>\n        <meta charset=\"utf-8\"></meta>\n        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=1, minimum-scale=1\"></meta>\n        \n                \n                        \n                   \n            <meta p"
+      },
+      {
+        "label": "Oracle HCM: https://icbpjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience",
+        "status": 200,
+        "error": null,
+        "bodySnippet": "<!DOCTYPE html>\n<html lang=\"en\" dir=\"ltr\">\n    <head>\n        <meta charset=\"utf-8\"></meta>\n        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=1, minimum-scale=1\"></meta>\n        \n                \n                        \n                   \n            <meta p"
+      },
+      {
+        "label": "Main careers: https://www.lazard.com/careers/",
+        "status": 200,
+        "error": null,
+        "bodySnippet": "<!DOCTYPE html>\r\n<html lang=\"en\" class=\"no-js\">\r\n<head>\r\n\t<title>Careers | Lazard | Lazard</title>\r\n\t<!-- Google Consent Mode -->\r\n    <script data-cookieconsent=\"ignore\"> \r\n      window.dataLayer = window.dataLayer || []; \r\n      function gtag() { \r\n        dataLayer.push(arguments) \r\n      } \r\n      gtag(\"consent\", \"default\", { \r\n        ad_personalization: \"denied\", \r\n        ad_storage: \"denied\", \r\n        ad_user_data: \"denied\", \r\n        analytics_storage: \"denied\", \r\n        functionality",
+        "links": [
+          "/careers/",
+          "/careers/jobs/",
+          "/careers/professionals/",
+          "/careers/students/",
+          "/careers/inclusion/",
+          "/careers/inside-lazard/",
+          "https://icbpjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/LazardProfessionalCareers",
+          "/careers/benefits/",
+          "/about-lazard/locations/france/financial-advisory-careers/",
+          "/about-lazard/locations/united-kingdom/careers-in-the-united-kingdom/"
+        ]
+      },
+      {
+        "label": "Oleeo brand-2 RSS",
+        "status": 200,
+        "error": null,
+        "bodySnippet": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\">\n  <id>https://lazard-careers.tal.net/vx/mobile-0/appcentre-1/brand-4/candidate/jobboard/vacancy/2/feed</id>\n  <link re",
+        "itemCount": 0
+      },
+      {
+        "label": "Oleeo brand-3 RSS",
+        "status": 200,
+        "error": null,
+        "bodySnippet": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\">\n  <id>https://lazard-careers.tal.net/vx/mobile-0/appcentre-1/brand-4/candidate/jobboard/vacancy/2/feed</id>\n  <link re",
+        "itemCount": 0
+      },
+      {
+        "label": "Oleeo brand-4 RSS",
+        "status": 200,
+        "error": null,
+        "bodySnippet": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\">\n  <id>https://lazard-careers.tal.net/vx/mobile-0/appcentre-1/brand-4/candidate/jobboard/vacancy/2/feed</id>\n  <link re",
+        "itemCount": 0
+      },
+      {
+        "label": "Oleeo brand-5 RSS",
+        "status": 200,
+        "error": null,
+        "bodySnippet": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\">\n  <id>https://lazard-careers.tal.net/vx/mobile-0/appcentre-1/brand-4/candidate/jobboard/vacancy/2/feed</id>\n  <link re",
+        "itemCount": 0
+      },
+      {
+        "label": "Oleeo brand-1 RSS",
+        "status": 200,
+        "error": null,
+        "bodySnippet": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<feed xmlns=\"http://www.w3.org/2005/Atom\">\n  <id>https://lazard-careers.tal.net/vx/mobile-0/appcentre-1/brand-4/candidate/jobboard/vacancy/2/feed</id>\n  <link re",
+        "itemCount": 0
+      }
+    ],
+    "verdict": "BLOCKED_PERMANENT",
+    "action": "DISABLE",
+    "findings": []
+  },
+  {
+    "firm": "Rothschild & Co",
+    "provider": "workday",
+    "config": {
+      "careersUrl": "https://rothschild.wd3.myworkdayjobs.com/rothschildandco",
+      "atsSlug": "rothschild.wd3.myworkdayjobs.com",
+      "tenant": "rothschild",
+      "site": "rothschildandco",
+      "wdVersion": "wd3"
+    },
+    "tests": [
+      {
+        "label": "Current API: rothschild.wd3.myworkdayjobs.com /wday/cxs/rothschild/rothschildandco/jobs",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"39A5C7MTVVC9YP\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Careers page: https://rothschild.wd3.myworkdayjobs.com/rothschildandco",
+        "status": 500,
+        "error": null,
+        "bodySnippet": "\n\n<!DOCTYPE HTML>\n<html>\n    <head>\n        <script type=\"text/javascript\">\n        \n            window.location.href = \"https://community.workday.com/maintenance-page\"\n        \n        </script>\n    </head>\n    <body>\n    </body>\n</html>",
+        "hasWorkdayInBody": true,
+        "hasCloudflare": false,
+        "hasIframe": null
+      },
+      {
+        "label": "Alt tenant: rothschild.wd1.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"2E1193MTVVCACP\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: rothschild.wd5.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"407DC2MTVVCAPI\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: rothschildcareers.wd1.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"7C3997MTVVCB1U\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: rothschildcareers.wd3.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"796DCDMTVVCB89\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: rothschildcareers.wd5.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"912053MTVVCBJB\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: rothschild_careers.wd1.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"3ECD3DMTVVCBVY\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: rothschild_careers.wd3.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"3F862EMTVVCC17\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: rothschild_careers.wd5.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"F98E48MTVVCCCC\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: rothschild.wd1.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"B49223MTVVCCIV\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: rothschild.wd5.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"F0A065MTVVCCR4\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: rothschild.wd3.myworkdayjobs.com / ROTHSCHILDANDCO",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"322570MTVVCCWN\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: rothschild.wd3.myworkdayjobs.com / External",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"72B73BMTVVCCZ9\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: rothschild.wd3.myworkdayjobs.com / All_Locations",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"585C9BMTVVCD1S\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: rothschild.wd3.myworkdayjobs.com / Search_Opportunities",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"EE5DA3MTVVCD4C\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: rothschild.wd3.myworkdayjobs.com / Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"FC6C4FMTVVCD6V\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: rothschild.wd3.myworkdayjobs.com / rothschild_careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"87E12AMTVVCD9E\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: rothschild.wd3.myworkdayjobs.com / rothschild_external",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"5192C1MTVVCDC6\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: rothschild.wd3.myworkdayjobs.com / rothschild_professional",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"75B837MTVVCDEZ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: rothschild.wd1.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"5531B4MTVVCDIO\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: rothschild.wd5.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"66F62CMTVVCDOC\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: rothschild.wd11.myworkdayjobs.com / rothschildandco",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND rothschild.wd11.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: rothschild.wd12.myworkdayjobs.com / rothschildandco",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"CDC64BMTVVCE1H\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: rothschild.wd14.myworkdayjobs.com / rothschildandco",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND rothschild.wd14.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: rothschild.wd16.myworkdayjobs.com / rothschildandco",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND rothschild.wd16.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: rothschild.wd17.myworkdayjobs.com / rothschildandco",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND rothschild.wd17.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: rothschild.wd19.myworkdayjobs.com / rothschildandco",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND rothschild.wd19.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: rothschild.wd21.myworkdayjobs.com / rothschildandco",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND rothschild.wd21.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: rothschild.wd24.myworkdayjobs.com / rothschildandco",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND rothschild.wd24.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: rothschild.wd25.myworkdayjobs.com / rothschildandco",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND rothschild.wd25.myworkdayjobs.com",
+        "bodySnippet": ""
+      }
+    ],
+    "verdict": "BLOCKED_TEMPORARY",
+    "action": "LEAVE_AS_IS",
+    "findings": []
+  },
+  {
+    "firm": "Houlihan Lokey",
+    "provider": "workday",
+    "config": {
+      "careersUrl": "https://houlihanlokey.wd1.myworkdayjobs.com/houlihanlokey",
+      "atsSlug": "houlihanlokey.wd1.myworkdayjobs.com",
+      "tenant": "houlihanlokey",
+      "site": "houlihanlokey",
+      "wdVersion": "wd1"
+    },
+    "tests": [
+      {
+        "label": "Current API: houlihanlokey.wd1.myworkdayjobs.com /wday/cxs/houlihanlokey/houlihanlokey/jobs",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"89EC91MTVVCEEM\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Careers page: https://houlihanlokey.wd1.myworkdayjobs.com/houlihanlokey",
+        "status": 500,
+        "error": null,
+        "bodySnippet": "\n\n<!DOCTYPE HTML>\n<html>\n    <head>\n        <script type=\"text/javascript\">\n        \n            window.location.href = \"https://community.workday.com/maintenance-page\"\n        \n        </script>\n    </head>\n    <body>\n    </body>\n</html>",
+        "hasWorkdayInBody": true,
+        "hasCloudflare": false,
+        "hasIframe": null
+      },
+      {
+        "label": "Alt tenant: houlihanlokey.wd3.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"EB20F6MTVVCENH\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: houlihanlokey.wd5.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"66F62CMTVVCEZB\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: houlihanlokeycareers.wd1.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"2E52D3MTVVCFFO\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: houlihanlokeycareers.wd3.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"2310D5MTVVCFRQ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: houlihanlokeycareers.wd5.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"407DC2MTVVCG30\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: houlihanlokey_careers.wd1.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"725A85MTVVCGFM\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: houlihanlokey_careers.wd3.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"585C9BMTVVCGMJ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: houlihanlokey_careers.wd5.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"E1E4E2MTVVCGX2\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: houlihanlokey.wd3.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"8578F3MTVVCH24\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: houlihanlokey.wd5.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"DE68A5MTVVCH6T\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: houlihanlokey.wd1.myworkdayjobs.com / HOULIHANLOKEY",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"89EC91MTVVCHCE\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: houlihanlokey.wd1.myworkdayjobs.com / External",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"E4F713MTVVCHHV\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: houlihanlokey.wd1.myworkdayjobs.com / All_Locations",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"9CCB9AMTVVCHNJ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: houlihanlokey.wd1.myworkdayjobs.com / Search_Opportunities",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"CC0C70MTVVCHU6\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: houlihanlokey.wd1.myworkdayjobs.com / Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"0820D4MTVVCHZU\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: houlihanlokey.wd1.myworkdayjobs.com / houlihanlokey_careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"2E52D3MTVVCI5E\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: houlihanlokey.wd1.myworkdayjobs.com / houlihanlokey_external",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"AE0BE9MTVVCIAV\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: houlihanlokey.wd1.myworkdayjobs.com / houlihanlokey_professional",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"E6B029MTVVCIFY\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd3.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"0DDD19MTVVCIK2\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd5.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"98B8CCMTVVCIRR\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd11.myworkdayjobs.com / houlihanlokey",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND houlihanlokey.wd11.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd12.myworkdayjobs.com / houlihanlokey",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"D03E1CMTVVCJ4G\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd14.myworkdayjobs.com / houlihanlokey",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND houlihanlokey.wd14.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd16.myworkdayjobs.com / houlihanlokey",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND houlihanlokey.wd16.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd17.myworkdayjobs.com / houlihanlokey",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND houlihanlokey.wd17.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd19.myworkdayjobs.com / houlihanlokey",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND houlihanlokey.wd19.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd21.myworkdayjobs.com / houlihanlokey",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND houlihanlokey.wd21.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd24.myworkdayjobs.com / houlihanlokey",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND houlihanlokey.wd24.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: houlihanlokey.wd25.myworkdayjobs.com / houlihanlokey",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND houlihanlokey.wd25.myworkdayjobs.com",
+        "bodySnippet": ""
+      }
+    ],
+    "verdict": "BLOCKED_TEMPORARY",
+    "action": "LEAVE_AS_IS",
+    "findings": []
+  },
+  {
+    "firm": "Apollo Global Management",
+    "provider": "workday",
+    "config": {
+      "careersUrl": "https://apollo.wd1.myworkdayjobs.com/apollo",
+      "atsSlug": "apollo.wd1.myworkdayjobs.com",
+      "tenant": "apollo",
+      "site": "apollo",
+      "wdVersion": "wd1"
+    },
+    "tests": [
+      {
+        "label": "Current API: apollo.wd1.myworkdayjobs.com /wday/cxs/apollo/apollo/jobs",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"7F47EFMTVVCJHV\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Careers page: https://apollo.wd1.myworkdayjobs.com/apollo",
+        "status": 500,
+        "error": null,
+        "bodySnippet": "\n\n<!DOCTYPE HTML>\n<html>\n    <head>\n        <script type=\"text/javascript\">\n        \n            window.location.href = \"https://community.workday.com/maintenance-page\"\n        \n        </script>\n    </head>\n    <body>\n    </body>\n</html>",
+        "hasWorkdayInBody": true,
+        "hasCloudflare": false,
+        "hasIframe": null
+      },
+      {
+        "label": "Alt tenant: apollo.wd3.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"866C26MTVVCJUD\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: apollo.wd5.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"118D92MTVVCK5Q\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: apollocareers.wd1.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"89EC91MTVVCKK5\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: apollocareers.wd3.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"866C26MTVVCKOF\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: apollocareers.wd5.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"F0EA42MTVVCKY9\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: apollo_careers.wd1.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"579031MTVVCLBH\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: apollo_careers.wd3.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"A32C56MTVVCLHA\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: apollo_careers.wd5.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"5D16EAMTVVCLUB\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: apollo.wd3.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"F330DFMTVVCM02\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt tenant: apollo.wd5.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"DE68A5MTVVCM53\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: apollo.wd1.myworkdayjobs.com / APOLLO",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"C50912MTVVCMAJ\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: apollo.wd1.myworkdayjobs.com / External",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"FD89D0MTVVCMF5\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: apollo.wd1.myworkdayjobs.com / All_Locations",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"071323MTVVCMK2\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: apollo.wd1.myworkdayjobs.com / Search_Opportunities",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"E4F713MTVVCMOV\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: apollo.wd1.myworkdayjobs.com / Careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"071323MTVVCMU5\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: apollo.wd1.myworkdayjobs.com / apollo_careers",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"ADABEAMTVVCMZ0\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: apollo.wd1.myworkdayjobs.com / apollo_external",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"0C0A66MTVVCN4S\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt site: apollo.wd1.myworkdayjobs.com / apollo_professional",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"86A982MTVVCNAC\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: apollo.wd3.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"372934MTVVCNGA\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: apollo.wd5.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"B5E3E0MTVVCNKW\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: apollo.wd11.myworkdayjobs.com / apollo",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND apollo.wd11.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: apollo.wd12.myworkdayjobs.com / apollo",
+        "status": 422,
+        "error": null,
+        "bodySnippet": "{\"errorCode\":\"HTTP_422\",\"errorCaseId\":\"013B01MTVVCO4A\",\"httpStatus\":422,\"message\":\"\",\"messageParams\":{}}"
+      },
+      {
+        "label": "Alt wd version: apollo.wd14.myworkdayjobs.com / apollo",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND apollo.wd14.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: apollo.wd16.myworkdayjobs.com / apollo",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND apollo.wd16.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: apollo.wd17.myworkdayjobs.com / apollo",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND apollo.wd17.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: apollo.wd19.myworkdayjobs.com / apollo",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND apollo.wd19.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: apollo.wd21.myworkdayjobs.com / apollo",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND apollo.wd21.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: apollo.wd24.myworkdayjobs.com / apollo",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND apollo.wd24.myworkdayjobs.com",
+        "bodySnippet": ""
+      },
+      {
+        "label": "Alt wd version: apollo.wd25.myworkdayjobs.com / apollo",
+        "status": 0,
+        "error": "getaddrinfo ENOTFOUND apollo.wd25.myworkdayjobs.com",
+        "bodySnippet": ""
+      }
+    ],
+    "verdict": "BLOCKED_TEMPORARY",
+    "action": "LEAVE_AS_IS",
+    "findings": []
+  }
+]

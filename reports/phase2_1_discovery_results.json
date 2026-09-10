@@ -1,0 +1,354 @@
+{
+  "timestamp": "2026-09-10T18:16:19.022Z",
+  "options": {
+    "unknownOnly": true,
+    "limit": 50,
+    "dryRun": false
+  },
+  "results": [
+    {
+      "companyId": "jpmorgan",
+      "companyName": "JPMorgan",
+      "status": "UNSUPPORTED_ATS_FOUND",
+      "verifiedSources": [],
+      "unsupportedSources": [
+        "oracle_hcm"
+      ],
+      "studentPages": 0,
+      "evidence": [
+        "Redirect: https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience -> https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001 (302)"
+      ]
+    },
+    {
+      "companyId": "morgan-stanley",
+      "companyName": "Morgan Stanley",
+      "status": "UNSUPPORTED_ATS_FOUND",
+      "verifiedSources": [],
+      "unsupportedSources": [
+        "eightfold",
+        "taleo"
+      ],
+      "studentPages": 2,
+      "evidence": []
+    },
+    {
+      "companyId": "bank-of-america",
+      "companyName": "Bank of America",
+      "status": "NO_CAREERS_SOURCE_FOUND",
+      "verifiedSources": [
+        {
+          "provider": "workday",
+          "confidence": 0.7999999999999999,
+          "jobCount": 0
+        }
+      ],
+      "unsupportedSources": [],
+      "studentPages": 0,
+      "evidence": [
+        "Error: https://ghr.wd1.myworkdayjobs.com/Bank_of_America_Careers — 404",
+        "[workday] Adapter returned error: Workday API 404 for ghr.wd1.myworkdayjobs.com — site name may have changed or Workday instance relocated"
+      ]
+    },
+    {
+      "companyId": "citi",
+      "companyName": "Citi",
+      "status": "NO_CAREERS_SOURCE_FOUND",
+      "verifiedSources": [
+        {
+          "provider": "workday",
+          "confidence": 0.7999999999999999,
+          "jobCount": 0
+        }
+      ],
+      "unsupportedSources": [],
+      "studentPages": 0,
+      "evidence": [
+        "Error: https://citi.wd5.myworkdayjobs.com/citi — 404",
+        "[workday] Adapter returned error: Workday API 404 for citi.wd5.myworkdayjobs.com — site name may have changed or Workday instance relocated"
+      ]
+    },
+    {
+      "companyId": "barclays",
+      "companyName": "Barclays",
+      "status": "NO_CAREERS_SOURCE_FOUND",
+      "verifiedSources": [
+        {
+          "provider": "workday",
+          "confidence": 0.7999999999999999,
+          "jobCount": 0
+        }
+      ],
+      "unsupportedSources": [],
+      "studentPages": 0,
+      "evidence": [
+        "Error: https://barclays.wd3.myworkdayjobs.com/barclays — 404",
+        "[workday] Adapter returned error: Workday API 404 for barclays.wd3.myworkdayjobs.com — site name may have changed or Workday instance relocated"
+      ]
+    },
+    {
+      "companyId": "ubs",
+      "companyName": "UBS",
+      "status": "AMBIGUOUS",
+      "verifiedSources": [],
+      "unsupportedSources": [],
+      "studentPages": 24,
+      "evidence": [
+        "Redirect: https://www.ubs.com/careers -> https://www.ubs.com/global/en/careers.html (301)",
+        "Redirect: https://www.ubs.com/career -> https://www.ubs.com/global/en/careers.html (301)",
+        "Redirect: https://www.ubs.com/jobs -> https://www.ubs.com/global/en/careers/search-jobs.html (301)",
+        "Redirect: https://www.ubs.com/students -> https://www.ubs.com/ch/en/microsites/ubs-me-students.html (301)",
+        "Redirect: https://www.ubs.com/graduates -> https://www.ubs.com/global/en/careers/early-careers.html (301)",
+        "Redirect: https://www.ubs.com/early-careers -> https://www.ubs.com/global/en/careers/early-careers.html (301)"
+      ]
+    },
+    {
+      "companyId": "deutsche-bank",
+      "companyName": "Deutsche Bank",
+      "status": "AMBIGUOUS",
+      "verifiedSources": [],
+      "unsupportedSources": [],
+      "studentPages": 17,
+      "evidence": []
+    },
+    {
+      "companyId": "hsbc",
+      "companyName": "HSBC",
+      "status": "UNSUPPORTED_ATS_FOUND",
+      "verifiedSources": [],
+      "unsupportedSources": [
+        "avature"
+      ],
+      "studentPages": 1,
+      "evidence": [
+        "Redirect: https://mycareer.hsbc.com -> https://mycareer.hsbc.com/en_GB/external (302)"
+      ]
+    },
+    {
+      "companyId": "lazard",
+      "companyName": "Lazard",
+      "status": "NO_CAREERS_SOURCE_FOUND",
+      "verifiedSources": [
+        {
+          "provider": "oleeo_rss",
+          "confidence": 0.7999999999999999,
+          "jobCount": 0
+        }
+      ],
+      "unsupportedSources": [],
+      "studentPages": 0,
+      "evidence": [
+        "Error: https://lazard-careers.tal.net/vx/lang-en-GB/mobile-0/appcentre1/brand-3/emp-1/Home — 404",
+        "[oleeo_rss] Adapter returned error: Oleeo RSS error for Lazard: Status code 404"
+      ]
+    },
+    {
+      "companyId": "rothschild",
+      "companyName": "Rothschild & Co",
+      "status": "NO_CAREERS_SOURCE_FOUND",
+      "verifiedSources": [
+        {
+          "provider": "workday",
+          "confidence": 0.7999999999999999,
+          "jobCount": 0
+        }
+      ],
+      "unsupportedSources": [],
+      "studentPages": 0,
+      "evidence": [
+        "Error: https://rothschild.wd3.myworkdayjobs.com/rothschildandco — 500",
+        "[workday] Adapter returned error: Workday API 422 for rothschild.wd3.myworkdayjobs.com — likely Cloudflare anti-bot protection or incorrect tenant/site"
+      ]
+    },
+    {
+      "companyId": "centerview",
+      "companyName": "Centerview Partners",
+      "status": "NO_CAREERS_SOURCE_FOUND",
+      "verifiedSources": [],
+      "unsupportedSources": [],
+      "studentPages": 0,
+      "evidence": [
+        "Error: https://centerviewpartners.com/careers — 403"
+      ]
+    },
+    {
+      "companyId": "houlihan-lokey",
+      "companyName": "Houlihan Lokey",
+      "status": "NO_CAREERS_SOURCE_FOUND",
+      "verifiedSources": [
+        {
+          "provider": "workday",
+          "confidence": 0.7999999999999999,
+          "jobCount": 0
+        }
+      ],
+      "unsupportedSources": [],
+      "studentPages": 0,
+      "evidence": [
+        "Error: https://houlihanlokey.wd1.myworkdayjobs.com/houlihanlokey — 500",
+        "[workday] Adapter returned error: Workday API 422 for houlihanlokey.wd1.myworkdayjobs.com — likely Cloudflare anti-bot protection or incorrect tenant/site"
+      ]
+    },
+    {
+      "companyId": "kkr",
+      "companyName": "KKR",
+      "status": "FAILED",
+      "verifiedSources": [
+        {
+          "provider": "greenhouse",
+          "confidence": 0.2,
+          "jobCount": 0
+        }
+      ],
+      "unsupportedSources": [],
+      "studentPages": 12,
+      "evidence": [
+        "[greenhouse] Adapter returned error: No Greenhouse board token for KKR"
+      ]
+    },
+    {
+      "companyId": "apollo",
+      "companyName": "Apollo Global Management",
+      "status": "NO_CAREERS_SOURCE_FOUND",
+      "verifiedSources": [
+        {
+          "provider": "workday",
+          "confidence": 0.7999999999999999,
+          "jobCount": 0
+        }
+      ],
+      "unsupportedSources": [],
+      "studentPages": 0,
+      "evidence": [
+        "Error: https://apollo.wd1.myworkdayjobs.com/apollo — 500",
+        "[workday] Adapter returned error: Workday API 422 for apollo.wd1.myworkdayjobs.com — likely Cloudflare anti-bot protection or incorrect tenant/site"
+      ]
+    },
+    {
+      "companyId": "carlyle",
+      "companyName": "The Carlyle Group",
+      "status": "UNSUPPORTED_ATS_FOUND",
+      "verifiedSources": [],
+      "unsupportedSources": [
+        "avature"
+      ],
+      "studentPages": 0,
+      "evidence": [
+        "Error: https://carlyle.avature.net/externalcareers/SearchJobs — 404"
+      ]
+    },
+    {
+      "companyId": "citadel",
+      "companyName": "Citadel",
+      "status": "NO_CAREERS_SOURCE_FOUND",
+      "verifiedSources": [],
+      "unsupportedSources": [],
+      "studentPages": 0,
+      "evidence": [
+        "Error: https://www.citadel.com/careers/open-opportunities/ — 403"
+      ]
+    },
+    {
+      "companyId": "millennium",
+      "companyName": "Millennium Management",
+      "status": "UNSUPPORTED_ATS_FOUND",
+      "verifiedSources": [],
+      "unsupportedSources": [
+        "eightfold",
+        "eightfold"
+      ],
+      "studentPages": 1,
+      "evidence": [
+        "Redirect: https://mlp.eightfold.ai/careers -> https://career.mlp.com/careers (307)"
+      ]
+    },
+    {
+      "companyId": "susquehanna",
+      "companyName": "Susquehanna (SIG)",
+      "status": "UNSUPPORTED_ATS_FOUND",
+      "verifiedSources": [],
+      "unsupportedSources": [
+        "icims"
+      ],
+      "studentPages": 12,
+      "evidence": [
+        "Redirect: https://careers.sig.com -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/careers -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/career -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/join-us -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/opportunities -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/students -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/graduates -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/early-careers -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/working-students -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/werkstudenten -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/praktikum -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)",
+        "Redirect: https://careers.sig.com/internships -> https://careers.sig.com/ (301)",
+        "Redirect: https://careers.sig.com/ -> https://careers.sig.com/jobs (301)"
+      ]
+    },
+    {
+      "companyId": "schroders",
+      "companyName": "Schroders",
+      "status": "UNSUPPORTED_ATS_FOUND",
+      "verifiedSources": [],
+      "unsupportedSources": [
+        "oracle_hcm",
+        "oracle_hcm"
+      ],
+      "studentPages": 0,
+      "evidence": [
+        "Redirect: https://ekbq.fa.em2.oraclecloud.com/careers -> https://ekbq.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2 (302)"
+      ]
+    },
+    {
+      "companyId": "interpath",
+      "companyName": "Interpath Advisory",
+      "status": "AMBIGUOUS",
+      "verifiedSources": [],
+      "unsupportedSources": [],
+      "studentPages": 0,
+      "evidence": [
+        "Redirect: https://apply.workable.com/jobs -> https://apply.workable.com/oops (302)",
+        "Redirect: https://apply.workable.com/opportunities -> https://apply.workable.com/oops (302)",
+        "Redirect: https://apply.workable.com/graduates -> https://apply.workable.com/oops (302)",
+        "Redirect: https://apply.workable.com/working-students -> https://apply.workable.com/oops (302)",
+        "Redirect: https://apply.workable.com/werkstudenten -> https://apply.workable.com/oops (302)",
+        "Redirect: https://apply.workable.com/praktikum -> https://apply.workable.com/oops (302)",
+        "Redirect: https://apply.workable.com/internships -> https://apply.workable.com/oops (302)"
+      ]
+    },
+    {
+      "companyId": "rede-partners",
+      "companyName": "Rede Partners",
+      "status": "AMBIGUOUS",
+      "verifiedSources": [],
+      "unsupportedSources": [],
+      "studentPages": 1,
+      "evidence": []
+    }
+  ],
+  "summary": {
+    "UNSUPPORTED_ATS_FOUND": 7,
+    "NO_CAREERS_SOURCE_FOUND": 9,
+    "AMBIGUOUS": 4,
+    "FAILED": 1
+  },
+  "supportedProviders": {},
+  "unsupportedProviders": {
+    "oracle_hcm": 3,
+    "eightfold": 3,
+    "taleo": 1,
+    "avature": 2,
+    "icims": 1
+  }
+}

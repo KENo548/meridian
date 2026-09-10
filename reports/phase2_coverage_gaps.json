@@ -1,0 +1,372 @@
+[
+  {
+    "company": "Goldman Sachs",
+    "companyType": "bulge_bracket",
+    "companyTier": "P0",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "JPMorgan",
+    "companyType": "bulge_bracket",
+    "companyTier": "P0",
+    "provider": "oracle_hcm",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider oracle_hcm is unsupported",
+    "recommendation": "Implement oracle_hcm adapter or find alternative source"
+  },
+  {
+    "company": "Morgan Stanley",
+    "companyType": "bulge_bracket",
+    "companyTier": "P0",
+    "provider": "eightfold",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider eightfold is unsupported",
+    "recommendation": "Implement eightfold adapter or find alternative source"
+  },
+  {
+    "company": "Bank of America",
+    "companyType": "bulge_bracket",
+    "companyTier": "P0",
+    "provider": "workday",
+    "capability": "supported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Firm disabled with no enabled sources",
+    "recommendation": "Implement workday adapter or find alternative source"
+  },
+  {
+    "company": "Citi",
+    "companyType": "bulge_bracket",
+    "companyTier": "P0",
+    "provider": "workday",
+    "capability": "supported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Firm disabled with no enabled sources",
+    "recommendation": "Implement workday adapter or find alternative source"
+  },
+  {
+    "company": "Barclays",
+    "companyType": "bulge_bracket",
+    "companyTier": "P0",
+    "provider": "workday",
+    "capability": "supported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Firm disabled with no enabled sources",
+    "recommendation": "Implement workday adapter or find alternative source"
+  },
+  {
+    "company": "UBS",
+    "companyType": "bulge_bracket",
+    "companyTier": "P0",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Deutsche Bank",
+    "companyType": "bulge_bracket",
+    "companyTier": "P0",
+    "provider": "successfactors",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider successfactors is unsupported",
+    "recommendation": "Implement successfactors adapter or find alternative source"
+  },
+  {
+    "company": "HSBC",
+    "companyType": "bulge_bracket",
+    "companyTier": "P0",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Lazard",
+    "companyType": "elite_boutique",
+    "companyTier": "P0",
+    "provider": "oleeo_rss",
+    "capability": "supported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Firm disabled with no enabled sources",
+    "recommendation": "Implement oleeo_rss adapter or find alternative source"
+  },
+  {
+    "company": "Rothschild & Co",
+    "companyType": "elite_boutique",
+    "companyTier": "P0",
+    "provider": "workday",
+    "capability": "supported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Firm disabled with no enabled sources",
+    "recommendation": "Implement workday adapter or find alternative source"
+  },
+  {
+    "company": "Centerview Partners",
+    "companyType": "elite_boutique",
+    "companyTier": "P0",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Houlihan Lokey",
+    "companyType": "middle_market",
+    "companyTier": "P1",
+    "provider": "workday",
+    "capability": "supported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Firm disabled with no enabled sources",
+    "recommendation": "Implement workday adapter or find alternative source"
+  },
+  {
+    "company": "KKR",
+    "companyType": "private_equity",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Apollo Global Management",
+    "companyType": "private_equity",
+    "companyTier": "P1",
+    "provider": "workday",
+    "capability": "supported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Firm disabled with no enabled sources",
+    "recommendation": "Implement workday adapter or find alternative source"
+  },
+  {
+    "company": "The Carlyle Group",
+    "companyType": "private_equity",
+    "companyTier": "P1",
+    "provider": "avature",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider avature is unsupported",
+    "recommendation": "Implement avature adapter or find alternative source"
+  },
+  {
+    "company": "Citadel",
+    "companyType": "hedge_fund",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Millennium Management",
+    "companyType": "hedge_fund",
+    "companyTier": "P1",
+    "provider": "eightfold",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider eightfold is unsupported",
+    "recommendation": "Implement eightfold adapter or find alternative source"
+  },
+  {
+    "company": "Susquehanna (SIG)",
+    "companyType": "prop_trading",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "D. E. Shaw",
+    "companyType": "hedge_fund",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Macquarie Group",
+    "companyType": "bank",
+    "companyTier": "P1",
+    "provider": "avature",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider avature is unsupported",
+    "recommendation": "Implement avature adapter or find alternative source"
+  },
+  {
+    "company": "Nomura",
+    "companyType": "bulge_bracket",
+    "companyTier": "P1",
+    "provider": "successfactors",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider successfactors is unsupported",
+    "recommendation": "Implement successfactors adapter or find alternative source"
+  },
+  {
+    "company": "Squarepoint Capital",
+    "companyType": "hedge_fund",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Balyasny Asset Management",
+    "companyType": "hedge_fund",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Brevan Howard",
+    "companyType": "hedge_fund",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Capula Investment Management",
+    "companyType": "hedge_fund",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "ABN AMRO",
+    "companyType": "bank",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Julius Baer",
+    "companyType": "bank",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Nuveen",
+    "companyType": "asset_management",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Dimensional Fund Advisors",
+    "companyType": "asset_management",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Bain & Company",
+    "companyType": "consulting",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "KPMG",
+    "companyType": "consulting",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Clayton, Dubilier & Rice",
+    "companyType": "private_equity",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Temasek",
+    "companyType": "private_equity",
+    "companyTier": "P1",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  },
+  {
+    "company": "Schroders",
+    "companyType": "asset_management",
+    "companyTier": "P2",
+    "provider": "oracle_hcm",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider oracle_hcm is unsupported",
+    "recommendation": "Implement oracle_hcm adapter or find alternative source"
+  },
+  {
+    "company": "Interpath Advisory",
+    "companyType": "advisory",
+    "companyTier": "P2",
+    "provider": "workable",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider workable is unsupported",
+    "recommendation": "Implement workable adapter or find alternative source"
+  },
+  {
+    "company": "Rede Partners",
+    "companyType": "advisory",
+    "companyTier": "P2",
+    "provider": "custom",
+    "capability": "unsupported",
+    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
+    "failureReason": "Provider custom is unsupported",
+    "recommendation": "Implement custom adapter or find alternative source"
+  }
+]

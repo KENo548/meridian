@@ -824,6 +824,8 @@ import {
   saveCompany,
   saveCompanySource,
   getSourcesByCompanyId,
+  getAllDiscoveryTargets as getAllDiscoveryQueueTargets,
+  getDiscoveryStats as getDiscoveryQueueStats,
 } from './db.js'
 import { getCoverageReport } from './sources/scan.js'
 import { getCapability, CAPABILITY, getSupportedProviders } from './sources/ats.js'
@@ -944,6 +946,51 @@ app.get('/api/companies/:id/sources', (req, res) => {
     res.json({ sources })
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch company sources', details: err.message })
+  }
+})
+
+// ─── Phase 2.1: Source Discovery Endpoints ────────────────────
+
+app.get('/api/discovery/queue', (_req, res) => {
+  try {
+    const targets = getAllDiscoveryQueueTargets()
+    const stats = getDiscoveryQueueStats()
+    res.json({ targets, stats })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch discovery queue', details: err.message })
+  }
+})
+
+app.get('/api/discovery/stats', (_req, res) => {
+  try {
+    res.json(getDiscoveryQueueStats())
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch discovery stats', details: err.message })
+  }
+})
+
+app.post('/api/discovery/company/:id', async (req, res) => {
+  try {
+    const firms = getAllFirms()
+    const firm = firms.find(f => f.id === req.params.id)
+    if (!firm) return res.status(404).json({ error: 'Company not found' })
+
+    const { discoverCompany: discoverSingleCompany } = await import('./sources/discovery/discover.js')
+    const result = await discoverSingleCompany(firm)
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ error: 'Discovery failed', details: err.message })
+  }
+})
+
+app.post('/api/discovery/run', async (req, res) => {
+  try {
+    const { unknownOnly = true, limit = 10, dryRun = false } = req.body || {}
+    const { runDiscovery: runFullDiscovery } = await import('./sources/discovery/discover.js')
+    const results = await runFullDiscovery({ unknownOnly, limit, dryRun })
+    res.json({ results, count: results.length })
+  } catch (err) {
+    res.status(500).json({ error: 'Discovery run failed', details: err.message })
   }
 })
 

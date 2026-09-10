@@ -1,0 +1,495 @@
+{
+  "metadata": {
+    "timestamp": "2026-09-10T19:03:45.034Z",
+    "gitCommit": "fa857a1",
+    "registrySize": 60,
+    "enabledFirms": 40,
+    "sweepDuration": 78777
+  },
+  "coverage": {
+    "totalFirms": 60,
+    "directlyCovered": 23,
+    "coveragePercent": 38.3,
+    "weightedCoveragePercent": 37.2,
+    "byStatus": {
+      "COVERED_ACTIVE": 23,
+      "COVERED_ZERO": 0,
+      "PARTIAL": 0,
+      "SOURCE_FOUND_UNSUPPORTED": 37,
+      "SOURCE_UNKNOWN": 0,
+      "SOURCE_BROKEN": 0,
+      "NEEDS_MANUAL_REVIEW": 0,
+      "NOT_TESTED": 0
+    }
+  },
+  "jobs": {
+    "totalOfficialJobs": 2864,
+    "jobsByProvider": {
+      "custom": 0,
+      "oracle_hcm": 0,
+      "eightfold": 0,
+      "workday": 1761,
+      "successfactors": 0,
+      "oleeo_rss": 101,
+      "greenhouse": 1002,
+      "avature": 0,
+      "workable": 0
+    },
+    "jobsByProgramme": {
+      "internship": 164,
+      "full_time": 8,
+      "unknown": 2689,
+      "contract": 3
+    }
+  },
+  "providerPerformance": {
+    "custom": {
+      "firms": 21,
+      "success": 0,
+      "fail": 21,
+      "jobs": 0,
+      "zeroJobs": 0,
+      "medianMs": 0,
+      "p90Ms": 0,
+      "successRate": "0.0"
+    },
+    "oracle_hcm": {
+      "firms": 2,
+      "success": 0,
+      "fail": 2,
+      "jobs": 0,
+      "zeroJobs": 0,
+      "medianMs": 0,
+      "p90Ms": 0,
+      "successRate": "0.0"
+    },
+    "eightfold": {
+      "firms": 2,
+      "success": 0,
+      "fail": 2,
+      "jobs": 0,
+      "zeroJobs": 0,
+      "medianMs": 0,
+      "p90Ms": 0,
+      "successRate": "0.0"
+    },
+    "workday": {
+      "firms": 16,
+      "success": 10,
+      "fail": 6,
+      "jobs": 1761,
+      "zeroJobs": 0,
+      "medianMs": 2381,
+      "p90Ms": 12067,
+      "successRate": "62.5"
+    },
+    "successfactors": {
+      "firms": 2,
+      "success": 0,
+      "fail": 2,
+      "jobs": 0,
+      "zeroJobs": 0,
+      "medianMs": 0,
+      "p90Ms": 0,
+      "successRate": "0.0"
+    },
+    "oleeo_rss": {
+      "firms": 4,
+      "success": 3,
+      "fail": 1,
+      "jobs": 101,
+      "zeroJobs": 0,
+      "medianMs": 499,
+      "p90Ms": 655,
+      "successRate": "75.0"
+    },
+    "greenhouse": {
+      "firms": 10,
+      "success": 10,
+      "fail": 0,
+      "jobs": 1002,
+      "zeroJobs": 0,
+      "medianMs": 345,
+      "p90Ms": 581,
+      "successRate": "100.0"
+    },
+    "avature": {
+      "firms": 2,
+      "success": 0,
+      "fail": 2,
+      "jobs": 0,
+      "zeroJobs": 0,
+      "medianMs": 0,
+      "p90Ms": 0,
+      "successRate": "0.0"
+    },
+    "workable": {
+      "firms": 1,
+      "success": 0,
+      "fail": 1,
+      "jobs": 0,
+      "zeroJobs": 0,
+      "medianMs": 0,
+      "p90Ms": 0,
+      "successRate": "0.0"
+    }
+  },
+  "unsupportedBreakdown": {
+    "custom": 42,
+    "oracle_hcm": 2,
+    "eightfold": 2,
+    "workday": 6,
+    "successfactors": 2,
+    "oleeo_rss": 1,
+    "avature": 2,
+    "workable": 1
+  },
+  "adapterROI": [
+    {
+      "provider": "custom",
+      "firms": 42,
+      "effort": 2,
+      "roi": "21.00"
+    },
+    {
+      "provider": "workday",
+      "firms": 6,
+      "effort": 3,
+      "roi": "2.00"
+    },
+    {
+      "provider": "successfactors",
+      "firms": 2,
+      "effort": 3,
+      "roi": "0.67"
+    },
+    {
+      "provider": "oracle_hcm",
+      "firms": 2,
+      "effort": 4,
+      "roi": "0.50"
+    },
+    {
+      "provider": "eightfold",
+      "firms": 2,
+      "effort": 4,
+      "roi": "0.50"
+    },
+    {
+      "provider": "avature",
+      "firms": 2,
+      "effort": 4,
+      "roi": "0.50"
+    },
+    {
+      "provider": "workable",
+      "firms": 1,
+      "effort": 2,
+      "roi": "0.50"
+    },
+    {
+      "provider": "oleeo_rss",
+      "firms": 1,
+      "effort": 3,
+      "roi": "0.33"
+    }
+  ],
+  "coverageByCategory": {
+    "bulge_bracket": {
+      "total": 10,
+      "covered": 0,
+      "jobs": 0
+    },
+    "elite_boutique": {
+      "total": 6,
+      "covered": 3,
+      "jobs": 68
+    },
+    "middle_market": {
+      "total": 4,
+      "covered": 3,
+      "jobs": 140
+    },
+    "private_equity": {
+      "total": 7,
+      "covered": 2,
+      "jobs": 467
+    },
+    "hedge_fund": {
+      "total": 10,
+      "covered": 3,
+      "jobs": 291
+    },
+    "prop_trading": {
+      "total": 4,
+      "covered": 3,
+      "jobs": 565
+    },
+    "bank": {
+      "total": 3,
+      "covered": 0,
+      "jobs": 0
+    },
+    "asset_management": {
+      "total": 9,
+      "covered": 6,
+      "jobs": 1226
+    },
+    "broker_dealer": {
+      "total": 1,
+      "covered": 1,
+      "jobs": 47
+    },
+    "consulting": {
+      "total": 2,
+      "covered": 0,
+      "jobs": 0
+    },
+    "quant_hedge_fund": {
+      "total": 1,
+      "covered": 1,
+      "jobs": 9
+    },
+    "exchanges": {
+      "total": 1,
+      "covered": 1,
+      "jobs": 51
+    },
+    "advisory": {
+      "total": 2,
+      "covered": 0,
+      "jobs": 0
+    }
+  },
+  "suspiciousZeros": [],
+  "uncoveredFirms": [
+    {
+      "company": "Goldman Sachs",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "JPMorgan",
+      "provider": "oracle_hcm",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider oracle_hcm is unsupported"
+    },
+    {
+      "company": "Morgan Stanley",
+      "provider": "eightfold",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider eightfold is unsupported"
+    },
+    {
+      "company": "Bank of America",
+      "provider": "workday",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Firm disabled with no enabled sources"
+    },
+    {
+      "company": "Citi",
+      "provider": "workday",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Firm disabled with no enabled sources"
+    },
+    {
+      "company": "Barclays",
+      "provider": "workday",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Firm disabled with no enabled sources"
+    },
+    {
+      "company": "UBS",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Deutsche Bank",
+      "provider": "successfactors",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider successfactors is unsupported"
+    },
+    {
+      "company": "HSBC",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Lazard",
+      "provider": "oleeo_rss",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Firm disabled with no enabled sources"
+    },
+    {
+      "company": "Rothschild & Co",
+      "provider": "workday",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Firm disabled with no enabled sources"
+    },
+    {
+      "company": "Centerview Partners",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Houlihan Lokey",
+      "provider": "workday",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Firm disabled with no enabled sources"
+    },
+    {
+      "company": "KKR",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Apollo Global Management",
+      "provider": "workday",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Firm disabled with no enabled sources"
+    },
+    {
+      "company": "The Carlyle Group",
+      "provider": "avature",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider avature is unsupported"
+    },
+    {
+      "company": "Citadel",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Millennium Management",
+      "provider": "eightfold",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider eightfold is unsupported"
+    },
+    {
+      "company": "Susquehanna (SIG)",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "D. E. Shaw",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Macquarie Group",
+      "provider": "avature",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider avature is unsupported"
+    },
+    {
+      "company": "Nomura",
+      "provider": "successfactors",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider successfactors is unsupported"
+    },
+    {
+      "company": "Squarepoint Capital",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Balyasny Asset Management",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Brevan Howard",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Capula Investment Management",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "ABN AMRO",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Julius Baer",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Nuveen",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Dimensional Fund Advisors",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Bain & Company",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "KPMG",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Clayton, Dubilier & Rice",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Temasek",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    },
+    {
+      "company": "Schroders",
+      "provider": "oracle_hcm",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider oracle_hcm is unsupported"
+    },
+    {
+      "company": "Interpath Advisory",
+      "provider": "workable",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider workable is unsupported"
+    },
+    {
+      "company": "Rede Partners",
+      "provider": "custom",
+      "status": "SOURCE_FOUND_UNSUPPORTED",
+      "reason": "Provider custom is unsupported"
+    }
+  ],
+  "trackerComparison": {
+    "totalTrackerJobs": 0,
+    "matchedOfficial": 0,
+    "notMatchedOfficial": 0,
+    "companyNotInRegistry": 0
+  }
+}

@@ -1,0 +1,324 @@
+[
+  {
+    "firm": "UBS",
+    "knownIssue": "24 student pages no ATS",
+    "tests": [
+      {
+        "url": "https://careers.ubs.com",
+        "status": 200,
+        "finalUrl": "https://careers.ubs.com"
+      }
+    ],
+    "atsDetected": [],
+    "verdict": "UNRESOLVED",
+    "action": "MANUAL_REVIEW",
+    "findings": []
+  },
+  {
+    "firm": "Deutsche Bank",
+    "knownIssue": "17 student pages",
+    "tests": [],
+    "atsDetected": [],
+    "verdict": "BLOCKED",
+    "action": "DISABLE_OR_LEAVE",
+    "findings": []
+  },
+  {
+    "firm": "Interpath Advisory",
+    "knownIssue": "Workable redirects to /oops",
+    "tests": [
+      {
+        "url": "https://www.interpath.com/careers",
+        "status": 200,
+        "finalUrl": "https://interpath.com/careers/"
+      },
+      {
+        "url": "https://www.interpath.com/careers/",
+        "status": 200,
+        "finalUrl": "https://interpath.com/careers/"
+      },
+      {
+        "url": "https://interpath.com/careers",
+        "status": 200,
+        "finalUrl": "https://interpath.com/careers/"
+      },
+      {
+        "url": "https://boards.greenhouse.io/interpath",
+        "status": 200
+      }
+    ],
+    "atsDetected": [
+      "workable",
+      "workable",
+      "workable"
+    ],
+    "verdict": "RESOLVED",
+    "action": "ADD_SOURCE",
+    "findings": [
+      "ATS detected: workable at https://www.interpath.com/careers",
+      "Job-related keywords found: 18",
+      "ATS detected: workable at https://www.interpath.com/careers/",
+      "Job-related keywords found: 18",
+      "ATS detected: workable at https://interpath.com/careers",
+      "Job-related keywords found: 18",
+      "Greenhouse board found: interpath"
+    ]
+  },
+  {
+    "firm": "Rede Partners",
+    "knownIssue": "minimal web presence",
+    "tests": [],
+    "atsDetected": [],
+    "verdict": "BLOCKED",
+    "action": "DISABLE_OR_LEAVE",
+    "findings": []
+  },
+  {
+    "firm": "KKR",
+    "knownIssue": "Greenhouse detected but no board token",
+    "tests": [
+      {
+        "url": "https://www.kkr.com/careers",
+        "status": 200,
+        "finalUrl": "https://www.kkr.com/careers"
+      },
+      {
+        "url": "https://www.kkr.com/careers/",
+        "status": 200,
+        "finalUrl": "https://www.kkr.com/careers"
+      },
+      {
+        "url": "https://kkr.com/careers",
+        "status": 200,
+        "finalUrl": "https://www.kkr.com/careers"
+      }
+    ],
+    "atsDetected": [],
+    "verdict": "UNRESOLVED",
+    "action": "MANUAL_REVIEW",
+    "findings": []
+  },
+  {
+    "firm": "Centerview Partners",
+    "knownIssue": "no careers source found",
+    "tests": [],
+    "atsDetected": [],
+    "verdict": "BLOCKED",
+    "action": "DISABLE_OR_LEAVE",
+    "findings": []
+  },
+  {
+    "firm": "Nomura",
+    "knownIssue": "no careers source found",
+    "tests": [
+      {
+        "url": "https://www.nomura.com/careers",
+        "status": 200,
+        "finalUrl": "https://www.nomura.com/careers/"
+      },
+      {
+        "url": "https://www.nomura.com/careers/",
+        "status": 200,
+        "finalUrl": "https://www.nomura.com/careers/"
+      },
+      {
+        "url": "https://careers.nomura.com",
+        "status": 200,
+        "finalUrl": "https://careers.nomura.com"
+      },
+      {
+        "url": "https://nomura.com/careers",
+        "status": 200,
+        "finalUrl": "https://www.nomura.com/careers/"
+      }
+    ],
+    "atsDetected": [
+      "successfactors"
+    ],
+    "verdict": "RESOLVED",
+    "action": "ADD_SOURCE",
+    "findings": [
+      "ATS detected: successfactors at https://careers.nomura.com",
+      "Job-related keywords found: 15"
+    ]
+  },
+  {
+    "firm": "Macquarie Group",
+    "knownIssue": "no careers source found",
+    "tests": [
+      {
+        "url": "https://www.macquarie.com/careers",
+        "status": 200,
+        "finalUrl": "https://www.macquarie.com/de/en/careers.html"
+      },
+      {
+        "url": "https://www.macquarie.com/careers/",
+        "status": 200,
+        "finalUrl": "https://www.macquarie.com/de/en/careers.html"
+      },
+      {
+        "url": "https://careers.macquarie.com",
+        "status": 200,
+        "finalUrl": "https://recruitment.macquarie.com/en_US/careers"
+      },
+      {
+        "url": "https://macquarie.com/careers",
+        "status": 200,
+        "finalUrl": "https://www.macquarie.com/de/en/careers.html"
+      }
+    ],
+    "atsDetected": [
+      "avature"
+    ],
+    "verdict": "RESOLVED",
+    "action": "ADD_SOURCE",
+    "findings": [
+      "Job-related keywords found: 7",
+      "Job-related keywords found: 7",
+      "ATS detected: avature at https://careers.macquarie.com",
+      "Job-related keywords found: 118",
+      "Job-related keywords found: 7"
+    ]
+  },
+  {
+    "firm": "D. E. Shaw",
+    "knownIssue": "no careers source found",
+    "tests": [
+      {
+        "url": "https://www.deshaw.com/careers",
+        "status": 200,
+        "finalUrl": "https://www.deshaw.com/careers"
+      },
+      {
+        "url": "https://www.deshaw.com/careers/",
+        "status": 200,
+        "finalUrl": "https://www.deshaw.com/careers"
+      },
+      {
+        "url": "https://deshaw.com/careers",
+        "status": 200,
+        "finalUrl": "https://www.deshaw.com/careers"
+      }
+    ],
+    "atsDetected": [],
+    "verdict": "RESOLVED",
+    "action": "ADD_SOURCE",
+    "findings": [
+      "Job-related keywords found: 3027",
+      "Job-related keywords found: 3027",
+      "Job-related keywords found: 3027"
+    ]
+  },
+  {
+    "firm": "Millennium Management",
+    "knownIssue": "no careers source found (Eightfold detected)",
+    "tests": [],
+    "atsDetected": [],
+    "verdict": "BLOCKED",
+    "action": "DISABLE_OR_LEAVE",
+    "findings": []
+  },
+  {
+    "firm": "Squarepoint Capital",
+    "knownIssue": "no careers source found",
+    "tests": [
+      {
+        "url": "https://www.squarepoint.com/careers",
+        "status": 200,
+        "finalUrl": "https://www.squarepoint.com/careers"
+      },
+      {
+        "url": "https://www.squarepoint.com/careers/",
+        "status": 200,
+        "finalUrl": "https://www.squarepoint.com/careers/"
+      },
+      {
+        "url": "https://squarepoint.com/careers",
+        "status": 200,
+        "finalUrl": "https://squarepoint.com/careers"
+      }
+    ],
+    "atsDetected": [],
+    "verdict": "UNRESOLVED",
+    "action": "MANUAL_REVIEW",
+    "findings": []
+  },
+  {
+    "firm": "Balyasny Asset Management",
+    "knownIssue": "no careers source found",
+    "tests": [],
+    "atsDetected": [],
+    "verdict": "BLOCKED",
+    "action": "DISABLE_OR_LEAVE",
+    "findings": []
+  },
+  {
+    "firm": "Man Group",
+    "knownIssue": "no careers source found",
+    "tests": [
+      {
+        "url": "https://www.mangroup.com/careers",
+        "status": 200,
+        "finalUrl": "https://mangroup.com/careers/"
+      },
+      {
+        "url": "https://www.mangroup.com/careers/",
+        "status": 200,
+        "finalUrl": "https://mangroup.com/careers/"
+      },
+      {
+        "url": "https://mangroup.com/careers",
+        "status": 200,
+        "finalUrl": "https://mangroup.com/careers/"
+      },
+      {
+        "url": "https://boards.greenhouse.io/mangroup",
+        "status": 200
+      }
+    ],
+    "atsDetected": [],
+    "verdict": "RESOLVED",
+    "action": "ADD_SOURCE",
+    "findings": [
+      "Job-related keywords found: 17",
+      "Job-related keywords found: 17",
+      "Job-related keywords found: 17",
+      "Greenhouse board found: mangroup"
+    ]
+  },
+  {
+    "firm": "Brevan Howard",
+    "knownIssue": "no careers source found",
+    "tests": [
+      {
+        "url": "https://www.brevanhoward.com/careers",
+        "status": 200,
+        "finalUrl": "https://careers.brevanhoward.com/gb/en/home"
+      },
+      {
+        "url": "https://www.brevanhoward.com/careers/",
+        "status": 200,
+        "finalUrl": "https://careers.brevanhoward.com/gb/en/home"
+      },
+      {
+        "url": "https://careers.brevanhoward.com",
+        "status": 200,
+        "finalUrl": "https://careers.brevanhoward.com/gb/en"
+      },
+      {
+        "url": "https://brevanhoward.com/careers",
+        "status": 200,
+        "finalUrl": "https://careers.brevanhoward.com/gb/en/home"
+      }
+    ],
+    "atsDetected": [],
+    "verdict": "RESOLVED",
+    "action": "ADD_SOURCE",
+    "findings": [
+      "Job-related keywords found: 136",
+      "Job-related keywords found: 136",
+      "Job-related keywords found: 136",
+      "Job-related keywords found: 136"
+    ]
+  }
+]

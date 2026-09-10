@@ -1,0 +1,80 @@
+{
+  "timestamp": "2026-09-10T18:02:11.417Z",
+  "results": [
+    {
+      "id": "bank-of-america",
+      "name": "Bank of America",
+      "provider": "workday",
+      "status": "FAILED",
+      "jobCount": 0,
+      "latencyMs": 575,
+      "error": "Workday API 422 for bankofamerica.wd1.myworkdayjobs.com — likely Cloudflare anti-bot protection or incorrect tenant/site",
+      "sampleTitles": []
+    },
+    {
+      "id": "citi",
+      "name": "Citi",
+      "provider": "workday",
+      "status": "FAILED",
+      "jobCount": 0,
+      "latencyMs": 497,
+      "error": "Workday API 404 for citi.wd5.myworkdayjobs.com — site name may have changed or Workday instance relocated",
+      "sampleTitles": []
+    },
+    {
+      "id": "barclays",
+      "name": "Barclays",
+      "provider": "workday",
+      "status": "FAILED",
+      "jobCount": 0,
+      "latencyMs": 240,
+      "error": "Workday API 404 for barclays.wd3.myworkdayjobs.com — site name may have changed or Workday instance relocated",
+      "sampleTitles": []
+    },
+    {
+      "id": "rothschild",
+      "name": "Rothschild & Co",
+      "provider": "workday",
+      "status": "FAILED",
+      "jobCount": 0,
+      "latencyMs": 137,
+      "error": "Workday API 422 for rothschild.wd3.myworkdayjobs.com — likely Cloudflare anti-bot protection or incorrect tenant/site",
+      "sampleTitles": []
+    },
+    {
+      "id": "houlihan-lokey",
+      "name": "Houlihan Lokey",
+      "provider": "workday",
+      "status": "FAILED",
+      "jobCount": 0,
+      "latencyMs": 388,
+      "error": "Workday API 422 for houlihanlokey.wd1.myworkdayjobs.com — likely Cloudflare anti-bot protection or incorrect tenant/site",
+      "sampleTitles": []
+    },
+    {
+      "id": "apollo",
+      "name": "Apollo Global Management",
+      "provider": "workday",
+      "status": "FAILED",
+      "jobCount": 0,
+      "latencyMs": 383,
+      "error": "Workday API 422 for apollo.wd1.myworkdayjobs.com — likely Cloudflare anti-bot protection or incorrect tenant/site",
+      "sampleTitles": []
+    },
+    {
+      "id": "lazard",
+      "name": "Lazard",
+      "provider": "oleeo_rss",
+      "status": "ZERO_JOBS",
+      "jobCount": 0,
+      "latencyMs": 322,
+      "error": null,
+      "sampleTitles": []
+    }
+  ],
+  "summary": {
+    "verified": 0,
+    "zeroJobs": 1,
+    "failed": 6
+  }
+}
