@@ -65,12 +65,15 @@ const FIRMS = [
     name: 'Morgan Stanley',
     category: 'bulge_bracket',
     careersUrl: 'https://morganstanley.eightfold.ai/careers',
-    enabled: false,
+    enabled: true,
     priority: 'P0',
     careersProvider: 'eightfold',
     atsSlug: null,
-    notes: 'Eightfold AI — needs custom adapter',
-    sources: [],
+    eightfold: { domain: 'morganstanley.com', slug: 'morganstanley' },
+    notes: 'Eightfold AI — sitemap fallback',
+    sources: [
+      { provider: 'eightfold', careersUrl: 'https://morganstanley.eightfold.ai/careers', enabled: true, sourceOrigin: 'discovered', eightfold: { domain: 'morganstanley.com', slug: 'morganstanley' } },
+    ],
   },
   {
     id: 'bank-of-america',
@@ -156,7 +159,7 @@ const FIRMS = [
     priority: 'P0',
     careersProvider: 'custom',
     atsSlug: null,
-    notes: 'Custom careers site',
+    notes: 'Custom careers site — jobs.ubs.com returns 500',
     sources: [],
   },
   {
@@ -168,7 +171,7 @@ const FIRMS = [
     priority: 'P0',
     careersProvider: 'successfactors',
     atsSlug: null,
-    notes: 'SAP SuccessFactors — needs custom adapter',
+    notes: 'SAP SuccessFactors — URLs blocked/changed',
     sources: [],
   },
   {
@@ -488,12 +491,15 @@ const FIRMS = [
     name: 'Millennium Management',
     category: 'hedge_fund',
     careersUrl: 'https://mlp.eightfold.ai/careers',
-    enabled: false,
+    enabled: true,
     priority: 'P1',
     careersProvider: 'eightfold',
     atsSlug: null,
-    notes: 'Eightfold AI — needs custom adapter',
-    sources: [],
+    eightfold: { domain: 'mlp.com', slug: 'mlp' },
+    notes: 'Eightfold AI — API works',
+    sources: [
+      { provider: 'eightfold', careersUrl: 'https://mlp.eightfold.ai/careers', enabled: true, sourceOrigin: 'discovered', eightfold: { domain: 'mlp.com', slug: 'mlp' } },
+    ],
   },
   {
     id: 'jane-street',
@@ -584,7 +590,7 @@ const FIRMS = [
     careersProvider: 'avature',
     atsSlug: null,
     sources: [
-      { provider: 'avature', careersUrl: 'https://careers.macquarie.com', enabled: true, sourceOrigin: 'discovered' },
+      { provider: 'avature', careersUrl: 'https://recruitment.macquarie.com/en_US/careers/SearchJobs/feed/?jobRecordsPerPage=50', enabled: true, sourceOrigin: 'discovered' },
     ],
     careerSources: [],
   },
@@ -598,7 +604,7 @@ const FIRMS = [
     careersProvider: 'successfactors',
     atsSlug: null,
     sources: [
-      { provider: 'successfactors', careersUrl: 'https://careers.nomura.com', enabled: true, sourceOrigin: 'discovered' },
+      { provider: 'successfactors', careersUrl: 'https://careers.nomura.com/Nomura/search/?q=&optionsFacetsDD_title=&optionsFacetsDD_facility=&optionsFacetsDD_department=', enabled: true, sourceOrigin: 'discovered' },
     ],
     careerSources: [],
   },

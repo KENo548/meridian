@@ -5,6 +5,9 @@ import { fetchSmartRecruitersJobs } from './ats/smartrecruiters.js'
 import { fetchLeverJobs } from './ats/lever.js'
 import { fetchAshbyJobs } from './ats/ashby.js'
 import { fetchOracleHcmJobs } from './ats/oracle-hcm.js'
+import { fetchAvatureJobs } from './ats/avature.js'
+import { fetchEightfoldJobs } from './ats/eightfold.js'
+import { fetchSuccessFactorsJobs } from './ats/successfactors.js'
 
 // ─── Source Capability States ──────────────────────────────────
 // SUPPORTED: Full adapter, reliably fetches jobs
@@ -21,9 +24,9 @@ const CAPABILITY = {
   smartrecruiters: 'supported',
   oleeo_rss: 'supported',
   oracle_hcm: 'supported',
-  successfactors: 'unsupported',
-  eightfold: 'unsupported',
-  avature: 'unsupported',
+  avature: 'supported',
+  eightfold: 'supported',
+  successfactors: 'supported',
   icims: 'unsupported',
   taleo: 'unsupported',
   teamtailor: 'unsupported',
@@ -40,6 +43,9 @@ const ADAPTERS = {
   smartrecruiters: fetchSmartRecruitersJobs,
   oleeo_rss: fetchOleeoRssJobs,
   oracle_hcm: fetchOracleHcmJobs,
+  avature: fetchAvatureJobs,
+  eightfold: fetchEightfoldJobs,
+  successfactors: fetchSuccessFactorsJobs,
 }
 
 function getCapability(provider) {
@@ -211,6 +217,9 @@ async function fetchSourceJobs(firm, source) {
     workdayTenant: source.workdayTenant || source.tenant || firm.workdayTenant,
     workdaySite: source.workdaySite || firm.workdaySite,
     oleeoRssUrl: source.careersUrl || source.sourceUrl || firm.oleeoRssUrl,
+    avatureRssUrl: source.careersUrl || source.sourceUrl || firm.avatureRssUrl,
+    eightfold: source.eightfold || firm.eightfold,
+    successfactors: source.successfactors || firm.successfactors,
   }
 
   return adapter(enrichedFirm, source)
