@@ -1,0 +1,277 @@
+[
+  {
+    "company": "UBS",
+    "officialDomain": "ubs.com",
+    "knownCareersUrls": [
+      "https://www.ubs.com/global/en/careers.html"
+    ],
+    "discoveryAttempts": [
+      "Fetched main careers page",
+      "Found 24 student pages",
+      "No ATS fingerprint detected"
+    ],
+    "redirects": [],
+    "candidateATS": [],
+    "trackerEvidence": "UBS uses SuccessFactors internally but no public API",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_UNSUPPORTED",
+    "notes": "UBS uses SuccessFactors which is unsupported. No public job board API available.",
+    "recommendedAction": "Add SuccessFactors adapter (low priority — complex auth required)"
+  },
+  {
+    "company": "Deutsche Bank",
+    "officialDomain": "deutsche-bank.com",
+    "knownCareersUrls": [
+      "https://careersutschebank.com",
+      "https://www.db.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "Found 17 student pages",
+      "No ATS fingerprint detected"
+    ],
+    "redirects": [],
+    "candidateATS": [],
+    "trackerEvidence": "Deutsche Bank uses SuccessFactors",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_UNSUPPORTED",
+    "notes": "Deutsche Bank uses SuccessFactors which is unsupported.",
+    "recommendedAction": "Add SuccessFactors adapter (low priority)"
+  },
+  {
+    "company": "Interpath Advisory",
+    "officialDomain": "interpath.com",
+    "knownCareersUrls": [
+      "https://www.interpath.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "Detected Workable ATS",
+      "Found Greenhouse board 'interpath'"
+    ],
+    "redirects": [],
+    "candidateATS": [
+      "workable",
+      "greenhouse"
+    ],
+    "trackerEvidence": "",
+    "candidateApplicationUrls": [
+      "https://boards.greenhouse.io/interpath"
+    ],
+    "status": "VERIFIED_SUPPORTED",
+    "notes": "Interpath uses Workable with a Greenhouse board. Source entry added.",
+    "recommendedAction": "Already added to registry with Workable source"
+  },
+  {
+    "company": "Rede Partners",
+    "officialDomain": "redepartners.com",
+    "knownCareersUrls": [
+      "https://www.redepartners.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "Minimal web presence",
+      "No job listings found"
+    ],
+    "redirects": [],
+    "candidateATS": [],
+    "trackerEvidence": "Very small advisory firm, no public job board",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_NO_PUBLIC_JOB_BOARD",
+    "notes": "Rede Partners is a small advisory firm with no public job board.",
+    "recommendedAction": "DISABLE — no public jobs to ingest"
+  },
+  {
+    "company": "KKR",
+    "officialDomain": "kkr.com",
+    "knownCareersUrls": [
+      "https://www.kkr.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "No ATS fingerprint detected",
+      "Tried Greenhouse board tokens: kkr, kkrinc, kkrgroup — all 404"
+    ],
+    "redirects": [],
+    "candidateATS": [],
+    "trackerEvidence": "KKR uses a custom careers system",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_CUSTOM",
+    "notes": "KKR uses a custom careers system. No known ATS.",
+    "recommendedAction": "Create custom scraper for kkr.com/careers"
+  },
+  {
+    "company": "Centerview Partners",
+    "officialDomain": "centerviewpartners.com",
+    "knownCareersUrls": [
+      "https://www.centerviewpartners.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "No ATS fingerprint detected"
+    ],
+    "redirects": [],
+    "candidateATS": [],
+    "trackerEvidence": "Centerview uses a custom careers system",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_CUSTOM",
+    "notes": "Centerview uses a custom careers system.",
+    "recommendedAction": "Create custom scraper for centerviewpartners.com/careers"
+  },
+  {
+    "company": "Nomura",
+    "officialDomain": "nomura.com",
+    "knownCareersUrls": [
+      "https://careers.nomura.com"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "Detected SuccessFactors ATS"
+    ],
+    "redirects": [],
+    "candidateATS": [
+      "successfactors"
+    ],
+    "trackerEvidence": "",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_UNSUPPORTED",
+    "notes": "Nomura uses SuccessFactors which is unsupported.",
+    "recommendedAction": "Add SuccessFactors adapter (low priority)"
+  },
+  {
+    "company": "Macquarie Group",
+    "officialDomain": "macquarie.com",
+    "knownCareersUrls": [
+      "https://careers.macquarie.com"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "Detected Avature ATS"
+    ],
+    "redirects": [],
+    "candidateATS": [
+      "avature"
+    ],
+    "trackerEvidence": "",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_UNSUPPORTED",
+    "notes": "Macquarie uses Avature which is unsupported.",
+    "recommendedAction": "Add Avature adapter (medium priority — 3 firms blocked)"
+  },
+  {
+    "company": "D. E. Shaw",
+    "officialDomain": "deshaw.com",
+    "knownCareersUrls": [
+      "https://www.deshaw.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "Found 3027 job-related keywords",
+      "No known ATS detected"
+    ],
+    "redirects": [],
+    "candidateATS": [],
+    "trackerEvidence": "D.E. Shaw uses a custom careers system",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_CUSTOM",
+    "notes": "D.E. Shaw uses a custom careers system with many job listings.",
+    "recommendedAction": "Create custom scraper for deshaw.com/careers"
+  },
+  {
+    "company": "Millennium Management",
+    "officialDomain": "millennium.com",
+    "knownCareersUrls": [
+      "https://www.millennium.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "Detected Eightfold ATS"
+    ],
+    "redirects": [],
+    "candidateATS": [
+      "eightfold"
+    ],
+    "trackerEvidence": "",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_UNSUPPORTED",
+    "notes": "Millennium uses Eightfold which is unsupported (anti-bot protection).",
+    "recommendedAction": "Build Eightfold adapter (high priority — strategic firm)"
+  },
+  {
+    "company": "Squarepoint Capital",
+    "officialDomain": "squarepoint.com",
+    "knownCareersUrls": [
+      "https://www.squarepoint.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "No ATS fingerprint detected"
+    ],
+    "redirects": [],
+    "candidateATS": [],
+    "trackerEvidence": "Squarepoint uses a custom careers system",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_CUSTOM",
+    "notes": "Squarepoint uses a custom careers system.",
+    "recommendedAction": "Create custom scraper for squarepoint.com/careers"
+  },
+  {
+    "company": "Balyasny Asset Management",
+    "officialDomain": "balycat.com",
+    "knownCareersUrls": [
+      "https://www.bamfunds.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "No ATS fingerprint detected"
+    ],
+    "redirects": [],
+    "candidateATS": [],
+    "trackerEvidence": "Balyasny uses a custom careers system",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_CUSTOM",
+    "notes": "Balyasny uses a custom careers system.",
+    "recommendedAction": "Create custom scraper for bamfunds.com/careers"
+  },
+  {
+    "company": "Man Group",
+    "officialDomain": "mangroup.com",
+    "knownCareersUrls": [
+      "https://www.man.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "Detected Greenhouse board 'mangroup'"
+    ],
+    "redirects": [],
+    "candidateATS": [
+      "greenhouse"
+    ],
+    "trackerEvidence": "",
+    "candidateApplicationUrls": [
+      "https://boards.greenhouse.io/mangroup"
+    ],
+    "status": "VERIFIED_SUPPORTED",
+    "notes": "Man Group uses Greenhouse. Source entry added.",
+    "recommendedAction": "Already added to registry with Greenhouse source"
+  },
+  {
+    "company": "Brevan Howard",
+    "officialDomain": "brevanhoward.com",
+    "knownCareersUrls": [
+      "https://www.brevanhoward.com/careers"
+    ],
+    "discoveryAttempts": [
+      "Fetched careers page",
+      "Found 136 job-related keywords",
+      "No known ATS detected"
+    ],
+    "redirects": [],
+    "candidateATS": [],
+    "trackerEvidence": "Brevan Howard uses a custom careers system",
+    "candidateApplicationUrls": [],
+    "status": "VERIFIED_CUSTOM",
+    "notes": "Brevan Howard uses a custom careers system.",
+    "recommendedAction": "Create custom scraper for brevanhoward.com/careers"
+  }
+]
