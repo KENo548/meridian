@@ -40,6 +40,8 @@ import { getStalenessReport, applyStalenessTransitions } from './sources/discove
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.set('trust proxy', 1);
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, etc.)
