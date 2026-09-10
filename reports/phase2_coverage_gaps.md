@@ -1,22 +1,6 @@
 # Phase 2.0 — Coverage Gaps
 
-**Generated:** 2026-09-10T19:03:45.051Z
-
-### Goldman Sachs
-
-- **Provider:** custom
-- **Capability:** unsupported
-- **Status:** SOURCE_FOUND_UNSUPPORTED
-- **Reason:** Provider custom is unsupported
-- **Recommendation:** Implement custom adapter or find alternative source
-
-### JPMorgan
-
-- **Provider:** oracle_hcm
-- **Capability:** unsupported
-- **Status:** SOURCE_FOUND_UNSUPPORTED
-- **Reason:** Provider oracle_hcm is unsupported
-- **Recommendation:** Implement oracle_hcm adapter or find alternative source
+**Generated:** 2026-09-10T21:22:44.430Z
 
 ### Morgan Stanley
 
@@ -273,14 +257,6 @@
 - **Status:** SOURCE_FOUND_UNSUPPORTED
 - **Reason:** Provider custom is unsupported
 - **Recommendation:** Implement custom adapter or find alternative source
-
-### Schroders
-
-- **Provider:** oracle_hcm
-- **Capability:** unsupported
-- **Status:** SOURCE_FOUND_UNSUPPORTED
-- **Reason:** Provider oracle_hcm is unsupported
-- **Recommendation:** Implement oracle_hcm adapter or find alternative source
 
 ### Interpath Advisory
 

@@ -4,26 +4,48 @@
     "companyId": "goldman-sachs",
     "companyType": "bulge_bracket",
     "companyTier": "P0",
-    "configuredProvider": "custom",
+    "configuredProvider": "oracle_hcm",
     "enabled": true,
-    "hasSources": false,
-    "capability": "unsupported",
-    "requestSuccess": false,
-    "httpStatus": null,
-    "parseSuccess": false,
-    "jobsReturned": 0,
-    "pagesFetched": 0,
-    "recordsReportedBySource": null,
-    "recordsRetrieved": 0,
-    "sourceVerified": false,
-    "verificationConfidence": 0,
-    "verificationEvidence": [],
-    "healthStatus": "unknown",
-    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
-    "failureReason": "Provider custom is unsupported",
-    "durationMs": 0,
-    "jobSamples": [],
-    "jobsByType": {}
+    "hasSources": true,
+    "capability": "supported",
+    "requestSuccess": true,
+    "httpStatus": 200,
+    "parseSuccess": true,
+    "jobsReturned": 1313,
+    "pagesFetched": 66,
+    "recordsReportedBySource": 1313,
+    "recordsRetrieved": 1313,
+    "sourceVerified": true,
+    "verificationConfidence": 0.95,
+    "verificationEvidence": [
+      "10/10 jobs match company name/ID"
+    ],
+    "healthStatus": "HEALTHY",
+    "coverageStatus": "COVERED_ACTIVE",
+    "failureReason": null,
+    "durationMs": 14273,
+    "jobSamples": [
+      {
+        "title": "Wealth Management-Bengaluru-Digital Operations - UK Fulfilment - Specialist:",
+        "location": "Bengaluru, Karnataka, India",
+        "url": "https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions/133819"
+      },
+      {
+        "title": "Algo Developer, Global Banking & Markets, Electronic Trading",
+        "location": "New York, NY, United States",
+        "url": "https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions/139331"
+      },
+      {
+        "title": "Risk Division - Operational Risk - Vice President - Bengaluru",
+        "location": "Bengaluru, Karnataka, India",
+        "url": "https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions/148017"
+      }
+    ],
+    "jobsByType": {
+      "full_time": 1172,
+      "internship": 139,
+      "apprenticeship": 2
+    }
   },
   {
     "company": "JPMorgan",
@@ -32,24 +54,46 @@
     "companyTier": "P0",
     "configuredProvider": "oracle_hcm",
     "enabled": false,
-    "hasSources": false,
-    "capability": "unsupported",
-    "requestSuccess": false,
-    "httpStatus": null,
-    "parseSuccess": false,
-    "jobsReturned": 0,
-    "pagesFetched": 0,
-    "recordsReportedBySource": null,
-    "recordsRetrieved": 0,
-    "sourceVerified": false,
-    "verificationConfidence": 0,
-    "verificationEvidence": [],
-    "healthStatus": "unknown",
-    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
-    "failureReason": "Provider oracle_hcm is unsupported",
-    "durationMs": 0,
-    "jobSamples": [],
-    "jobsByType": {}
+    "hasSources": true,
+    "capability": "supported",
+    "requestSuccess": true,
+    "httpStatus": 200,
+    "parseSuccess": true,
+    "jobsReturned": 2000,
+    "pagesFetched": 100,
+    "recordsReportedBySource": 2000,
+    "recordsRetrieved": 2000,
+    "sourceVerified": true,
+    "verificationConfidence": 0.95,
+    "verificationEvidence": [
+      "10/10 jobs match company name/ID"
+    ],
+    "healthStatus": "HEALTHY",
+    "coverageStatus": "COVERED_ACTIVE",
+    "failureReason": null,
+    "durationMs": 21616,
+    "jobSamples": [
+      {
+        "title": "J.P. Morgan Wealth Management - Private Client Advisor - South Bay, CA Market",
+        "location": "Torrance, CA, United States",
+        "url": "https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions/210589667"
+      },
+      {
+        "title": "J.P. Morgan Wealth Management – Private Client Advisor - Seal Beach, Huntington Beach and Los Alamitos, CA",
+        "location": "Seal Beach, CA, United States",
+        "url": "https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions/210630279"
+      },
+      {
+        "title": "J.P. Morgan Wealth Management – Private Client Advisor - Long Beach, Buena Park, Cerritos, CA and Surrounding Areas",
+        "location": "Long Beach, CA, United States",
+        "url": "https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions/210633790"
+      }
+    ],
+    "jobsByType": {
+      "full_time": 1893,
+      "internship": 86,
+      "apprenticeship": 21
+    }
   },
   {
     "company": "Morgan Stanley",
@@ -177,7 +221,7 @@
     "healthStatus": "unknown",
     "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
     "failureReason": "Provider custom is unsupported",
-    "durationMs": 1,
+    "durationMs": 0,
     "jobSamples": [],
     "jobsByType": {}
   },
@@ -258,7 +302,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 499,
+    "durationMs": 422,
     "jobSamples": [
       {
         "title": "Milan Off-Cycle Internship – Generalist Team (January - June 2027)",
@@ -332,7 +376,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 284,
+    "durationMs": 247,
     "jobSamples": [
       {
         "title": "2027 Summer Analyst, Investment Banking - Private Capital Advisory LP-led Secondaries - New York",
@@ -381,7 +425,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 1523,
+    "durationMs": 1281,
     "jobSamples": [
       {
         "title": "2027 Summer Analyst (Strategic Advisory & Restructuring) London",
@@ -493,10 +537,10 @@
     "requestSuccess": true,
     "httpStatus": 200,
     "parseSuccess": true,
-    "jobsReturned": 50,
+    "jobsReturned": 49,
     "pagesFetched": 3,
-    "recordsReportedBySource": 50,
-    "recordsRetrieved": 50,
+    "recordsReportedBySource": 49,
+    "recordsRetrieved": 49,
     "sourceVerified": true,
     "verificationConfidence": 1,
     "verificationEvidence": [
@@ -506,7 +550,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 655,
+    "durationMs": 360,
     "jobSamples": [
       {
         "title": "2027 Finance Controllers Analyst Programme - London",
@@ -526,7 +570,7 @@
     ],
     "jobsByType": {
       "unknown": 7,
-      "internship": 43
+      "internship": 42
     }
   },
   {
@@ -554,7 +598,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 359,
+    "durationMs": 353,
     "jobSamples": [
       {
         "title": "2027 Investment Banking Full-Time MBA Associate",
@@ -590,10 +634,10 @@
     "requestSuccess": true,
     "httpStatus": 200,
     "parseSuccess": true,
-    "jobsReturned": 179,
+    "jobsReturned": 178,
     "pagesFetched": 9,
-    "recordsReportedBySource": 179,
-    "recordsRetrieved": 179,
+    "recordsReportedBySource": 178,
+    "recordsRetrieved": 178,
     "sourceVerified": true,
     "verificationConfidence": 1,
     "verificationEvidence": [
@@ -603,7 +647,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 6888,
+    "durationMs": 6846,
     "jobSamples": [
       {
         "title": "International Finance, Associate - Luxembourg",
@@ -622,7 +666,7 @@
       }
     ],
     "jobsByType": {
-      "unknown": 179
+      "unknown": 178
     }
   },
   {
@@ -728,7 +772,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 12067,
+    "durationMs": 16056,
     "jobSamples": [
       {
         "title": "Vice President, Financial & Business Management Lead (Technology)",
@@ -801,7 +845,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 418,
+    "durationMs": 944,
     "jobSamples": [
       {
         "title": "2026 Point72 Academy National Case Competition - US",
@@ -875,7 +919,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 345,
+    "durationMs": 492,
     "jobSamples": [
       {
         "title": "Accounting Coordinator",
@@ -922,7 +966,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 581,
+    "durationMs": 935,
     "jobSamples": [
       {
         "title": "2026 Shanghai Machine Learning Modelling Engineer Internship, PhD",
@@ -958,10 +1002,10 @@
     "requestSuccess": true,
     "httpStatus": 200,
     "parseSuccess": true,
-    "jobsReturned": 170,
+    "jobsReturned": 169,
     "pagesFetched": 9,
-    "recordsReportedBySource": 170,
-    "recordsRetrieved": 170,
+    "recordsReportedBySource": 169,
+    "recordsRetrieved": 169,
     "sourceVerified": true,
     "verificationConfidence": 1,
     "verificationEvidence": [
@@ -971,7 +1015,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 357,
+    "durationMs": 439,
     "jobSamples": [
       {
         "title": "2027 EU Campus Programme Talent Community",
@@ -990,7 +1034,7 @@
       }
     ],
     "jobsByType": {
-      "unknown": 151,
+      "unknown": 150,
       "internship": 19
     }
   },
@@ -1175,7 +1219,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 230,
+    "durationMs": 291,
     "jobSamples": [
       {
         "title": "Application Support Engineer",
@@ -1378,7 +1422,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 130,
+    "durationMs": 165,
     "jobSamples": [
       {
         "title": "Experienced Quant",
@@ -1413,10 +1457,10 @@
     "requestSuccess": true,
     "httpStatus": 200,
     "parseSuccess": true,
-    "jobsReturned": 47,
+    "jobsReturned": 46,
     "pagesFetched": 3,
-    "recordsReportedBySource": 47,
-    "recordsRetrieved": 47,
+    "recordsReportedBySource": 46,
+    "recordsRetrieved": 46,
     "sourceVerified": true,
     "verificationConfidence": 1,
     "verificationEvidence": [
@@ -1426,7 +1470,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 221,
+    "durationMs": 242,
     "jobSamples": [
       {
         "title": "Amsterdam Trader Summer Internship 2027",
@@ -1446,7 +1490,7 @@
     ],
     "jobsByType": {
       "internship": 5,
-      "unknown": 41,
+      "unknown": 40,
       "contract": 1
     }
   },
@@ -1579,7 +1623,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 183,
+    "durationMs": 203,
     "jobSamples": [
       {
         "title": "2026 Sophomore Job Shadow Program",
@@ -1628,7 +1672,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 129,
+    "durationMs": 160,
     "jobSamples": [
       {
         "title": "Business Operations - General Application",
@@ -1663,10 +1707,10 @@
     "requestSuccess": true,
     "httpStatus": 200,
     "parseSuccess": true,
-    "jobsReturned": 304,
+    "jobsReturned": 306,
     "pagesFetched": 16,
-    "recordsReportedBySource": 304,
-    "recordsRetrieved": 304,
+    "recordsReportedBySource": 306,
+    "recordsRetrieved": 306,
     "sourceVerified": true,
     "verificationConfidence": 1,
     "verificationEvidence": [
@@ -1676,26 +1720,26 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 8373,
+    "durationMs": 7594,
     "jobSamples": [
       {
-        "title": "VP, PEP/SLS Fund Accounting, PFS",
-        "location": "2 Locations",
-        "url": "https://blackrock.wd1.myworkdayjobs.com"
-      },
-      {
-        "title": "Associate, Private Credit Middle Office, PFS - New York",
+        "title": "Veterans Transition Program -Associate, Financial Planning & Analysis",
         "location": "New York, NY",
         "url": "https://blackrock.wd1.myworkdayjobs.com"
       },
       {
-        "title": "Analyst, Retail Client Experience Management",
-        "location": "Boston, MA",
+        "title": "Associate, Transaction Management - Delaware",
+        "location": "Wilmington, DE",
+        "url": "https://blackrock.wd1.myworkdayjobs.com"
+      },
+      {
+        "title": "Senior Java Engineer - ETF Solutions Platform (ESP), VP",
+        "location": "Atlanta, GA",
         "url": "https://blackrock.wd1.myworkdayjobs.com"
       }
     ],
     "jobsByType": {
-      "unknown": 304
+      "unknown": 306
     }
   },
   {
@@ -1710,10 +1754,10 @@
     "requestSuccess": true,
     "httpStatus": 200,
     "parseSuccess": true,
-    "jobsReturned": 41,
-    "pagesFetched": 3,
-    "recordsReportedBySource": 41,
-    "recordsRetrieved": 41,
+    "jobsReturned": 40,
+    "pagesFetched": 2,
+    "recordsReportedBySource": 40,
+    "recordsRetrieved": 40,
     "sourceVerified": true,
     "verificationConfidence": 1,
     "verificationEvidence": [
@@ -1723,7 +1767,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 2381,
+    "durationMs": 1579,
     "jobSamples": [
       {
         "title": "Portfolio Management Analyst, BREEVA Fund (Real Estate Equity)",
@@ -1742,7 +1786,7 @@
       }
     ],
     "jobsByType": {
-      "unknown": 41
+      "unknown": 40
     }
   },
   {
@@ -1757,10 +1801,10 @@
     "requestSuccess": true,
     "httpStatus": 200,
     "parseSuccess": true,
-    "jobsReturned": 194,
+    "jobsReturned": 192,
     "pagesFetched": 10,
-    "recordsReportedBySource": 194,
-    "recordsRetrieved": 194,
+    "recordsReportedBySource": 192,
+    "recordsRetrieved": 192,
     "sourceVerified": true,
     "verificationConfidence": 1,
     "verificationEvidence": [
@@ -1770,13 +1814,8 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 7005,
+    "durationMs": 8043,
     "jobSamples": [
-      {
-        "title": "Account Associate – US GWM Growth Markets (Sales)",
-        "location": "New York, NY USA",
-        "url": "https://pimco.wd1.myworkdayjobs.com"
-      },
       {
         "title": "Account Associate – US GWM Growth Markets (Sales)",
         "location": "New York, NY USA",
@@ -1786,10 +1825,15 @@
         "title": "Position Management Transformation Manager",
         "location": "Newport Beach, CA USA",
         "url": "https://pimco.wd1.myworkdayjobs.com"
+      },
+      {
+        "title": "Position Management Data Associate",
+        "location": "Newport Beach, CA USA",
+        "url": "https://pimco.wd1.myworkdayjobs.com"
       }
     ],
     "jobsByType": {
-      "unknown": 194
+      "unknown": 192
     }
   },
   {
@@ -1804,10 +1848,10 @@
     "requestSuccess": true,
     "httpStatus": 200,
     "parseSuccess": true,
-    "jobsReturned": 149,
+    "jobsReturned": 150,
     "pagesFetched": 8,
-    "recordsReportedBySource": 149,
-    "recordsRetrieved": 149,
+    "recordsReportedBySource": 150,
+    "recordsRetrieved": 150,
     "sourceVerified": true,
     "verificationConfidence": 1,
     "verificationEvidence": [
@@ -1817,8 +1861,13 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 6221,
+    "durationMs": 9427,
     "jobSamples": [
+      {
+        "title": "Finance Data Solutions Senior Analyst",
+        "location": "Irvine",
+        "url": "https://capgroup.wd1.myworkdayjobs.com"
+      },
       {
         "title": "Senior Manager, AI Client Enablement Platform",
         "location": "3 Locations",
@@ -1828,15 +1877,10 @@
         "title": "Platform Engineering Manager",
         "location": "Charlotte",
         "url": "https://capgroup.wd1.myworkdayjobs.com"
-      },
-      {
-        "title": "Internal Sales Manager (Retirement Plan Focus)",
-        "location": "Los Angeles",
-        "url": "https://capgroup.wd1.myworkdayjobs.com"
       }
     ],
     "jobsByType": {
-      "unknown": 149
+      "unknown": 150
     }
   },
   {
@@ -1851,10 +1895,10 @@
     "requestSuccess": true,
     "httpStatus": 200,
     "parseSuccess": true,
-    "jobsReturned": 51,
+    "jobsReturned": 49,
     "pagesFetched": 3,
-    "recordsReportedBySource": 51,
-    "recordsRetrieved": 51,
+    "recordsReportedBySource": 49,
+    "recordsRetrieved": 49,
     "sourceVerified": true,
     "verificationConfidence": 1,
     "verificationEvidence": [
@@ -1864,7 +1908,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 2156,
+    "durationMs": 4089,
     "jobSamples": [
       {
         "title": "Trade Desk Associate",
@@ -1883,7 +1927,7 @@
       }
     ],
     "jobsByType": {
-      "unknown": 51
+      "unknown": 49
     }
   },
   {
@@ -1898,10 +1942,10 @@
     "requestSuccess": true,
     "httpStatus": 200,
     "parseSuccess": true,
-    "jobsReturned": 442,
+    "jobsReturned": 447,
     "pagesFetched": 23,
-    "recordsReportedBySource": 442,
-    "recordsRetrieved": 442,
+    "recordsReportedBySource": 447,
+    "recordsRetrieved": 447,
     "sourceVerified": true,
     "verificationConfidence": 1,
     "verificationEvidence": [
@@ -1911,26 +1955,26 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 24309,
+    "durationMs": 27137,
     "jobSamples": [
       {
-        "title": "Mobile Digital Payments Architect",
-        "location": "Malvern, PA",
-        "url": "https://vanguard.wd5.myworkdayjobs.com"
-      },
-      {
-        "title": "Data Product Architect",
+        "title": "Container Security Engineer",
         "location": "3 Locations",
         "url": "https://vanguard.wd5.myworkdayjobs.com"
       },
       {
-        "title": "Senior Portfolio Strategist",
-        "location": "4 Locations",
+        "title": "Manager, High Net Worth Relationship Managers",
+        "location": "Malvern, PA",
+        "url": "https://vanguard.wd5.myworkdayjobs.com"
+      },
+      {
+        "title": "Data Analyst, Fraud Data & Analytics",
+        "location": "3 Locations",
         "url": "https://vanguard.wd5.myworkdayjobs.com"
       }
     ],
     "jobsByType": {
-      "unknown": 442
+      "unknown": 447
     }
   },
   {
@@ -1957,7 +2001,7 @@
     "healthStatus": "HEALTHY",
     "coverageStatus": "COVERED_ACTIVE",
     "failureReason": null,
-    "durationMs": 3462,
+    "durationMs": 14038,
     "jobSamples": [
       {
         "title": "Real Estate Asset Manager",
@@ -1986,24 +2030,45 @@
     "companyTier": "P2",
     "configuredProvider": "oracle_hcm",
     "enabled": false,
-    "hasSources": false,
-    "capability": "unsupported",
-    "requestSuccess": false,
-    "httpStatus": null,
-    "parseSuccess": false,
-    "jobsReturned": 0,
-    "pagesFetched": 0,
-    "recordsReportedBySource": null,
-    "recordsRetrieved": 0,
-    "sourceVerified": false,
-    "verificationConfidence": 0,
-    "verificationEvidence": [],
-    "healthStatus": "unknown",
-    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
-    "failureReason": "Provider oracle_hcm is unsupported",
-    "durationMs": 0,
-    "jobSamples": [],
-    "jobsByType": {}
+    "hasSources": true,
+    "capability": "supported",
+    "requestSuccess": true,
+    "httpStatus": 200,
+    "parseSuccess": true,
+    "jobsReturned": 101,
+    "pagesFetched": 6,
+    "recordsReportedBySource": 101,
+    "recordsRetrieved": 101,
+    "sourceVerified": true,
+    "verificationConfidence": 0.95,
+    "verificationEvidence": [
+      "10/10 jobs match company name/ID"
+    ],
+    "healthStatus": "HEALTHY",
+    "coverageStatus": "COVERED_ACTIVE",
+    "failureReason": null,
+    "durationMs": 1333,
+    "jobSamples": [
+      {
+        "title": "Chargé(e) de mission – Intelligence Artificielle – H/F",
+        "location": "Paris, France",
+        "url": "https://icbpjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions/6387"
+      },
+      {
+        "title": "Analyst - Industrials",
+        "location": "Minneapolis, United States",
+        "url": "https://icbpjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions/6512"
+      },
+      {
+        "title": "Financial Planning & Analysis Manager (New York)",
+        "location": "New York, United States",
+        "url": "https://icbpjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions/6547"
+      }
+    ],
+    "jobsByType": {
+      "full_time": 83,
+      "internship": 18
+    }
   },
   {
     "company": "Interpath Advisory",

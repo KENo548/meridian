@@ -131,6 +131,7 @@ const SOURCES = {
   workday: { name: 'Workday (Direct ATS)', configured: true, description: 'Workday career portal API — paginated' },
   smartrecruiters: { name: 'SmartRecruiters (Direct ATS)', configured: true, description: 'SmartRecruiters public postings API' },
   lever: { name: 'Lever (Direct ATS)', configured: true, description: 'Lever public postings API — no auth needed' },
+  oracle_hcm: { name: 'Oracle HCM (Direct ATS)', configured: true, description: 'Oracle HCM Candidate Experience API — no auth needed' },
   rss: { name: 'RSS Feeds', configured: true, description: 'RSS job feeds from various banks and firms' },
   adzuna: { name: 'Adzuna', configured: ADZUNA_ENABLED, description: 'Adzuna job search API' },
   jsearch: { name: 'JSearch', configured: JSEARCH_ENABLED, description: 'JSearch (RapidAPI) job search' },

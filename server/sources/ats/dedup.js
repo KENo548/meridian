@@ -5,6 +5,7 @@ const DIRECT_SOURCES = new Set([
   'smartrecruiters',
   'lever',
   'ashby',
+  'oracle_hcm',
 ])
 
 function getDedupKey(job) {

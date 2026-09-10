@@ -1,10 +1,10 @@
 [
   {
     "provider": "custom",
-    "firmsBlocked": 42,
+    "firmsBlocked": 40,
     "estimatedEffort": 2,
     "strategicImportance": 2,
-    "weightedScore": "42.00",
+    "weightedScore": "40.00",
     "note": "Various custom career sites"
   },
   {
@@ -30,14 +30,6 @@
     "strategicImportance": 4,
     "weightedScore": "2.00",
     "note": "Eightfold AI — used by Morgan Stanley, Millennium"
-  },
-  {
-    "provider": "oracle_hcm",
-    "firmsBlocked": 2,
-    "estimatedEffort": 4,
-    "strategicImportance": 3,
-    "weightedScore": "1.50",
-    "note": "Oracle HCM — used by JPMorgan, Schroders"
   },
   {
     "provider": "avature",

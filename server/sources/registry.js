@@ -36,12 +36,14 @@ const FIRMS = [
     id: 'goldman-sachs',
     name: 'Goldman Sachs',
     category: 'bulge_bracket',
-    careersUrl: 'https://higher.gs.com',
+    careersUrl: 'https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/LateralHiring/jobs',
     enabled: true,
     priority: 'P0',
-    careersProvider: 'custom',
+    careersProvider: 'oracle_hcm',
     atsSlug: null,
-    sources: [],
+    sources: [
+      { provider: 'oracle_hcm', careersUrl: 'https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/LateralHiring/jobs', enabled: true, sourceOrigin: 'curated', atsHostname: 'hdpc.fa.us2.oraclecloud.com', atsSiteNumber: 'LateralHiring' },
+    ],
     careerSources: [],
   },
   {
@@ -54,7 +56,9 @@ const FIRMS = [
     careersProvider: 'oracle_hcm',
     atsSlug: null,
     notes: 'Oracle HCM — needs custom adapter',
-    sources: [],
+    sources: [
+      { provider: 'oracle_hcm', careersUrl: 'https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/jobs', enabled: true, sourceOrigin: 'curated', atsHostname: 'jpmc.fa.oraclecloud.com', atsSiteNumber: 'CX_1001' },
+    ],
   },
   {
     id: 'morgan-stanley',
@@ -978,13 +982,15 @@ const FIRMS = [
     id: 'schroders',
     name: 'Schroders',
     category: 'asset_management',
-    careersUrl: 'https://ekbq.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2/jobs',
+    careersUrl: 'https://icbpjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/jobs',
     enabled: false,
     priority: 'P2',
     careersProvider: 'oracle_hcm',
     atsSlug: null,
     notes: 'Oracle HCM Cloud — needs custom adapter',
-    sources: [],
+    sources: [
+      { provider: 'oracle_hcm', careersUrl: 'https://icbpjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/jobs', enabled: true, sourceOrigin: 'curated', atsHostname: 'icbpjb.fa.ocs.oraclecloud.com', atsSiteNumber: 'CX_1001' },
+    ],
     careerSources: [],
   },
   {

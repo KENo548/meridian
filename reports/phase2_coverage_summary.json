@@ -1,21 +1,21 @@
 {
   "metadata": {
-    "timestamp": "2026-09-10T19:03:45.034Z",
+    "timestamp": "2026-09-10T21:22:44.409Z",
     "gitCommit": "fa857a1",
     "registrySize": 60,
     "enabledFirms": 40,
-    "sweepDuration": 78777
+    "sweepDuration": 138565
   },
   "coverage": {
     "totalFirms": 60,
-    "directlyCovered": 23,
-    "coveragePercent": 38.3,
-    "weightedCoveragePercent": 37.2,
+    "directlyCovered": 26,
+    "coveragePercent": 43.3,
+    "weightedCoveragePercent": 42.4,
     "byStatus": {
-      "COVERED_ACTIVE": 23,
+      "COVERED_ACTIVE": 26,
       "COVERED_ZERO": 0,
       "PARTIAL": 0,
-      "SOURCE_FOUND_UNSUPPORTED": 37,
+      "SOURCE_FOUND_UNSUPPORTED": 34,
       "SOURCE_UNKNOWN": 0,
       "SOURCE_BROKEN": 0,
       "NEEDS_MANUAL_REVIEW": 0,
@@ -23,45 +23,36 @@
     }
   },
   "jobs": {
-    "totalOfficialJobs": 2864,
+    "totalOfficialJobs": 6277,
     "jobsByProvider": {
-      "custom": 0,
-      "oracle_hcm": 0,
+      "oracle_hcm": 3414,
       "eightfold": 0,
-      "workday": 1761,
+      "workday": 1763,
+      "custom": 0,
       "successfactors": 0,
-      "oleeo_rss": 101,
-      "greenhouse": 1002,
+      "oleeo_rss": 100,
+      "greenhouse": 1000,
       "avature": 0,
       "workable": 0
     },
     "jobsByProgramme": {
-      "internship": 164,
-      "full_time": 8,
+      "full_time": 3156,
+      "internship": 406,
+      "apprenticeship": 23,
       "unknown": 2689,
       "contract": 3
     }
   },
   "providerPerformance": {
-    "custom": {
-      "firms": 21,
-      "success": 0,
-      "fail": 21,
-      "jobs": 0,
-      "zeroJobs": 0,
-      "medianMs": 0,
-      "p90Ms": 0,
-      "successRate": "0.0"
-    },
     "oracle_hcm": {
-      "firms": 2,
-      "success": 0,
-      "fail": 2,
-      "jobs": 0,
+      "firms": 3,
+      "success": 3,
+      "fail": 0,
+      "jobs": 3414,
       "zeroJobs": 0,
-      "medianMs": 0,
-      "p90Ms": 0,
-      "successRate": "0.0"
+      "medianMs": 14273,
+      "p90Ms": 21616,
+      "successRate": "100.0"
     },
     "eightfold": {
       "firms": 2,
@@ -77,11 +68,21 @@
       "firms": 16,
       "success": 10,
       "fail": 6,
-      "jobs": 1761,
+      "jobs": 1763,
       "zeroJobs": 0,
-      "medianMs": 2381,
-      "p90Ms": 12067,
+      "medianMs": 4089,
+      "p90Ms": 16056,
       "successRate": "62.5"
+    },
+    "custom": {
+      "firms": 20,
+      "success": 0,
+      "fail": 20,
+      "jobs": 0,
+      "zeroJobs": 0,
+      "medianMs": 0,
+      "p90Ms": 0,
+      "successRate": "0.0"
     },
     "successfactors": {
       "firms": 2,
@@ -97,20 +98,20 @@
       "firms": 4,
       "success": 3,
       "fail": 1,
-      "jobs": 101,
+      "jobs": 100,
       "zeroJobs": 0,
-      "medianMs": 499,
-      "p90Ms": 655,
+      "medianMs": 360,
+      "p90Ms": 422,
       "successRate": "75.0"
     },
     "greenhouse": {
       "firms": 10,
       "success": 10,
       "fail": 0,
-      "jobs": 1002,
+      "jobs": 1000,
       "zeroJobs": 0,
-      "medianMs": 345,
-      "p90Ms": 581,
+      "medianMs": 353,
+      "p90Ms": 944,
       "successRate": "100.0"
     },
     "avature": {
@@ -135,10 +136,9 @@
     }
   },
   "unsupportedBreakdown": {
-    "custom": 42,
-    "oracle_hcm": 2,
     "eightfold": 2,
     "workday": 6,
+    "custom": 40,
     "successfactors": 2,
     "oleeo_rss": 1,
     "avature": 2,
@@ -147,9 +147,9 @@
   "adapterROI": [
     {
       "provider": "custom",
-      "firms": 42,
+      "firms": 40,
       "effort": 2,
-      "roi": "21.00"
+      "roi": "20.00"
     },
     {
       "provider": "workday",
@@ -162,12 +162,6 @@
       "firms": 2,
       "effort": 3,
       "roi": "0.67"
-    },
-    {
-      "provider": "oracle_hcm",
-      "firms": 2,
-      "effort": 4,
-      "roi": "0.50"
     },
     {
       "provider": "eightfold",
@@ -197,8 +191,8 @@
   "coverageByCategory": {
     "bulge_bracket": {
       "total": 10,
-      "covered": 0,
-      "jobs": 0
+      "covered": 2,
+      "jobs": 3313
     },
     "elite_boutique": {
       "total": 6,
@@ -208,12 +202,12 @@
     "middle_market": {
       "total": 4,
       "covered": 3,
-      "jobs": 140
+      "jobs": 139
     },
     "private_equity": {
       "total": 7,
       "covered": 2,
-      "jobs": 467
+      "jobs": 466
     },
     "hedge_fund": {
       "total": 10,
@@ -223,7 +217,7 @@
     "prop_trading": {
       "total": 4,
       "covered": 3,
-      "jobs": 565
+      "jobs": 564
     },
     "bank": {
       "total": 3,
@@ -232,13 +226,13 @@
     },
     "asset_management": {
       "total": 9,
-      "covered": 6,
-      "jobs": 1226
+      "covered": 7,
+      "jobs": 1332
     },
     "broker_dealer": {
       "total": 1,
       "covered": 1,
-      "jobs": 47
+      "jobs": 46
     },
     "consulting": {
       "total": 2,
@@ -253,7 +247,7 @@
     "exchanges": {
       "total": 1,
       "covered": 1,
-      "jobs": 51
+      "jobs": 49
     },
     "advisory": {
       "total": 2,
@@ -263,18 +257,6 @@
   },
   "suspiciousZeros": [],
   "uncoveredFirms": [
-    {
-      "company": "Goldman Sachs",
-      "provider": "custom",
-      "status": "SOURCE_FOUND_UNSUPPORTED",
-      "reason": "Provider custom is unsupported"
-    },
-    {
-      "company": "JPMorgan",
-      "provider": "oracle_hcm",
-      "status": "SOURCE_FOUND_UNSUPPORTED",
-      "reason": "Provider oracle_hcm is unsupported"
-    },
     {
       "company": "Morgan Stanley",
       "provider": "eightfold",
@@ -466,12 +448,6 @@
       "provider": "custom",
       "status": "SOURCE_FOUND_UNSUPPORTED",
       "reason": "Provider custom is unsupported"
-    },
-    {
-      "company": "Schroders",
-      "provider": "oracle_hcm",
-      "status": "SOURCE_FOUND_UNSUPPORTED",
-      "reason": "Provider oracle_hcm is unsupported"
     },
     {
       "company": "Interpath Advisory",

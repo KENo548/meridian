@@ -4,6 +4,7 @@ import { fetchWorkdayJobs } from './ats/workday.js'
 import { fetchSmartRecruitersJobs } from './ats/smartrecruiters.js'
 import { fetchLeverJobs } from './ats/lever.js'
 import { fetchAshbyJobs } from './ats/ashby.js'
+import { fetchOracleHcmJobs } from './ats/oracle-hcm.js'
 
 // ─── Source Capability States ──────────────────────────────────
 // SUPPORTED: Full adapter, reliably fetches jobs
@@ -19,8 +20,8 @@ const CAPABILITY = {
   workday: 'supported',
   smartrecruiters: 'supported',
   oleeo_rss: 'supported',
+  oracle_hcm: 'supported',
   successfactors: 'unsupported',
-  oracle_hcm: 'unsupported',
   eightfold: 'unsupported',
   avature: 'unsupported',
   icims: 'unsupported',
@@ -38,6 +39,7 @@ const ADAPTERS = {
   workday: fetchWorkdayJobs,
   smartrecruiters: fetchSmartRecruitersJobs,
   oleeo_rss: fetchOleeoRssJobs,
+  oracle_hcm: fetchOracleHcmJobs,
 }
 
 function getCapability(provider) {

@@ -1,25 +1,5 @@
 [
   {
-    "company": "Goldman Sachs",
-    "companyType": "bulge_bracket",
-    "companyTier": "P0",
-    "provider": "custom",
-    "capability": "unsupported",
-    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
-    "failureReason": "Provider custom is unsupported",
-    "recommendation": "Implement custom adapter or find alternative source"
-  },
-  {
-    "company": "JPMorgan",
-    "companyType": "bulge_bracket",
-    "companyTier": "P0",
-    "provider": "oracle_hcm",
-    "capability": "unsupported",
-    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
-    "failureReason": "Provider oracle_hcm is unsupported",
-    "recommendation": "Implement oracle_hcm adapter or find alternative source"
-  },
-  {
     "company": "Morgan Stanley",
     "companyType": "bulge_bracket",
     "companyTier": "P0",
@@ -338,16 +318,6 @@
     "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
     "failureReason": "Provider custom is unsupported",
     "recommendation": "Implement custom adapter or find alternative source"
-  },
-  {
-    "company": "Schroders",
-    "companyType": "asset_management",
-    "companyTier": "P2",
-    "provider": "oracle_hcm",
-    "capability": "unsupported",
-    "coverageStatus": "SOURCE_FOUND_UNSUPPORTED",
-    "failureReason": "Provider oracle_hcm is unsupported",
-    "recommendation": "Implement oracle_hcm adapter or find alternative source"
   },
   {
     "company": "Interpath Advisory",
