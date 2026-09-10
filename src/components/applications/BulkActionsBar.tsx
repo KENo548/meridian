@@ -15,11 +15,11 @@ export function BulkActionsBar() {
   if (!selectedIds.length) return null
 
   return (
-    <div className="sticky bottom-4 z-20 mx-auto max-w-3xl rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] shadow-xl px-4 py-3 flex flex-wrap items-center gap-3 animate-fade-in">
+    <div className="sticky bottom-4 z-20 mx-auto max-w-3xl rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] shadow-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-wrap items-center gap-2 sm:gap-3 animate-fade-in">
       <span className="text-sm font-medium text-[var(--color-text)]">
         {selectedIds.length} selected
       </span>
-      <div className="w-44">
+      <div className="w-36 sm:w-44">
         <Select
           aria-label="Bulk status"
           placeholder="Set status…"

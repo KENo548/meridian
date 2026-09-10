@@ -479,21 +479,22 @@ function OpportunityCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap justify-end">
           {opp.status !== 'closed' && (
-            <Button variant="ghost" size="sm" onClick={onTrack}>
+            <Button variant="ghost" size="sm" onClick={onTrack} className="text-xs sm:text-sm">
               <Star className="size-3.5" />
-              Track
+              <span className="hidden sm:inline">Track</span>
             </Button>
           )}
           {opp.applyUrl && (
-            <Button variant="secondary" size="sm" onClick={onApply}>
+            <Button variant="secondary" size="sm" onClick={onApply} className="text-xs sm:text-sm">
               <ExternalLink className="size-3.5" />
-              Apply
+              <span className="hidden sm:inline">Apply</span>
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={onDetail}>
-            Details
+          <Button variant="ghost" size="sm" onClick={onDetail} className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">Details</span>
+            <span className="sm:hidden">Info</span>
           </Button>
         </div>
       </div>

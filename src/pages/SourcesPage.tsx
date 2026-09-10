@@ -959,7 +959,7 @@ export function SourcesPage() {
             RSS Feeds
           </h3>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Input
               placeholder="https://example.com/rss/jobs"
               value={newFeedUrl}
@@ -968,18 +968,20 @@ export function SourcesPage() {
               leftIcon={<Rss className="size-4" />}
               className="flex-1"
             />
-            <Button variant="secondary" onClick={handleAddFeed} disabled={addingFeed || !newFeedUrl.trim()}>
-              {addingFeed ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-              Add
-            </Button>
-            <Button variant="teal" onClick={handleCheckRss} disabled={checkingRss || rssFeeds.length === 0}>
-              {checkingRss ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <RefreshCw className="size-4" />
-              )}
-              Check Feeds
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={handleAddFeed} disabled={addingFeed || !newFeedUrl.trim()}>
+                {addingFeed ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                Add
+              </Button>
+              <Button variant="teal" onClick={handleCheckRss} disabled={checkingRss || rssFeeds.length === 0}>
+                {checkingRss ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                Check Feeds
+              </Button>
+            </div>
           </div>
 
           {rssFeeds.length > 0 ? (

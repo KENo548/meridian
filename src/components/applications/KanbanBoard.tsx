@@ -94,6 +94,116 @@ function columnStatusForDrop(columnId: string): ApplicationStatus {
   return col?.statuses[0] ?? 'interested'
 }
 
+function MobileKanbanView({ applications }: KanbanBoardProps) {
+  const [activeColumn, setActiveColumn] = useState(KANBAN_COLUMNS[0]?.id ?? '')
+  const updateApplication = useMeridianStore((s) => s.updateApplication)
+  const [activeId, setActiveId] = useState<string | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  )
+
+  const byColumn = useMemo(() => {
+    const map: Record<string, Application[]> = {}
+    for (const col of KANBAN_COLUMNS) {
+      map[col.id] = applications.filter((a) => col.statuses.includes(a.status))
+    }
+    return map
+  }, [applications])
+
+  const activeApp = activeId ? applications.find((a) => a.id === activeId) : undefined
+
+  const onDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id))
+  }
+
+  const onDragEnd = (event: DragEndEvent) => {
+    setActiveId(null)
+    const { active, over } = event
+    if (!over) return
+
+    const appId = String(active.id)
+    let targetColumnId = String(over.id)
+
+    if (!KANBAN_COLUMNS.some((c) => c.id === targetColumnId)) {
+      const overApp = applications.find((a) => a.id === targetColumnId)
+      if (overApp) {
+        const col = KANBAN_COLUMNS.find((c) => c.statuses.includes(overApp.status))
+        if (col) targetColumnId = col.id
+      } else {
+        return
+      }
+    }
+
+    const app = applications.find((a) => a.id === appId)
+    if (!app) return
+    const nextStatus = columnStatusForDrop(targetColumnId)
+    const targetCol = KANBAN_COLUMNS.find((c) => c.id === targetColumnId)
+    if (targetCol?.statuses.includes(app.status)) return
+    void updateApplication(appId, { status: nextStatus })
+  }
+
+  const currentCol = KANBAN_COLUMNS.find((c) => c.id === activeColumn)
+  const currentApps = byColumn[activeColumn] ?? []
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
+        {KANBAN_COLUMNS.map((col) => (
+          <button
+            key={col.id}
+            type="button"
+            onClick={() => setActiveColumn(col.id)}
+            className={clsx(
+              'flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors shrink-0',
+              activeColumn === col.id
+                ? 'bg-[var(--color-accent)] text-[#0a0e16]'
+                : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-text)]',
+            )}
+          >
+            {col.label}
+            <span className={clsx(
+              'size-5 rounded-full flex items-center justify-center text-[10px] font-semibold',
+              activeColumn === col.id
+                ? 'bg-[#0a0e16]/20 text-[#0a0e16]'
+                : 'bg-[var(--color-border)] text-[var(--color-faint)]',
+            )}>
+              {(byColumn[col.id] ?? []).length}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      >
+        <div className="flex flex-col gap-2 min-h-[100px]">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-[var(--color-text)]">{currentCol?.label}</h3>
+            <span className="text-xs text-[var(--color-muted)]">{currentApps.length} items</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {currentApps.map((app) => (
+              <KanbanCard key={app.id} app={app} />
+            ))}
+            {currentApps.length === 0 && (
+              <div className="rounded-lg border border-dashed border-[var(--color-border)] p-6 text-center">
+                <p className="text-sm text-[var(--color-muted)]">No applications in this column</p>
+              </div>
+            )}
+          </div>
+        </div>
+        <DragOverlay>
+          {activeApp ? <KanbanCard app={activeApp} dragging /> : null}
+        </DragOverlay>
+      </DndContext>
+    </div>
+  )
+}
+
 export function KanbanBoard({ applications }: KanbanBoardProps) {
   const updateApplication = useMeridianStore((s) => s.updateApplication)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -124,7 +234,6 @@ export function KanbanBoard({ applications }: KanbanBoardProps) {
     const appId = String(active.id)
     let targetColumnId = String(over.id)
 
-    // Dropped on a card — find its column
     if (!KANBAN_COLUMNS.some((c) => c.id === targetColumnId)) {
       const overApp = applications.find((a) => a.id === targetColumnId)
       if (overApp) {
@@ -144,20 +253,27 @@ export function KanbanBoard({ applications }: KanbanBoardProps) {
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-    >
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {KANBAN_COLUMNS.map((col) => (
-          <Column key={col.id} id={col.id} label={col.label} apps={byColumn[col.id] ?? []} />
-        ))}
+    <>
+      <div className="hidden md:block">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+        >
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {KANBAN_COLUMNS.map((col) => (
+              <Column key={col.id} id={col.id} label={col.label} apps={byColumn[col.id] ?? []} />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeApp ? <KanbanCard app={activeApp} dragging /> : null}
+          </DragOverlay>
+        </DndContext>
       </div>
-      <DragOverlay>
-        {activeApp ? <KanbanCard app={activeApp} dragging /> : null}
-      </DragOverlay>
-    </DndContext>
+      <div className="md:hidden">
+        <MobileKanbanView applications={applications} />
+      </div>
+    </>
   )
 }

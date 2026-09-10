@@ -135,7 +135,7 @@ export function ApplicationDetailPanel() {
           {/* ── Overview ──────────────────────────────── */}
           <section className="space-y-3">
             <SectionHeader>Overview</SectionHeader>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input label="Company" value={app.companyName} onChange={(e) => saveField({ companyName: e.target.value })} />
               <Input label="Role" value={app.jobTitle} onChange={(e) => saveField({ jobTitle: e.target.value })} />
               <Input
@@ -182,7 +182,7 @@ export function ApplicationDetailPanel() {
           {/* ── Company ───────────────────────────────── */}
           <section className="space-y-3">
             <SectionHeader>Company</SectionHeader>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select
                 label="Company type"
                 value={app.companyType ?? ''}
@@ -262,7 +262,7 @@ export function ApplicationDetailPanel() {
           {/* ── Dates ─────────────────────────────────── */}
           <section className="space-y-3">
             <SectionHeader>Dates</SectionHeader>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 label="Opening date"
                 type="date"

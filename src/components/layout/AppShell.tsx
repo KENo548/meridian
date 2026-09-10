@@ -55,7 +55,7 @@ export function AppShell() {
           </Button>
           <span className="font-display font-semibold">{APP_NAME}</span>
         </header>
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-6 sm:pb-8 lg:pb-8 overflow-x-hidden" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
           <Outlet />
         </main>
       </div>
