@@ -3,19 +3,55 @@ import { fetchOleeoRssJobs } from './ats/oleeo-rss.js'
 import { fetchWorkdayJobs } from './ats/workday.js'
 import { fetchSmartRecruitersJobs } from './ats/smartrecruiters.js'
 import { fetchLeverJobs } from './ats/lever.js'
-import { fetchCustomJobs } from './ats/custom.js'
+import { fetchAshbyJobs } from './ats/ashby.js'
 
+// ─── Source Capability States ──────────────────────────────────
+// SUPPORTED: Full adapter, reliably fetches jobs
+// PARTIAL:   Adapter exists but may miss some job types or regions
+// DISCOVERY_ONLY: Can detect the ATS but not reliably fetch jobs yet
+// UNSUPPORTED: Known provider but no adapter implemented
+// BROKEN:    Adapter exists but currently non-functional
+
+const CAPABILITY = {
+  greenhouse: 'supported',
+  lever: 'supported',
+  ashby: 'supported',
+  workday: 'supported',
+  smartrecruiters: 'supported',
+  oleeo_rss: 'supported',
+  successfactors: 'unsupported',
+  oracle_hcm: 'unsupported',
+  eightfold: 'unsupported',
+  avature: 'unsupported',
+  icims: 'unsupported',
+  taleo: 'unsupported',
+  teamtailor: 'unsupported',
+  recruitee: 'unsupported',
+  custom: 'unsupported',
+}
+
+// Adapters that actually fetch jobs
 const ADAPTERS = {
   greenhouse: fetchGreenhouseJobs,
-  oleeo_rss: fetchOleeoRssJobs,
+  lever: fetchLeverJobs,
+  ashby: fetchAshbyJobs,
   workday: fetchWorkdayJobs,
   smartrecruiters: fetchSmartRecruitersJobs,
-  lever: fetchLeverJobs,
-  custom: fetchCustomJobs,
-  oracle_hcm: fetchCustomJobs,
-  eightfold: fetchCustomJobs,
-  successfactors: fetchCustomJobs,
-  avature: fetchCustomJobs,
+  oleeo_rss: fetchOleeoRssJobs,
+}
+
+function getCapability(provider) {
+  return CAPABILITY[provider] || 'unsupported'
+}
+
+function isSupported(provider) {
+  return getCapability(provider) === 'supported'
+}
+
+function getSupportedProviders() {
+  return Object.entries(CAPABILITY)
+    .filter(([, cap]) => cap === 'supported' || cap === 'partial')
+    .map(([name]) => name)
 }
 
 async function fetchFirmJobs(firm) {
@@ -32,6 +68,20 @@ async function fetchFirmJobs(firm) {
 
     sourceResults.forEach((result, i) => {
       const source = enabledSources[i]
+      const capability = getCapability(source.provider)
+
+      if (capability === 'unsupported' || capability === 'broken') {
+        sourceReport[source.provider] = {
+          status: 'skipped',
+          count: 0,
+          error: `Provider ${source.provider} is ${capability}`,
+          capability,
+          careersUrl: source.careersUrl,
+          verified: false,
+        }
+        return
+      }
+
       if (result.status === 'fulfilled') {
         const { jobs, error } = result.value
         allJobs.push(...(jobs || []))
@@ -39,6 +89,7 @@ async function fetchFirmJobs(firm) {
           status: error ? 'error' : 'success',
           count: (jobs || []).length,
           error: error || null,
+          capability,
           careersUrl: source.careersUrl,
           verified: source.verified || false,
         }
@@ -47,6 +98,7 @@ async function fetchFirmJobs(firm) {
           status: 'error',
           count: 0,
           error: result.reason?.message || 'Unknown error',
+          capability,
           careersUrl: source.careersUrl,
           verified: source.verified || false,
         }
@@ -63,6 +115,28 @@ async function fetchFirmJobs(firm) {
 
   if (firm.careersProvider) {
     const provider = firm.careersProvider
+    const capability = getCapability(provider)
+
+    if (capability === 'unsupported' || capability === 'broken') {
+      return {
+        jobs: [],
+        source: provider,
+        total: 0,
+        firm: firm.name,
+        error: `Provider ${provider} is ${capability} — no jobs will be retrieved`,
+        sources: {
+          [provider]: {
+            status: 'skipped',
+            count: 0,
+            error: `Provider ${provider} is ${capability}`,
+            capability,
+            careersUrl: firm.careersUrl,
+            verified: false,
+          },
+        },
+      }
+    }
+
     const adapter = ADAPTERS[provider]
     if (!adapter) {
       return {
@@ -72,7 +146,7 @@ async function fetchFirmJobs(firm) {
         firm: firm.name,
         error: `No adapter for provider: ${provider}`,
         sources: {
-          [provider]: { status: 'error', count: 0, error: `No adapter for provider: ${provider}` },
+          [provider]: { status: 'error', count: 0, error: `No adapter for provider: ${provider}`, capability },
         },
       }
     }
@@ -85,6 +159,7 @@ async function fetchFirmJobs(firm) {
           status: result.error ? 'error' : 'success',
           count: result.total || 0,
           error: result.error || null,
+          capability,
           careersUrl: firm.careersUrl,
           verified: false,
         },
@@ -102,6 +177,18 @@ async function fetchFirmJobs(firm) {
 }
 
 async function fetchSourceJobs(firm, source) {
+  const capability = getCapability(source.provider)
+
+  if (capability === 'unsupported' || capability === 'broken') {
+    return {
+      jobs: [],
+      source: source.provider,
+      total: 0,
+      firm: firm.name,
+      error: `Provider ${source.provider} is ${capability}`,
+    }
+  }
+
   const adapter = ADAPTERS[source.provider]
   if (!adapter) {
     return {
@@ -117,6 +204,7 @@ async function fetchSourceJobs(firm, source) {
     ...firm,
     smartRecruitersCompanyId: source.companyId || source.boardSlug,
     leverCompanyId: source.companyId || source.boardSlug,
+    ashbyOrgId: source.boardSlug || source.companyIdentifier,
     atsSlug: source.boardSlug || source.atsSlug || firm.atsSlug,
     workdayTenant: source.workdayTenant || source.tenant || firm.workdayTenant,
     workdaySite: source.workdaySite || firm.workdaySite,
@@ -162,4 +250,13 @@ async function fetchAllEnabledFirms(firms) {
   return { jobs: allJobs, firmResults }
 }
 
-export { fetchFirmJobs, fetchAllEnabledFirms, fetchSourceJobs, ADAPTERS }
+export {
+  fetchFirmJobs,
+  fetchAllEnabledFirms,
+  fetchSourceJobs,
+  ADAPTERS,
+  CAPABILITY,
+  getCapability,
+  isSupported,
+  getSupportedProviders,
+}

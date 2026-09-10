@@ -100,7 +100,7 @@ function mapEmploymentType(title) {
   if (lower.includes('summer analyst') || lower.includes('summer associate')) return 'internship'
   if (lower.includes('graduate programme') || lower.includes('graduate program')) return 'full_time'
   if (lower.includes('full time') || lower.includes('full-time')) return 'full_time'
-  return 'full_time'
+  return 'unknown'
 }
 
 export { fetchOleeoRssJobs }

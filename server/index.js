@@ -127,13 +127,14 @@ const CRON_INTERVAL_HOURS = parseInt(process.env.CRON_INTERVAL_HOURS || '6', 10)
 const SOURCES = {
   greenhouse: { name: 'Greenhouse (Direct ATS)', configured: true, description: 'Public Greenhouse job board API — no auth needed' },
   oleeo_rss: { name: 'Oleeo/TalentCentral RSS', configured: true, description: 'RSS feeds from Oleeo-powered career pages' },
-  workday: { name: 'Workday (Direct ATS)', configured: true, description: 'Public Workday job search API — no auth needed' },
-  smartrecruiters: { name: 'SmartRecruiters (Direct ATS)', configured: true, description: 'Public SmartRecruiters job postings API — no auth needed' },
-  lever: { name: 'Lever (Direct ATS)', configured: true, description: 'Public Lever job postings API — no auth needed' },
-  adzuna: { name: 'Adzuna (Legacy)', configured: ADZUNA_ENABLED && Boolean(process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY), description: 'Job aggregator — disabled by default' },
-  jsearch: { name: 'JSearch (Legacy)', configured: JSEARCH_ENABLED && Boolean(process.env.JSEARCH_API_KEY), description: 'Aggregator via RapidAPI — disabled by default' },
-  rss: { name: 'RSS Feeds (Supplemental)', configured: true, description: 'Direct RSS feeds from employer career pages' },
-  efc: { name: 'eFinancialCareers', configured: EFC_ENABLED, description: 'Finance job board — behind EFC_ENABLED flag' },
+  ashby: { name: 'Ashby (Direct ATS)', configured: true, description: 'Public Ashby job board API — no auth needed' },
+  workday: { name: 'Workday (Direct ATS)', configured: true, description: 'Workday career portal API — paginated' },
+  smartrecruiters: { name: 'SmartRecruiters (Direct ATS)', configured: true, description: 'SmartRecruiters public postings API' },
+  lever: { name: 'Lever (Direct ATS)', configured: true, description: 'Lever public postings API — no auth needed' },
+  rss: { name: 'RSS Feeds', configured: true, description: 'RSS job feeds from various banks and firms' },
+  adzuna: { name: 'Adzuna', configured: ADZUNA_ENABLED, description: 'Adzuna job search API' },
+  jsearch: { name: 'JSearch', configured: JSEARCH_ENABLED, description: 'JSearch (RapidAPI) job search' },
+  efc: { name: 'eFinancialCareers', configured: EFC_ENABLED, description: 'eFinancialCareers job scraping' },
 };
 
 // Health check
@@ -327,7 +328,15 @@ app.post('/api/rss/feeds', (req, res) => {
       return res.json({ message: 'Feed removed' });
     }
 
-    res.status(400).json({ error: 'Invalid action. Use "add" or "remove".' });
+    if (action === 'toggle') {
+      if (!url) return res.status(400).json({ error: 'URL is required' });
+      const enabled = req.body.enabled !== false;
+      const feed = toggleFeed(url, enabled);
+      if (!feed) return res.status(404).json({ error: 'Feed not found' });
+      return res.json({ feed, message: `Feed ${enabled ? 'enabled' : 'disabled'}` });
+    }
+
+    res.status(400).json({ error: 'Invalid action. Use "add", "remove", or "toggle".' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to modify feeds', details: err.message });
   }
@@ -799,6 +808,145 @@ app.post('/api/matcher/test', (req, res) => {
   }
 });
 
+// ─── Canonical Jobs API (Phase 1) ──────────────────────────────
+
+import {
+  getCanonicalJobs,
+  countCanonicalJobs,
+  getCanonicalJobById,
+  getNewCanonicalJobs,
+  getObservationsForJob,
+  getVersionsForJob,
+  getAllEnabledSources,
+  getSourceHealth,
+  getAllCompanies,
+  getEnabledCompanies,
+  saveCompany,
+  saveCompanySource,
+  getSourcesByCompanyId,
+} from './db.js'
+import { getCoverageReport } from './sources/scan.js'
+import { getCapability, CAPABILITY, getSupportedProviders } from './sources/ats.js'
+
+app.get('/api/jobs', (req, res) => {
+  try {
+    const { company, status, programmeType, financeCategory, country, sort, order, limit, offset, q } = req.query
+    const jobs = getCanonicalJobs({
+      companyId: company || undefined,
+      status: status || undefined,
+      programmeType: programmeType || undefined,
+      financeCategory: financeCategory || undefined,
+      country: country || undefined,
+      sort: sort || 'last_seen_at',
+      order: order || 'desc',
+      limit: Math.min(parseInt(limit) || 50, 500),
+      offset: parseInt(offset) || 0,
+    })
+    const total = countCanonicalJobs({
+      companyId: company || undefined,
+      status: status || undefined,
+      programmeType: programmeType || undefined,
+      financeCategory: financeCategory || undefined,
+      country: country || undefined,
+    })
+    res.json({ jobs, total, limit: parseInt(limit) || 50, offset: parseInt(offset) || 0 })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch jobs', details: err.message })
+  }
+})
+
+app.get('/api/jobs/new', (req, res) => {
+  try {
+    const since = req.query.since || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const jobs = getNewCanonicalJobs(since)
+    res.json({ jobs, since, count: jobs.length })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch new jobs', details: err.message })
+  }
+})
+
+app.get('/api/jobs/:id', (req, res) => {
+  try {
+    const job = getCanonicalJobById(req.params.id)
+    if (!job) return res.status(404).json({ error: 'Job not found' })
+    const observations = getObservationsForJob(req.params.id)
+    const versions = getVersionsForJob(req.params.id)
+    res.json({ ...job, observations, versions })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch job', details: err.message })
+  }
+})
+
+app.get('/api/jobs/:id/history', (req, res) => {
+  try {
+    const versions = getVersionsForJob(req.params.id)
+    const observations = getObservationsForJob(req.params.id)
+    res.json({ versions, observations })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch job history', details: err.message })
+  }
+})
+
+app.get('/api/sources/health', (_req, res) => {
+  try {
+    const sources = getAllEnabledSources()
+    const healthData = sources.map(s => ({
+      ...s,
+      health: getSourceHealth(s.id),
+      capability: getCapability(s.provider),
+    }))
+    res.json({ sources: healthData, capabilities: CAPABILITY })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch source health', details: err.message })
+  }
+})
+
+app.get('/api/coverage/stats', (_req, res) => {
+  try {
+    const report = getCoverageReport()
+    const companies = getAllCompanies()
+    const enabledCompanies = getEnabledCompanies()
+    const sources = getAllEnabledSources()
+    const supportedProviders = getSupportedProviders()
+
+    res.json({
+      ...report,
+      companies: {
+        total: companies.length,
+        enabled: enabledCompanies.length,
+      },
+      sources: {
+        total: sources.length,
+        byProvider: sources.reduce((acc, s) => {
+          acc[s.provider] = (acc[s.provider] || 0) + 1
+          return acc
+        }, {}),
+      },
+      supportedProviders,
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch coverage stats', details: err.message })
+  }
+})
+
+app.get('/api/companies', (_req, res) => {
+  try {
+    const companies = getAllCompanies()
+    res.json({ companies, total: companies.length })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch companies', details: err.message })
+  }
+})
+
+app.get('/api/companies/:id/sources', (req, res) => {
+  try {
+    const sources = getSourcesByCompanyId(req.params.id)
+    res.json({ sources })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch company sources', details: err.message })
+  }
+})
+
 // ─── 404 handler ───────────────────────────────────────────────
 
 app.use((_req, res) => {
@@ -821,7 +969,7 @@ app.listen(PORT, () => {
   console.log(`Firms: ${stats.enabledFirms} enabled / ${stats.totalFirms} total`);
   console.log(`Sources: ${Object.entries(SOURCES).filter(([, s]) => s.configured).map(([k]) => k).join(', ')}`);
 
-  startCronScan(CRON_INTERVAL_HOURS * 60 * 60 * 1000);
+  startCronScan();
 
   // Auto-run discovery pipeline on startup (background, non-blocking)
   runStartupPipeline().catch(err => {

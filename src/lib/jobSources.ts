@@ -192,13 +192,16 @@ export async function scanFirm(firmId: string): Promise<any> {
 
 // ─── RSS (legacy) ──────────────────────────────────────────────
 
-export async function getRssFeeds(): Promise<string[]> {
+export async function getRssFeeds(): Promise<{ name: string; url: string; enabled: boolean }[]> {
   try {
     const res = await fetchAuth(`${API_BASE}/api/rss/feeds`)
     if (!res.ok) throw new Error(`RSS feeds failed: ${res.status}`)
     const data = await res.json()
     const feeds = data.feeds ?? data ?? []
-    return feeds.map((f: any) => (typeof f === 'string' ? f : f.url ?? ''))
+    return feeds.map((f: any) => {
+      if (typeof f === 'string') return { name: f, url: f, enabled: true }
+      return { name: f.name || f.url || '', url: f.url || '', enabled: f.enabled !== false }
+    })
   } catch (err) {
     console.error('[jobSources] getRssFeeds error:', err)
     return []
@@ -221,6 +224,15 @@ export async function removeRssFeed(url: string): Promise<void> {
     body: JSON.stringify({ action: 'remove', url }),
   })
   if (!res.ok) throw new Error(`Remove RSS feed failed: ${res.status}`)
+}
+
+export async function toggleRssFeed(url: string, enabled: boolean): Promise<void> {
+  const res = await fetchAuth(`${API_BASE}/api/rss/feeds`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'toggle', url, enabled }),
+  })
+  if (!res.ok) throw new Error(`Toggle RSS feed failed: ${res.status}`)
 }
 
 export async function checkRssFeeds(): Promise<JobResult[]> {

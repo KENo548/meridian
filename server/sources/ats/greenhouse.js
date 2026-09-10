@@ -102,7 +102,7 @@ function mapEmploymentType(job) {
   if (title.includes('full time') || title.includes('full-time')) return 'full_time'
   if (title.includes('part time') || title.includes('part-time')) return 'part_time'
   if (title.includes('contract')) return 'contract'
-  return 'full_time'
+  return 'unknown'
 }
 
 export { fetchGreenhouseJobs, BOARD_TOKENS }

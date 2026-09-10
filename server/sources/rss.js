@@ -1,12 +1,15 @@
 import Parser from 'rss-parser';
 import NodeCache from 'node-cache';
 import { normalize } from './normalize.js';
+import { setKV, getKV } from '../db.js';
 
 const cache = new NodeCache({ stdTTL: 1800, checkperiod: 300 });
 const parser = new Parser({
   timeout: 10000,
   headers: { 'User-Agent': 'Meridian-Job-Tracker/1.0' },
 });
+
+const KV_KEY = 'rss_configured_feeds';
 
 const DEFAULT_FEEDS = [
   {
@@ -49,9 +52,76 @@ const DEFAULT_FEEDS = [
     url: 'https://jobs.ubs.com/rss/',
     enabled: true,
   },
+  {
+    name: 'Credit Suisse (UBS)',
+    url: 'https://jobs.ubs.com/rss/?search=credit+suisse',
+    enabled: true,
+  },
+  {
+    name: 'Nomura Holdings',
+    url: 'https://nomura.wd3.myworkdayjobs.com/External/rss',
+    enabled: true,
+  },
+  {
+    name: 'Wells Fargo Careers',
+    url: 'https://www.wellsfargojobs.com/rss/',
+    enabled: true,
+  },
+  {
+    name: 'Bank of America Careers',
+    url: 'https://careers.bankofamerica.com/rss/',
+    enabled: true,
+  },
+  {
+    name: 'Capital One Careers',
+    url: 'https://www.capitalonecareers.com/rss/',
+    enabled: true,
+  },
+  {
+    name: 'Two Sigma Careers',
+    url: 'https://careers.twosigma.com/rss/',
+    enabled: true,
+  },
+  {
+    name: 'Jane Street Careers',
+    url: 'https://www.janestreet.com/join-jane-street/rss/',
+    enabled: true,
+  },
+  {
+    name: 'Citadel Careers',
+    url: 'https://www.citadel.com/careers/rss/',
+    enabled: true,
+  },
 ];
 
-let configuredFeeds = [...DEFAULT_FEEDS];
+let configuredFeeds = loadFeedsFromStorage();
+
+function loadFeedsFromStorage() {
+  try {
+    const saved = getKV(KV_KEY);
+    if (Array.isArray(saved) && saved.length > 0) {
+      const savedMap = new Map(saved.map(f => [f.url, f]));
+      const merged = DEFAULT_FEEDS.map(f => savedMap.get(f.url) || { ...f });
+      for (const f of saved) {
+        if (!merged.some(m => m.url === f.url)) {
+          merged.push(f);
+        }
+      }
+      return merged;
+    }
+  } catch {
+    // KV store not available, fall back to defaults
+  }
+  return [...DEFAULT_FEEDS];
+}
+
+function persistFeeds() {
+  try {
+    setKV(KV_KEY, configuredFeeds);
+  } catch {
+    // KV store not available, feeds will be in-memory only
+  }
+}
 
 function getConfiguredFeeds() {
   return [...configuredFeeds];
@@ -66,11 +136,13 @@ function addFeed(name, url) {
   if (existing) {
     existing.enabled = true;
     existing.name = feedName;
+    persistFeeds();
     return existing;
   }
 
   const feed = { name: feedName, url: feedUrl, enabled: true };
   configuredFeeds.push(feed);
+  persistFeeds();
   return feed;
 }
 
@@ -80,6 +152,7 @@ function removeFeed(url) {
   if (index === -1) return false;
   configuredFeeds.splice(index, 1);
   cache.flushAll();
+  persistFeeds();
   return true;
 }
 
@@ -88,6 +161,7 @@ function toggleFeed(url, enabled) {
   const feed = configuredFeeds.find(f => f.url === feedUrl);
   if (!feed) return null;
   feed.enabled = Boolean(enabled);
+  persistFeeds();
   return feed;
 }
 

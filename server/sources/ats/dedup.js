@@ -4,6 +4,7 @@ const DIRECT_SOURCES = new Set([
   'oleeo_rss',
   'smartrecruiters',
   'lever',
+  'ashby',
 ])
 
 function getDedupKey(job) {

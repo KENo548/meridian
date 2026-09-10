@@ -67,10 +67,33 @@ async function fetchWorkdayJobs(firm) {
         const extPath = posting.extPath || ''
         const jobUrl = `https://${host}${extPath}`
 
+        // Extract stable job ID from extPath (e.g., "/wday/cxs/tenant/site/job/12345" → "12345")
+        const extPathMatch = extPath.match(/\/job\/(\d+)/)
+        const extPathJobId = extPathMatch ? extPathMatch[1] : null
+
+        // Extract requisition ID from bulletFields if available
+        const requisitionId = posting.bulletFields?.[0] || null
+
+        // Build stable ID: prefer extPath job ID > requisition ID > hash of title+location
+        let stableId
+        if (extPathJobId) {
+          stableId = `workday:${tenant}:${extPathJobId}`
+        } else if (requisitionId && /^\d+$/.test(requisitionId)) {
+          stableId = `workday:${tenant}:req:${requisitionId}`
+        } else {
+          // Fallback: deterministic hash of title + location to avoid offset instability
+          const titleLoc = `${posting.title || ''}:${posting.locationsText || ''}`
+          let hash = 0
+          for (let i = 0; i < titleLoc.length; i++) {
+            hash = ((hash << 5) - hash + titleLoc.charCodeAt(i)) | 0
+          }
+          stableId = `workday:${tenant}:h:${Math.abs(hash).toString(36)}`
+        }
+
         allJobs.push({
-          id: `workday:${tenant}:${posting.bulletFields?.[0] || posting.title || offset}`,
+          id: stableId,
           source: 'workday',
-          sourceJobId: posting.bulletFields?.[0] || String(offset),
+          sourceJobId: extPathJobId || requisitionId || stableId,
           company: firm.name,
           title: posting.title || '',
           location: posting.locationsText || posting.bulletFields?.[1] || '',
@@ -79,7 +102,7 @@ async function fetchWorkdayJobs(firm) {
           applyUrl: jobUrl,
           description: (posting.bulletFields || []).join(' | '),
           posted: posting.postedOn || null,
-          employmentType: mapEmploymentType(posting.title || ''),
+          employmentType: 'unknown',
         })
       }
 
@@ -117,17 +140,6 @@ function extractCountry(location) {
     if (lower.includes(key)) return code
   }
   return ''
-}
-
-function mapEmploymentType(title) {
-  const lower = (title || '').toLowerCase()
-  if (lower.includes('intern')) return 'internship'
-  if (lower.includes('summer analyst') || lower.includes('summer associate')) return 'internship'
-  if (lower.includes('spring week')) return 'internship'
-  if (lower.includes('off-cycle')) return 'internship'
-  if (lower.includes('full time') || lower.includes('full-time')) return 'full_time'
-  if (lower.includes('graduate')) return 'full_time'
-  return 'full_time'
 }
 
 export { fetchWorkdayJobs }

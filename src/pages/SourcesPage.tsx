@@ -35,6 +35,7 @@ import {
   getRssFeeds,
   addRssFeed,
   removeRssFeed,
+  toggleRssFeed,
   checkRssFeeds,
   jobToApplication,
   getRegistry,
@@ -118,7 +119,7 @@ export function SourcesPage() {
 
   // Source management state
   const [sources, setSources] = useState<SourceStatus[]>([])
-  const [rssFeeds, setRssFeeds] = useState<string[]>([])
+  const [rssFeeds, setRssFeeds] = useState<{ name: string; url: string; enabled: boolean }[]>([])
   const [newFeedUrl, setNewFeedUrl] = useState('')
   const [checkingRss, setCheckingRss] = useState(false)
   const [addingFeed, setAddingFeed] = useState(false)
@@ -278,7 +279,7 @@ export function SourcesPage() {
     setAddingFeed(true)
     try {
       await addRssFeed(url)
-      setRssFeeds((prev) => [...prev, url])
+      setRssFeeds((prev) => [...prev, { name: url, url, enabled: true }])
       setNewFeedUrl('')
       pushToast('success', 'RSS feed added')
     } catch {
@@ -291,10 +292,20 @@ export function SourcesPage() {
   async function handleRemoveFeed(url: string) {
     try {
       await removeRssFeed(url)
-      setRssFeeds((prev) => prev.filter((f) => f !== url))
+      setRssFeeds((prev) => prev.filter((f) => f.url !== url))
       pushToast('success', 'RSS feed removed')
     } catch {
       pushToast('error', 'Failed to remove RSS feed')
+    }
+  }
+
+  async function handleToggleFeed(url: string, enabled: boolean) {
+    try {
+      await toggleRssFeed(url, enabled)
+      setRssFeeds((prev) => prev.map((f) => f.url === url ? { ...f, enabled } : f))
+      pushToast('success', `Feed ${enabled ? 'enabled' : 'disabled'}`)
+    } catch {
+      pushToast('error', 'Failed to toggle feed')
     }
   }
 
@@ -988,16 +999,31 @@ export function SourcesPage() {
             <div className="mt-3 space-y-1.5">
               {rssFeeds.map((feed) => (
                 <div
-                  key={feed}
+                  key={feed.url}
                   className="flex items-center justify-between rounded-md border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2"
                 >
-                  <span className="text-xs text-[var(--color-text)] font-mono truncate flex-1 mr-2">
-                    {feed}
-                  </span>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <button
+                      onClick={() => handleToggleFeed(feed.url, !feed.enabled)}
+                      className={`shrink-0 w-8 h-4 rounded-full transition-colors relative ${
+                        feed.enabled ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border)]'
+                      }`}
+                      title={feed.enabled ? 'Click to disable' : 'Click to enable'}
+                    >
+                      <span
+                        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+                          feed.enabled ? 'left-4' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                    <span className={`text-xs font-mono truncate ${feed.enabled ? 'text-[var(--color-text)]' : 'text-[var(--color-faint)]'}`}>
+                      {feed.name || feed.url}
+                    </span>
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleRemoveFeed(feed)}
+                    onClick={() => handleRemoveFeed(feed.url)}
                     className="text-[var(--color-danger)] hover:text-[var(--color-danger)]"
                   >
                     <Trash2 className="size-3.5" />

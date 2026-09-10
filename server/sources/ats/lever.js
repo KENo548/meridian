@@ -33,7 +33,7 @@ function mapEmploymentType(posting) {
   if (commitment.includes('intern')) return 'internship'
   if (commitment.includes('contract')) return 'contract'
   if (commitment.includes('part')) return 'part_time'
-  return 'full_time'
+  return 'unknown'
 }
 
 function normalizePosting(posting, firm) {
