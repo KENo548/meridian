@@ -23,6 +23,8 @@ export class MeridianDB extends Dexie {
 
   constructor(dbName: string = 'meridian-finance-tracker') {
     super(dbName)
+
+    // Version 1: Original schema
     this.version(1).stores({
       applications:
         'id, companyName, companyId, status, roleType, specialization, country, city, deadline, openingDate, applicationDate, startDate, updatedAt, archived, recruitmentCycle, *tagIds',
@@ -35,6 +37,18 @@ export class MeridianDB extends Dexie {
       savedViews: 'id, name',
       meta: 'key',
     })
+
+    // Version 2: Future — add new indexes/tables here with migration
+    // Example:
+    // this.version(2).stores({
+    //   applications: 'id, companyName, companyId, status, roleType, specialization, country, city, deadline, openingDate, applicationDate, startDate, updatedAt, archived, recruitmentCycle, newField, *tagIds',
+    //   // newTable: 'id, name',
+    // }).upgrade(tx => {
+    //   // Migrate existing data — preserve everything
+    //   return tx.table('applications').toCollection().modify(app => {
+    //     app.newField = app.newField || null
+    //   })
+    // })
   }
 }
 
