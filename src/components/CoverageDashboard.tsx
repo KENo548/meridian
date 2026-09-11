@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Shield, RefreshCw, TrendingUp, Clock, ExternalLink, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { Shield, RefreshCw, TrendingUp, Clock, ExternalLink, ChevronDown, ChevronUp, Loader2, Activity, AlertTriangle, CheckCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { clsx } from '@/lib/utils'
@@ -29,7 +29,20 @@ interface ResolveResult {
   coverageGap: CoverageGapReport
 }
 
-type Tab = 'resolution' | 'coverage' | 'staleness'
+interface AdapterHealth {
+  source: string
+  status: string
+  last_scan_at: string | null
+  jobs_found: number
+  previous_jobs_found: number
+  baseline_avg_jobs: number
+  consecutive_zero_scans: number
+  duration_ms: number
+  error_message: string | null
+  last_non_zero_at: string | null
+}
+
+type Tab = 'resolution' | 'coverage' | 'staleness' | 'adapter-health'
 
 export function CoverageDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('resolution')
@@ -40,6 +53,8 @@ export function CoverageDashboard() {
   const [applyingStaleness, setApplyingStaleness] = useState(false)
   const [loadingCoverage, setLoadingCoverage] = useState(false)
   const [loadingStaleness, setLoadingStaleness] = useState(false)
+  const [adapterHealth, setAdapterHealth] = useState<AdapterHealth[]>([])
+  const [loadingHealth, setLoadingHealth] = useState(false)
 
   const loadCoverage = async () => {
     setLoadingCoverage(true)
@@ -82,9 +97,26 @@ export function CoverageDashboard() {
     }
   }
 
+  const loadAdapterHealth = async () => {
+    setLoadingHealth(true)
+    try {
+      const API_BASE = (import.meta as any).env?.VITE_API_BASE || `http://${window.location.hostname}:3001`
+      const res = await fetch(`${API_BASE}/api/adapter-health`, { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        setAdapterHealth(data.adapters || [])
+      }
+    } catch {
+      // Adapter health endpoint may not exist yet
+    } finally {
+      setLoadingHealth(false)
+    }
+  }
+
   useEffect(() => {
     loadCoverage()
     loadStaleness()
+    loadAdapterHealth()
   }, [])
 
   return (
@@ -121,7 +153,7 @@ export function CoverageDashboard() {
       )}
 
       <div className="flex gap-1 border-b border-[var(--color-border)]">
-        {(['resolution', 'coverage', 'staleness'] as Tab[]).map(tab => (
+        {(['resolution', 'coverage', 'staleness', 'adapter-health'] as Tab[]).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -135,6 +167,7 @@ export function CoverageDashboard() {
             {tab === 'resolution' && 'Resolution Status'}
             {tab === 'coverage' && 'Coverage Gaps'}
             {tab === 'staleness' && 'Staleness'}
+            {tab === 'adapter-health' && 'Adapter Health'}
           </button>
         ))}
       </div>
@@ -158,6 +191,14 @@ export function CoverageDashboard() {
           onRefresh={loadStaleness}
           onApply={handleApplyStaleness}
           applying={applyingStaleness}
+        />
+      )}
+
+      {activeTab === 'adapter-health' && (
+        <AdapterHealthPanel
+          adapters={adapterHealth}
+          loading={loadingHealth}
+          onRefresh={loadAdapterHealth}
         />
       )}
     </div>
@@ -463,6 +504,95 @@ function StalenessPanel({ report, loading, onRefresh, onApply, applying }: {
             Apply transitions to update status accordingly.
           </li>
         </ul>
+      </div>
+    </div>
+  )
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  greenhouse: 'Greenhouse', lever: 'Lever', ashby: 'Ashby',
+  workday: 'Workday', smartrecruiters: 'SmartRecruiters',
+  oleeo_rss: 'Oleeo RSS', oracle_hcm: 'Oracle HCM',
+  avature: 'Avature', eightfold: 'Eightfold', successfactors: 'SuccessFactors',
+  analystclass: 'AnalystClass', fyntraq: 'Fyntraq',
+  trackr: 'Trackr', landtheoffer: 'Land the Offer',
+}
+
+function AdapterHealthPanel({ adapters, loading, onRefresh }: {
+  adapters: AdapterHealth[]
+  loading: boolean
+  onRefresh: () => void
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="size-5 animate-spin text-[var(--color-muted)]" />
+        <span className="ml-2 text-sm text-[var(--color-muted)]">Loading adapter health...</span>
+      </div>
+    )
+  }
+
+  if (adapters.length === 0) {
+    return (
+      <div className="text-center p-8 text-sm text-[var(--color-muted)]">
+        <Activity className="size-8 mx-auto mb-2 opacity-50" />
+        <p>No adapter health data yet.</p>
+        <p className="text-xs mt-1">Run a scan to populate adapter health metrics.</p>
+        <Button variant="secondary" size="sm" className="mt-3" onClick={onRefresh}>
+          <RefreshCw className="size-3" /> Refresh
+        </Button>
+      </div>
+    )
+  }
+
+  const healthy = adapters.filter(a => a.status === 'healthy').length
+  const degraded = adapters.filter(a => a.status === 'degraded').length
+  const unhealthy = adapters.filter(a => a.status === 'unhealthy').length
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-3 text-sm">
+          <span className="flex items-center gap-1"><CheckCircle className="size-3.5 text-[var(--color-success)]" /> {healthy} healthy</span>
+          {degraded > 0 && <span className="flex items-center gap-1"><AlertTriangle className="size-3.5 text-[var(--color-warning)]" /> {degraded} degraded</span>}
+          {unhealthy > 0 && <span className="flex items-center gap-1"><AlertTriangle className="size-3.5 text-[var(--color-danger)]" /> {unhealthy} unhealthy</span>}
+        </div>
+        <Button variant="secondary" size="sm" onClick={onRefresh}>
+          <RefreshCw className="size-3" /> Refresh
+        </Button>
+      </div>
+
+      <div className="space-y-2">
+        {adapters.map(adapter => (
+          <div key={adapter.source} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge tone={adapter.status === 'healthy' ? 'success' : adapter.status === 'degraded' ? 'warning' : 'danger'}>
+                  {adapter.status}
+                </Badge>
+                <span className="font-medium text-sm">{SOURCE_LABELS[adapter.source] || adapter.source}</span>
+              </div>
+              <div className="text-xs text-[var(--color-faint)]">
+                {adapter.jobs_found} jobs · {adapter.duration_ms}ms
+              </div>
+            </div>
+            {adapter.consecutive_zero_scans > 0 && (
+              <div className="mt-1 text-xs text-[var(--color-warning)]">
+                {adapter.consecutive_zero_scans} consecutive zero scans (baseline: {adapter.baseline_avg_jobs})
+              </div>
+            )}
+            {adapter.error_message && (
+              <div className="mt-1 text-xs text-[var(--color-danger)]">
+                Error: {adapter.error_message.substring(0, 100)}
+              </div>
+            )}
+            {adapter.last_non_zero_at && (
+              <div className="mt-1 text-xs text-[var(--color-faint)]">
+                Last data: {new Date(adapter.last_non_zero_at).toLocaleDateString()}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )
