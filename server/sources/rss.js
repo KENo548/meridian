@@ -3,7 +3,7 @@ import NodeCache from 'node-cache';
 import { normalize } from './normalize.js';
 import { setKV, getKV } from '../db.js';
 
-const cache = new NodeCache({ stdTTL: 1800, checkperiod: 300 });
+const cache = new NodeCache({ stdTTL: 1800, checkperiod: 300, maxKeys: 100 });
 const parser = new Parser({
   timeout: 10000,
   headers: { 'User-Agent': 'Meridian-Job-Tracker/1.0' },

@@ -1,7 +1,7 @@
 import NodeCache from 'node-cache';
 import { normalizeBatch } from './normalize.js';
 
-const cache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
+const cache = new NodeCache({ stdTTL: 3600, checkperiod: 600, maxKeys: 50 });
 
 const BASE_URL = 'https://api.adzuna.com/v1/api/jobs';
 

@@ -370,10 +370,10 @@ async function scanAll() {
 // ─── Adaptive Scheduler ────────────────────────────────────────
 
 const PRIORITY_INTERVALS = {
-  hot: 3 * 60 * 1000,
-  warm: 12 * 60 * 1000,
-  normal: 45 * 60 * 1000,
-  cold: 4 * 60 * 60 * 1000,
+  hot: 15 * 60 * 1000,   // 15 min (was 3 min)
+  warm: 60 * 60 * 1000,  // 1 hour (was 12 min)
+  normal: 4 * 60 * 60 * 1000, // 4 hours (was 45 min)
+  cold: 8 * 60 * 60 * 1000,   // 8 hours (was 4 hours)
 }
 
 function startCronScan(intervalMs) {

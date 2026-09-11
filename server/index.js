@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import rateLimit from 'express-rate-limit';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import authRouter from './auth.js';
 
 process.on('unhandledRejection', (err) => {
@@ -80,6 +82,8 @@ app.use(express.json());
 
 // ─── Session middleware ───────────────────────────────────────
 
+import SQLiteStore from 'connect-sqlite3'
+
 const isProduction = process.env.NODE_ENV === 'production'
 if (isProduction && !process.env.SESSION_SECRET) {
   console.error('[FATAL] SESSION_SECRET environment variable is required in production')
@@ -87,9 +91,16 @@ if (isProduction && !process.env.SESSION_SECRET) {
 }
 const SESSION_SECRET = process.env.SESSION_SECRET || 'meridian-dev-secret-change-in-production'
 
+const sessionStore = new (SQLiteStore({
+  db: 'sessions.db',
+  dir: join(dirname(fileURLToPath(import.meta.url)), 'data'),
+  table: 'sessions',
+}))()
+
 app.use(session({
   name: 'meridian.sid',
   secret: SESSION_SECRET,
+  store: sessionStore,
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -589,8 +600,10 @@ app.get('/api/opportunities', (req, res) => {
       limit,
     } = req.query;
 
-    // Read from canonical jobs
-    const canonicalJobs = getCanonicalJobs({ status: 'active', limit: 100000 });
+    // Read from canonical jobs — use pagination to avoid loading all into memory
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = Math.min(parseInt(limit, 10) || 50, 100);
+    const canonicalJobs = getCanonicalJobs({ status: 'active', limit: 5000 });
 
     // Batch-load all sightings to avoid N+1 queries
     const sightingsMap = getActiveSightingsForJobs(canonicalJobs.map(j => j.id))
@@ -693,8 +706,6 @@ app.get('/api/opportunities', (req, res) => {
     });
 
     const total = opportunities.length;
-    const pageNum = parseInt(page, 10) || 1;
-    const limitNum = Math.min(parseInt(limit, 10) || 50, 100);
     const offset = (pageNum - 1) * limitNum;
     const paged = opportunities.slice(offset, offset + limitNum);
 
@@ -1151,6 +1162,24 @@ async function runStartupPipeline() {
   const startTime = Date.now();
   console.log('[Startup] Running discovery pipeline...');
 
+  // Skip if data is fresh (last scan < 2 hours ago) to save memory
+  const lastScan = getLastScanResult();
+  if (lastScan && lastScan.timestamp) {
+    const age = Date.now() - new Date(lastScan.timestamp).getTime();
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    if (age < TWO_HOURS) {
+      console.log(`[Startup] Skipping pipeline — last scan was ${(age / 60000).toFixed(0)} min ago`);
+      return;
+    }
+  }
+
+  // Skip if memory is already high (Render free tier = 512MB)
+  const mem = process.memoryUsage();
+  if (mem.heapUsed > 300 * 1024 * 1024) {
+    console.log(`[Startup] Skipping pipeline — heap already at ${(mem.heapUsed / 1024 / 1024).toFixed(0)}MB`);
+    return;
+  }
+
   try {
     console.log('[Startup] Phase 1: Tracker discovery...');
     try { await runDiscovery(); } catch (e) { console.error('[Startup] Phase 1 error:', e.message); }
@@ -1158,7 +1187,7 @@ async function runStartupPipeline() {
 
     console.log('[Startup] Phase 2: Firm source discovery...');
     try {
-      const sourceResult = await discoverFirmSources({ maxDepth: 2, concurrency: 3 });
+      const sourceResult = await discoverFirmSources({ maxDepth: 1, concurrency: 2 });
       console.log(`[Startup] Phase 2 done: ${sourceResult.discovered} sources discovered${sourceResult.skipped ? ' (skipped)' : ''}`);
     } catch (e) { console.error('[Startup] Phase 2 error:', e.message); }
 
@@ -1187,5 +1216,20 @@ process.on('uncaughtException', (err) => {
   // After uncaught exception, process is in undefined state — must exit
   process.exit(1);
 });
+
+// Memory monitoring — log every 5 minutes in production
+if (isProduction) {
+  setInterval(() => {
+    const mem = process.memoryUsage();
+    const mb = (bytes) => (bytes / 1024 / 1024).toFixed(1);
+    console.log(`[Memory] RSS: ${mb(mem.rss)}MB | Heap: ${mb(mem.heapUsed)}/${mb(mem.heapTotal)}MB | External: ${mb(mem.external)}MB`);
+    // Force GC if heap > 400MB (Render free tier is 512MB)
+    if (mem.heapUsed > 400 * 1024 * 1024 && global.gc) {
+      console.log('[Memory] Forcing GC — heap exceeded 400MB');
+      global.gc();
+    }
+  }, 5 * 60 * 1000);
+}
+
 process.on('SIGTERM', () => process.exit(0));
 process.on('SIGINT', () => process.exit(0));

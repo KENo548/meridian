@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: server
     buildCommand: npm install
-    startCommand: node index.js
+    startCommand: node --max-old-space-size=384 --expose-gc index.js
     envVars:
       - key: NODE_ENV
         value: production
