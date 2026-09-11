@@ -478,6 +478,9 @@ function OpportunityCard({
                 {opp.location}
               </span>
             )}
+            {opp.country && !opp.location?.includes(opp.country.toUpperCase()) && (
+              <Badge tone="muted" className="text-[10px]">{opp.country.toUpperCase()}</Badge>
+            )}
             <Badge tone={categoryTone as any}>
               {CATEGORY_OPTIONS.find(c => c.value === opp.category)?.label || opp.category}
             </Badge>
@@ -486,6 +489,20 @@ function OpportunityCard({
             )}
             {opp.office && (
               <Badge tone="muted" className="text-[10px]">{opp.office}</Badge>
+            )}
+            {opp.deadline && (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="size-3" />
+                Closes {new Date(opp.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+              </span>
+            )}
+            {opp.opening && (
+              <span className="inline-flex items-center gap-1 text-[var(--color-teal)]">
+                Opens {new Date(opp.opening).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+              </span>
+            )}
+            {opp.rolling && (
+              <span className="text-[var(--color-teal)]">Rolling</span>
             )}
             {opp.sources.length > 0 && (
               <span className="inline-flex items-center gap-1">
@@ -618,11 +635,39 @@ function OpportunityDetailModal({
               <div>
                 {opp.deadline ? (
                   new Date(opp.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                ) : opp.rolling ? (
+                  <span className="text-[var(--color-teal)]">Rolling</span>
                 ) : (
                   'Not specified'
                 )}
               </div>
             </div>
+            <div>
+              <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-1">Opening Date</div>
+              <div>
+                {opp.opening ? (
+                  new Date(opp.opening).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                ) : (
+                  'Not specified'
+                )}
+              </div>
+            </div>
+            {opp.country && (
+              <div>
+                <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-1">Country</div>
+                <div>{opp.country.toUpperCase()}</div>
+              </div>
+            )}
+            {opp.specialties && opp.specialties.length > 0 && (
+              <div>
+                <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-1">Specialties</div>
+                <div className="flex flex-wrap gap-1">
+                  {opp.specialties.map(s => (
+                    <Badge key={s} tone="info" className="text-[10px]">{s}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
             {opp.hasEmployerSource !== undefined && (
               <div>
                 <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-1">Source Type</div>

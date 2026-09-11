@@ -51,11 +51,11 @@ const FIRMS = [
     name: 'JPMorgan',
     category: 'bulge_bracket',
     careersUrl: 'https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience',
-    enabled: false,
+    enabled: true,
     priority: 'P0',
     careersProvider: 'oracle_hcm',
     atsSlug: null,
-    notes: 'Oracle HCM — needs custom adapter',
+    notes: 'Oracle HCM adapter',
     sources: [
       { provider: 'oracle_hcm', careersUrl: 'https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/jobs', enabled: true, sourceOrigin: 'curated', atsHostname: 'jpmc.fa.oraclecloud.com', atsSiteNumber: 'CX_1001' },
     ],

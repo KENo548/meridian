@@ -341,10 +341,15 @@ export function SourcesPage() {
     }
   }
 
+  const [registryStatusFilter, setRegistryStatusFilter] = useState<'all' | 'enabled' | 'disabled'>('all')
+
   const filteredFirms = firms.filter(f => {
     const matchesCategory = registryFilter === 'all' || f.category === registryFilter
     const matchesSearch = !firmSearch || f.name.toLowerCase().includes(firmSearch.toLowerCase())
-    return matchesCategory && matchesSearch
+    const matchesStatus = registryStatusFilter === 'all' ||
+      (registryStatusFilter === 'enabled' && f.enabled) ||
+      (registryStatusFilter === 'disabled' && !f.enabled)
+    return matchesCategory && matchesSearch && matchesStatus
   })
 
   const categories = [...new Set(firms.map(f => f.category))]
@@ -465,12 +470,32 @@ export function SourcesPage() {
       const result = await triggerScan()
       setScanResult(result)
       if (result.totalJobs) {
-        pushToast('success', `Scan complete: ${result.totalJobs} jobs from ${result.firmsScanned} firms`)
-        if (result.jobs && result.jobs.length > 0) {
-          setResults(result.jobs)
-        }
+        pushToast('success', `Scan complete: ${result.totalJobs} jobs from ${result.firmsScanned} firms (${result.newJobs ?? 0} new)`)
       } else {
         pushToast('info', 'Scan completed — no jobs found')
+      }
+      // Fetch actual opportunities from DB after scan to populate results
+      try {
+        const oppResult = await getOpportunities({ limit: 100, sort: 'updatedAt', order: 'desc' })
+        if (oppResult.opportunities.length > 0) {
+          const jobResults: JobResult[] = oppResult.opportunities.map(opp => ({
+            id: opp.id,
+            source: opp.sources[0] || 'unknown',
+            title: opp.title || opp.programme || '',
+            company: opp.companyName,
+            location: opp.location || '',
+            country: opp.country || undefined,
+            url: opp.applyUrl || '',
+            applyUrl: opp.applyUrl || undefined,
+            type: opp.category,
+            languages: opp.languages,
+            deadline: opp.deadline || undefined,
+            tags: opp.specialties || undefined,
+          }))
+          setResults(jobResults)
+        }
+      } catch {
+        // opportunities fetch failed — scan results still shown
       }
     } catch {
       pushToast('error', 'Scan failed')
@@ -836,7 +861,7 @@ export function SourcesPage() {
               />
             </div>
 
-            <div className="flex flex-wrap gap-1.5 mb-4">
+            <div className="flex flex-wrap gap-1.5 mb-2">
               <button
                 type="button"
                 onClick={() => setRegistryFilter('all')}
@@ -862,6 +887,23 @@ export function SourcesPage() {
                   )}
                 >
                   {CATEGORY_LABELS[cat] || cat} ({firms.filter(f => f.category === cat).length})
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5 mb-4">
+              {([['all', 'All Status'], ['enabled', 'Enabled'], ['disabled', 'Disabled']] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setRegistryStatusFilter(val)}
+                  className={clsx(
+                    'rounded-md px-2.5 py-1 text-xs font-medium border transition-colors cursor-pointer',
+                    registryStatusFilter === val
+                      ? 'bg-[var(--color-teal)]/15 text-[var(--color-teal)] border-[var(--color-teal)]/30'
+                      : 'bg-[var(--color-surface-2)] text-[var(--color-faint)] border-[var(--color-border)] hover:border-[var(--color-faint)]',
+                  )}
+                >
+                  {label} ({val === 'all' ? firms.length : firms.filter(f => f.enabled === (val === 'enabled')).length})
                 </button>
               ))}
             </div>
