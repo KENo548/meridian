@@ -168,7 +168,7 @@ class SQLiteSessionStore extends Session.Store {
   clearAll() {
     try {
       const result = this.db.prepare('DELETE FROM sessions').run()
-      console.log(`[Session] Invalidated ${result.changes} session(s) from previous run`)
+      console.log(`[Session] Invalidated ${result.changes} session(s) from previous run (${process.env.NODE_ENV || 'development'})`)
     } catch (err) {
       console.error('[Session] clearAll error:', err.message)
     }
@@ -1222,7 +1222,8 @@ app.use((err, _req, res, _next) => {
 // ─── Start server ──────────────────────────────────────────────
 
 app.listen(PORT, () => {
-  console.log(`Meridian server running on http://localhost:${PORT}`);
+  const env = process.env.NODE_ENV || 'development'
+  console.log(`Meridian server running on http://localhost:${PORT} [${env}]`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
   console.log(`Registry: http://localhost:${PORT}/api/registry`);
   console.log(`Scan: http://localhost:${PORT}/api/scan`);

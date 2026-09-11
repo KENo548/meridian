@@ -1,4 +1,5 @@
 services:
+  # ─── Production ────────────────────────────────────────────────
   - type: web
     name: meridian-api
     runtime: node
@@ -8,6 +9,24 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+    disk:
+      mountPath: /opt/render/project/src/server/data
+      sizeGB: 1
+
+  # ─── Staging ──────────────────────────────────────────────────
+  - type: web
+    name: meridian-staging
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node --max-old-space-size=384 --expose-gc index.js
+    envVars:
+      - key: NODE_ENV
+        value: staging
       - key: SESSION_SECRET
         generateValue: true
       - key: FRONTEND_URL
