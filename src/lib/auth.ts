@@ -18,17 +18,27 @@ interface AuthResponse {
 }
 
 async function apiCall<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
-  return data as T
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: 'include',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
+    return data as T
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw new Error('Server is starting up, please try again')
+    throw err
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 export async function signUp(username: string, email: string, password: string): Promise<AuthResponse> {

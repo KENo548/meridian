@@ -25,14 +25,14 @@ const SourcesPage = lazy(() => import('@/pages/SourcesPage').then(m => ({ defaul
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
-  if (loading) return <PageLoader />
+  if (loading) return <PageLoader message="Connecting to server..." />
   if (!user) return <Navigate to="/login" replace />
   return <>{children}</>
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
-  if (loading) return <PageLoader />
+  if (loading) return <PageLoader message="Connecting to server..." />
   if (user) return <Navigate to="/" replace />
   return <>{children}</>
 }
@@ -70,52 +70,52 @@ export default function App() {
             <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
               <Route index element={<DashboardPage />} />
               <Route path="opportunities" element={
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Loading opportunities..." />}>
                   <OpportunitiesPage />
                 </Suspense>
               } />
               <Route path="applications" element={
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Loading applications..." />}>
                   <ApplicationsPage />
                 </Suspense>
               } />
               <Route path="calendar" element={
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Loading calendar..." />}>
                   <CalendarPage />
                 </Suspense>
               } />
               <Route path="companies" element={
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Loading companies..." />}>
                   <CompaniesPage />
                 </Suspense>
               } />
               <Route path="documents" element={
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Loading documents..." />}>
                   <DocumentsPage />
                 </Suspense>
               } />
               <Route path="contacts" element={
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Loading contacts..." />}>
                   <ContactsPage />
                 </Suspense>
               } />
               <Route path="tasks" element={
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Loading tasks..." />}>
                   <TasksPage />
                 </Suspense>
               } />
               <Route path="analytics" element={
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Loading analytics..." />}>
                   <AnalyticsPage />
                 </Suspense>
               } />
               <Route path="sources" element={
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Loading sources..." />}>
                   <SourcesPage />
                 </Suspense>
               } />
               <Route path="settings" element={
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader message="Loading settings..." />}>
                   <SettingsPage />
                 </Suspense>
               } />
@@ -128,10 +128,13 @@ export default function App() {
   )
 }
 
-function PageLoader() {
+function PageLoader({ message }: { message?: string }) {
   return (
-    <div className="flex items-center justify-center py-24">
+    <div className="flex flex-col items-center justify-center py-24 gap-3">
       <Loader2 className="size-6 animate-spin text-[var(--color-accent)]" />
+      {message && (
+        <p className="text-sm text-[var(--color-muted)]">{message}</p>
+      )}
     </div>
   )
 }
