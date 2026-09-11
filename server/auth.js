@@ -12,6 +12,7 @@ import {
   usePasswordReset,
   cleanupExpiredResets,
 } from './db.js'
+import { sendPasswordResetEmail } from './email.js'
 
 const router = Router()
 const BCRYPT_ROUNDS = 12
@@ -172,12 +173,21 @@ router.post('/forgot-password', async (req, res) => {
     cleanupExpiredResets()
     createPasswordReset(resetId, user.id, tokenHash, expiresAt)
 
-    // In production, send email with rawToken link
-    // For now, return the token (dev mode only)
+    // Build reset URL
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+    const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`
+
+    // Send email in production, log in dev
     const isProduction = process.env.NODE_ENV === 'production'
-    if (!isProduction) {
+    if (isProduction) {
+      const emailResult = await sendPasswordResetEmail(user.email, resetUrl)
+      if (!emailResult.success) {
+        console.error(`[Auth] Failed to send reset email to ${user.email}:`, emailResult.error)
+        // Still return success to prevent email enumeration
+      }
+    } else {
       console.log(`[Auth] Password reset token for ${user.email}: ${rawToken}`)
-      console.log(`[Auth] Reset URL: http://localhost:5173/reset-password?token=${rawToken}`)
+      console.log(`[Auth] Reset URL: ${resetUrl}`)
     }
 
     const response = {
@@ -186,7 +196,7 @@ router.post('/forgot-password', async (req, res) => {
     // Dev-only: include token in response
     if (!isProduction) {
       response._dev_token = rawToken
-      response._dev_url = `http://localhost:5173/reset-password?token=${rawToken}`
+      response._dev_url = resetUrl
     }
 
     res.json(response)

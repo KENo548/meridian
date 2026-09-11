@@ -82,7 +82,7 @@ app.use(express.json());
 
 // ─── Session middleware ───────────────────────────────────────
 
-import SQLiteStore from 'connect-sqlite3'
+import Session from 'express-session'
 
 const isProduction = process.env.NODE_ENV === 'production'
 if (isProduction && !process.env.SESSION_SECRET) {
@@ -91,11 +91,80 @@ if (isProduction && !process.env.SESSION_SECRET) {
 }
 const SESSION_SECRET = process.env.SESSION_SECRET || 'meridian-dev-secret-change-in-production'
 
-const sessionStore = new (SQLiteStore({
-  db: 'sessions.db',
-  dir: join(dirname(fileURLToPath(import.meta.url)), 'data'),
-  table: 'sessions',
-}))()
+// SQLite session store using better-sqlite3 (ESM-compatible)
+import Database from 'better-sqlite3'
+import { mkdirSync, existsSync } from 'node:fs'
+
+const sessionDbDir = join(dirname(fileURLToPath(import.meta.url)), 'data')
+if (!existsSync(sessionDbDir)) mkdirSync(sessionDbDir, { recursive: true })
+
+const sessionDb = new Database(join(sessionDbDir, 'sessions.db'))
+sessionDb.pragma('journal_mode = WAL')
+sessionDb.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    sid TEXT PRIMARY KEY,
+    sess TEXT NOT NULL,
+    expired_at INTEGER NOT NULL
+  )
+`)
+sessionDb.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_expired ON sessions(expired_at)`)
+
+class SQLiteSessionStore extends Session.Store {
+  constructor(db, ttlMs = 7 * 24 * 60 * 60 * 1000) {
+    super()
+    this.db = db
+    this.ttlMs = ttlMs
+    this._cleanupInterval = setInterval(() => this.cleanup(), 60 * 60 * 1000)
+  }
+
+  get(sid, cb) {
+    try {
+      const row = this.db.prepare('SELECT sess, expired_at FROM sessions WHERE sid = ?').get(sid)
+      if (!row) return cb(null, null)
+      if (Date.now() > row.expired_at) {
+        this.db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid)
+        return cb(null, null)
+      }
+      cb(null, JSON.parse(row.sess))
+    } catch (err) {
+      cb(err)
+    }
+  }
+
+  set(sid, sess, cb) {
+    try {
+      const expired_at = Date.now() + this.ttlMs
+      this.db.prepare('INSERT OR REPLACE INTO sessions (sid, sess, expired_at) VALUES (?, ?, ?)').run(
+        sid, JSON.stringify(sess), expired_at
+      )
+      cb(null)
+    } catch (err) {
+      cb(err)
+    }
+  }
+
+  destroy(sid, cb) {
+    try {
+      this.db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid)
+      cb(null)
+    } catch (err) {
+      cb(err)
+    }
+  }
+
+  cleanup() {
+    try {
+      const result = this.db.prepare('DELETE FROM sessions WHERE expired_at < ?').run(Date.now())
+      if (result.changes > 0) {
+        console.log(`[Session] Cleaned up ${result.changes} expired sessions`)
+      }
+    } catch (err) {
+      console.error('[Session] Cleanup error:', err.message)
+    }
+  }
+}
+
+const sessionStore = new SQLiteSessionStore(sessionDb)
 
 app.use(session({
   name: 'meridian.sid',

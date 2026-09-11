@@ -53,6 +53,7 @@ export function LoginPage() {
               className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-text)] placeholder-[var(--color-muted)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
               placeholder="Enter username or email"
             />
+            <p className="mt-1 text-xs text-[var(--color-muted)]">Username is <span className="text-[var(--color-accent)]">case-insensitive</span> — JohnDoe = johndoe.</p>
           </div>
 
           <div>
