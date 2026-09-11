@@ -162,9 +162,21 @@ class SQLiteSessionStore extends Session.Store {
       console.error('[Session] Cleanup error:', err.message)
     }
   }
+
+  /** Invalidate all sessions — called on server startup so old auth state
+   *  never survives a deploy/restart. Users simply log in again. */
+  clearAll() {
+    try {
+      const result = this.db.prepare('DELETE FROM sessions').run()
+      console.log(`[Session] Invalidated ${result.changes} session(s) from previous run`)
+    } catch (err) {
+      console.error('[Session] clearAll error:', err.message)
+    }
+  }
 }
 
 const sessionStore = new SQLiteSessionStore(sessionDb)
+sessionStore.clearAll()
 
 app.use(session({
   name: 'meridian.sid',
