@@ -927,9 +927,6 @@ app.post('/api/matcher/test', (req, res) => {
 // ─── Canonical Jobs API (Phase 1) ──────────────────────────────
 
 import {
-  getCanonicalJobs,
-  countCanonicalJobs,
-  getCanonicalJobById,
   getNewCanonicalJobs,
   getObservationsForJob,
   getVersionsForJob,
