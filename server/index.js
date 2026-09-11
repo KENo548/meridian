@@ -10,35 +10,70 @@ import authRouter from './auth.js';
 process.on('unhandledRejection', (err) => {
   console.error('[UnhandledRejection]', err?.message || err);
 });
-import { searchAdzuna } from './sources/adzuna.js';
-import { searchJSearch } from './sources/jsearch.js';
-import {
-  getConfiguredFeeds,
-  addFeed,
-  removeFeed,
-  toggleFeed,
-  fetchAllFeeds,
-} from './sources/rss.js';
-import {
-  getAllFirms,
-  getEnabledFirms,
-  getFirmById,
-  toggleFirm,
-  getSourceStats,
-} from './sources/registry.js';
-import { fetchFirmJobs, fetchAllEnabledFirms } from './sources/ats.js';
-import {
-  scanAll,
-  scanSingleFirm,
-  getLastScanResult,
-  getScanStatus,
-  startCronScan,
-} from './sources/scan.js';
-import { getAll as getAllDiscoveries, getStats as getDiscoveryStats } from './sources/discovery/store.js';
-import { runDiscovery, getDiscoveryStats as getDiscoveryReport } from './sources/discovery/index.js';
-import { resolveOpportunities, generateCoverageGapReport, SUPPORTED_DIRECT_PROVIDERS } from './sources/discovery/resolve-ats.js';
-import { discoverFirmSources, enumerateDirectJobs, matchTrackerToDirect, getPipelineStatus, clearPipelineState } from './sources/discovery/pipeline.js';
-import { getStalenessReport, applyStalenessTransitions } from './sources/discovery/staleness.js';
+
+// ─── Lazy imports — heavy modules loaded on first use ────────────
+// These are NOT imported at startup. They load on first route hit,
+// so the server can start listening and respond to /api/health in <2s.
+
+let _lazy = null
+async function lazy() {
+  if (_lazy) return _lazy
+  const [adzuna, jsearch, rss, registry, ats, scanMod, store, idx, resolve, pipeline, staleness] = await Promise.all([
+    import('./sources/adzuna.js'),
+    import('./sources/jsearch.js'),
+    import('./sources/rss.js'),
+    import('./sources/registry.js'),
+    import('./sources/ats.js'),
+    import('./sources/scan.js'),
+    import('./sources/discovery/store.js'),
+    import('./sources/discovery/index.js'),
+    import('./sources/discovery/resolve-ats.js'),
+    import('./sources/discovery/pipeline.js'),
+    import('./sources/discovery/staleness.js'),
+  ])
+  _lazy = {
+    searchAdzuna: adzuna.searchAdzuna,
+    searchJSearch: jsearch.searchJSearch,
+    getConfiguredFeeds: rss.getConfiguredFeeds,
+    addFeed: rss.addFeed,
+    removeFeed: rss.removeFeed,
+    toggleFeed: rss.toggleFeed,
+    fetchAllFeeds: rss.fetchAllFeeds,
+    getAllFirms: registry.getAllFirms,
+    getEnabledFirms: registry.getEnabledFirms,
+    getFirmById: registry.getFirmById,
+    toggleFirm: registry.toggleFirm,
+    getSourceStats: registry.getSourceStats,
+    fetchFirmJobs: ats.fetchFirmJobs,
+    fetchAllEnabledFirms: ats.fetchAllEnabledFirms,
+    getCapability: ats.getCapability,
+    CAPABILITY: ats.CAPABILITY,
+    getSupportedProviders: ats.getSupportedProviders,
+    getCoverageReport: scanMod.getCoverageReport,
+    scanAll: scanMod.scanAll,
+    scanSingleFirm: scanMod.scanSingleFirm,
+    getLastScanResult: scanMod.getLastScanResult,
+    getScanStatus: scanMod.getScanStatus,
+    startCronScan: scanMod.startCronScan,
+    getAllDiscoveries: store.getAll,
+    getDiscoveryStats: store.getStats,
+    runDiscovery: idx.runDiscovery,
+    getDiscoveryReport: idx.getDiscoveryStats,
+    resolveOpportunities: resolve.resolveOpportunities,
+    generateCoverageGapReport: resolve.generateCoverageGapReport,
+    SUPPORTED_DIRECT_PROVIDERS: resolve.SUPPORTED_DIRECT_PROVIDERS,
+    discoverFirmSources: pipeline.discoverFirmSources,
+    enumerateDirectJobs: pipeline.enumerateDirectJobs,
+    matchTrackerToDirect: pipeline.matchTrackerToDirect,
+    getPipelineStatus: pipeline.getPipelineStatus,
+    clearPipelineState: pipeline.clearPipelineState,
+    getStalenessReport: staleness.getStalenessReport,
+    applyStalenessTransitions: staleness.applyStalenessTransitions,
+  }
+  return _lazy
+}
+
+// DB functions — lazy-loaded (getDb() triggers DB open on first call)
 import {
   getCanonicalJobs,
   getOpenCanonicalJobs,
@@ -48,6 +83,7 @@ import {
   getAllSightingsForJob,
   getCanonicalJobById,
   getAllAdapterHealth,
+  getDb,
 } from './db.js';
 
 const app = express();
@@ -91,38 +127,45 @@ if (isProduction && !process.env.SESSION_SECRET) {
 }
 const SESSION_SECRET = process.env.SESSION_SECRET || 'meridian-dev-secret-change-in-production'
 
-// SQLite session store using better-sqlite3 (ESM-compatible)
+// SQLite session store — lazily initialized (DB file opened on first request)
 import Database from 'better-sqlite3'
 import { mkdirSync, existsSync } from 'node:fs'
 
 const sessionDbDir = join(dirname(fileURLToPath(import.meta.url)), 'data')
 if (!existsSync(sessionDbDir)) mkdirSync(sessionDbDir, { recursive: true })
 
-const sessionDb = new Database(join(sessionDbDir, 'sessions.db'))
-sessionDb.pragma('journal_mode = WAL')
-sessionDb.exec(`
-  CREATE TABLE IF NOT EXISTS sessions (
-    sid TEXT PRIMARY KEY,
-    sess TEXT NOT NULL,
-    expired_at INTEGER NOT NULL
-  )
-`)
-sessionDb.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_expired ON sessions(expired_at)`)
+let _sessionDb = null
+function getSessionDb() {
+  if (_sessionDb) return _sessionDb
+  const t0 = Date.now()
+  _sessionDb = new Database(join(sessionDbDir, 'sessions.db'))
+  _sessionDb.pragma('journal_mode = WAL')
+  _sessionDb.exec(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      sid TEXT PRIMARY KEY,
+      sess TEXT NOT NULL,
+      expired_at INTEGER NOT NULL
+    )
+  `)
+  _sessionDb.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_expired ON sessions(expired_at)`)
+  console.log(`[Session] DB opened in ${Date.now() - t0}ms`)
+  return _sessionDb
+}
 
 class SQLiteSessionStore extends Session.Store {
-  constructor(db, ttlMs = 7 * 24 * 60 * 60 * 1000) {
+  constructor(ttlMs = 7 * 24 * 60 * 60 * 1000) {
     super()
-    this.db = db
     this.ttlMs = ttlMs
     this._cleanupInterval = setInterval(() => this.cleanup(), 60 * 60 * 1000)
   }
 
   get(sid, cb) {
     try {
-      const row = this.db.prepare('SELECT sess, expired_at FROM sessions WHERE sid = ?').get(sid)
+      const db = getSessionDb()
+      const row = db.prepare('SELECT sess, expired_at FROM sessions WHERE sid = ?').get(sid)
       if (!row) return cb(null, null)
       if (Date.now() > row.expired_at) {
-        this.db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid)
+        db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid)
         return cb(null, null)
       }
       cb(null, JSON.parse(row.sess))
@@ -133,8 +176,9 @@ class SQLiteSessionStore extends Session.Store {
 
   set(sid, sess, cb) {
     try {
+      const db = getSessionDb()
       const expired_at = Date.now() + this.ttlMs
-      this.db.prepare('INSERT OR REPLACE INTO sessions (sid, sess, expired_at) VALUES (?, ?, ?)').run(
+      db.prepare('INSERT OR REPLACE INTO sessions (sid, sess, expired_at) VALUES (?, ?, ?)').run(
         sid, JSON.stringify(sess), expired_at
       )
       cb(null)
@@ -145,7 +189,8 @@ class SQLiteSessionStore extends Session.Store {
 
   destroy(sid, cb) {
     try {
-      this.db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid)
+      const db = getSessionDb()
+      db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid)
       cb(null)
     } catch (err) {
       cb(err)
@@ -154,7 +199,8 @@ class SQLiteSessionStore extends Session.Store {
 
   cleanup() {
     try {
-      const result = this.db.prepare('DELETE FROM sessions WHERE expired_at < ?').run(Date.now())
+      const db = getSessionDb()
+      const result = db.prepare('DELETE FROM sessions WHERE expired_at < ?').run(Date.now())
       if (result.changes > 0) {
         console.log(`[Session] Cleaned up ${result.changes} expired sessions`)
       }
@@ -167,7 +213,8 @@ class SQLiteSessionStore extends Session.Store {
    *  never survives a deploy/restart. Users simply log in again. */
   clearAll() {
     try {
-      const result = this.db.prepare('DELETE FROM sessions').run()
+      const db = getSessionDb()
+      const result = db.prepare('DELETE FROM sessions').run()
       console.log(`[Session] Invalidated ${result.changes} session(s) from previous run (${process.env.NODE_ENV || 'development'})`)
     } catch (err) {
       console.error('[Session] clearAll error:', err.message)
@@ -175,7 +222,7 @@ class SQLiteSessionStore extends Session.Store {
   }
 }
 
-const sessionStore = new SQLiteSessionStore(sessionDb)
+const sessionStore = new SQLiteSessionStore()
 sessionStore.clearAll()
 
 app.use(session({
@@ -281,6 +328,7 @@ app.get('/api/sources', (_req, res) => {
 // Search across all sources
 app.get('/api/search', async (req, res) => {
   try {
+    const { searchAdzuna, searchJSearch, fetchAllFeeds } = await lazy();
     const { q, sources, location, country, page, datePosted, employmentType } = req.query;
 
     const requestedSources = sources
@@ -377,7 +425,8 @@ app.post('/api/registry/:firmId/toggle', (req, res) => {
 
 // ─── Scan routes ───────────────────────────────────────────────
 
-app.get('/api/scan/status', (_req, res) => {
+app.get('/api/scan/status', async (_req, res) => {
+  const { getScanStatus } = await lazy();
   res.json(getScanStatus());
 });
 
@@ -389,6 +438,7 @@ app.get('/api/scan/last', (_req, res) => {
 
 app.post('/api/scan', async (_req, res) => {
   try {
+    const { scanAll } = await lazy();
     const result = await scanAll();
     res.json(result);
   } catch (err) {
@@ -398,6 +448,7 @@ app.post('/api/scan', async (_req, res) => {
 
 app.post('/api/scan/:firmId', async (req, res) => {
   try {
+    const { scanSingleFirm } = await lazy();
     const result = await scanSingleFirm(req.params.firmId);
     res.json(result);
   } catch (err) {
@@ -409,6 +460,7 @@ app.post('/api/scan/:firmId', async (req, res) => {
 
 app.get('/api/firms/:firmId/jobs', async (req, res) => {
   try {
+    const { getFirmById, fetchFirmJobs } = await lazy();
     const firm = getFirmById(req.params.firmId);
     if (!firm) return res.status(404).json({ error: 'Firm not found' });
     const result = await fetchFirmJobs(firm);
@@ -420,8 +472,9 @@ app.get('/api/firms/:firmId/jobs', async (req, res) => {
 
 // ─── RSS routes (legacy) ───────────────────────────────────────
 
-app.get('/api/rss/feeds', (_req, res) => {
+app.get('/api/rss/feeds', async (_req, res) => {
   try {
+    const { getConfiguredFeeds } = await lazy();
     const feeds = getConfiguredFeeds();
     res.json({ feeds, total: feeds.length });
   } catch (err) {
@@ -429,8 +482,9 @@ app.get('/api/rss/feeds', (_req, res) => {
   }
 });
 
-app.post('/api/rss/feeds', (req, res) => {
+app.post('/api/rss/feeds', async (req, res) => {
   try {
+    const { addFeed, removeFeed, toggleFeed } = await lazy();
     const { action, name, url } = req.body;
 
     if (action === 'add') {
@@ -462,6 +516,7 @@ app.post('/api/rss/feeds', (req, res) => {
 
 app.get('/api/rss/check', async (_req, res) => {
   try {
+    const { fetchAllFeeds } = await lazy();
     const result = await fetchAllFeeds();
     res.json({
       jobs: result.jobs,
@@ -824,8 +879,9 @@ app.get('/api/opportunities', (req, res) => {
   }
 });
 
-app.get('/api/opportunities/metrics', (_req, res) => {
+app.get('/api/opportunities/metrics', async (_req, res) => {
   try {
+    const { getAllDiscoveries } = await lazy();
     const entries = getAllDiscoveries();
     const opportunities = entries.map(deriveOpportunityFromEntry);
 
@@ -862,6 +918,7 @@ app.get('/api/opportunities/metrics', (_req, res) => {
 
 app.post('/api/opportunities/resolve', async (req, res) => {
   try {
+    const { resolveOpportunities } = await lazy();
     const { verify = false, limit = 50 } = req.body || {};
     const result = await resolveOpportunities({ verify, limit });
     res.json(result);
@@ -870,8 +927,9 @@ app.post('/api/opportunities/resolve', async (req, res) => {
   }
 });
 
-app.get('/api/opportunities/coverage', (_req, res) => {
+app.get('/api/opportunities/coverage', async (_req, res) => {
   try {
+    const { getAllDiscoveries, generateCoverageGapReport } = await lazy();
     const entries = getAllDiscoveries();
     const report = generateCoverageGapReport(entries);
     res.json(report);
@@ -880,8 +938,9 @@ app.get('/api/opportunities/coverage', (_req, res) => {
   }
 });
 
-app.get('/api/opportunities/staleness', (_req, res) => {
+app.get('/api/opportunities/staleness', async (_req, res) => {
   try {
+    const { getStalenessReport } = await lazy();
     const report = getStalenessReport();
     res.json(report);
   } catch (err) {
@@ -889,8 +948,9 @@ app.get('/api/opportunities/staleness', (_req, res) => {
   }
 });
 
-app.post('/api/opportunities/staleness/apply', (_req, res) => {
+app.post('/api/opportunities/staleness/apply', async (_req, res) => {
   try {
+    const { applyStalenessTransitions } = await lazy();
     const result = applyStalenessTransitions();
     res.json(result);
   } catch (err) {
@@ -918,8 +978,9 @@ app.get('/api/opportunities/:id', (req, res) => {
 
 // ─── Pipeline routes ──────────────────────────────────────────
 
-app.get('/api/pipeline/status', (_req, res) => {
+app.get('/api/pipeline/status', async (_req, res) => {
   try {
+    const { getPipelineStatus } = await lazy();
     const status = getPipelineStatus();
     res.json(status);
   } catch (err) {
@@ -929,6 +990,7 @@ app.get('/api/pipeline/status', (_req, res) => {
 
 app.post('/api/pipeline/discover-sources', async (req, res) => {
   try {
+    const { discoverFirmSources } = await lazy();
     const { maxDepth = 2, concurrency = 3 } = req.body || {};
     const result = await discoverFirmSources({ maxDepth, concurrency });
     res.json(result);
@@ -939,6 +1001,7 @@ app.post('/api/pipeline/discover-sources', async (req, res) => {
 
 app.post('/api/pipeline/enumerate-jobs', async (req, res) => {
   try {
+    const { enumerateDirectJobs } = await lazy();
     const { firmIds = null } = req.body || {};
     const result = await enumerateDirectJobs(firmIds);
     res.json(result);
@@ -947,8 +1010,9 @@ app.post('/api/pipeline/enumerate-jobs', async (req, res) => {
   }
 });
 
-app.post('/api/pipeline/match', (_req, res) => {
+app.post('/api/pipeline/match', async (_req, res) => {
   try {
+    const { matchTrackerToDirect } = await lazy();
     const result = matchTrackerToDirect();
     res.json(result);
   } catch (err) {
@@ -958,6 +1022,7 @@ app.post('/api/pipeline/match', (_req, res) => {
 
 app.post('/api/pipeline/run-all', async (req, res) => {
   try {
+    const { discoverFirmSources, enumerateDirectJobs, matchTrackerToDirect, getPipelineStatus } = await lazy();
     const startTime = Date.now();
     const force = req.body?.force === true;
     const sourceDiscovery = await discoverFirmSources({ maxDepth: 2, concurrency: 3, force });
@@ -978,8 +1043,9 @@ app.post('/api/pipeline/run-all', async (req, res) => {
   }
 });
 
-app.post('/api/pipeline/clear', (_req, res) => {
+app.post('/api/pipeline/clear', async (_req, res) => {
   try {
+    const { clearPipelineState } = await lazy();
     clearPipelineState();
     res.json({ cleared: true });
   } catch (err) {
@@ -1042,8 +1108,7 @@ import {
   getAllDiscoveryTargets as getAllDiscoveryQueueTargets,
   getDiscoveryStats as getDiscoveryQueueStats,
 } from './db.js'
-import { getCoverageReport } from './sources/scan.js'
-import { getCapability, CAPABILITY, getSupportedProviders } from './sources/ats.js'
+// getCoverageReport, getCapability, CAPABILITY, getSupportedProviders are lazy-loaded via lazy()
 
 app.get('/api/jobs', (req, res) => {
   try {
@@ -1104,8 +1169,9 @@ app.get('/api/jobs/:id/history', (req, res) => {
   }
 })
 
-app.get('/api/sources/health', (_req, res) => {
+app.get('/api/sources/health', async (_req, res) => {
   try {
+    const { getAllEnabledSources, getCapability, CAPABILITY } = await lazy();
     const sources = getAllEnabledSources()
     const healthData = sources.map(s => ({
       ...s,
@@ -1118,8 +1184,9 @@ app.get('/api/sources/health', (_req, res) => {
   }
 })
 
-app.get('/api/coverage/stats', (_req, res) => {
+app.get('/api/coverage/stats', async (_req, res) => {
   try {
+    const { getCoverageReport, getSupportedProviders } = await lazy();
     const report = getCoverageReport()
     const companies = getAllCompanies()
     const enabledCompanies = getEnabledCompanies()
@@ -1221,13 +1288,14 @@ app.use((err, _req, res, _next) => {
 
 // ─── Start server ──────────────────────────────────────────────
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   const env = process.env.NODE_ENV || 'development'
   console.log(`Meridian server running on http://localhost:${PORT} [${env}]`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
   console.log(`Registry: http://localhost:${PORT}/api/registry`);
   console.log(`Scan: http://localhost:${PORT}/api/scan`);
 
+  const { getSourceStats, startCronScan } = await lazy();
   const stats = getSourceStats();
   console.log(`Firms: ${stats.enabledFirms} enabled / ${stats.totalFirms} total`);
   console.log(`Sources: ${Object.entries(SOURCES).filter(([, s]) => s.configured).map(([k]) => k).join(', ')}`);
@@ -1243,6 +1311,9 @@ app.listen(PORT, () => {
 async function runStartupPipeline() {
   const startTime = Date.now();
   console.log('[Startup] Running discovery pipeline...');
+
+  // Load all heavy modules for the pipeline
+  const { getLastScanResult, runDiscovery, discoverFirmSources, enumerateDirectJobs, matchTrackerToDirect } = await lazy();
 
   // Skip if data is fresh (last scan < 2 hours ago) to save memory
   const lastScan = getLastScanResult();

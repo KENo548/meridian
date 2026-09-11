@@ -11,14 +11,33 @@ if (!existsSync(DATA_DIR)) {
   mkdirSync(DATA_DIR, { recursive: true })
 }
 
-const db = new Database(DB_PATH)
+// ─── Lazy database initialization ────────────────────────────────
+// Database is NOT opened at import time. It opens on first query,
+// so the server can start listening and respond to health checks
+// immediately. Auth + app routes trigger DB open on first hit.
 
-// WAL mode for better concurrent read performance
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
+let _db = null
+let _stmts = null
 
-// ─── Schema ─────────────────────────────────────────────────────
+export function getDb() {
+  if (_db) return _db
+  console.log('[DB] Opening database...')
+  const t0 = Date.now()
+  _db = new Database(DB_PATH)
+  _db.pragma('journal_mode = WAL')
+  _db.pragma('foreign_keys = ON')
+  console.log(`[DB] Opened in ${Date.now() - t0}ms`)
+  initSchema(_db)
+  return _db
+}
 
+function getStmts() {
+  if (_stmts) return _stmts
+  getDb() // ensure DB is initialized
+  return _stmts
+}
+
+function initSchema(db) {
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -373,7 +392,7 @@ db.prepare(`UPDATE canonical_jobs SET lifecycle = 'open' WHERE lifecycle = 'acti
 
 // ─── Discovery Entries ──────────────────────────────────────────
 
-const stmts = {
+_stmts = {
   insertEntry: db.prepare(`
     INSERT OR REPLACE INTO discovery_entries (id, data, status, company_name, resolved_firm_id, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -389,10 +408,11 @@ const stmts = {
     WHERE id = ?
   `),
 }
+} // end initSchema
 
 export function saveEntry(entry) {
   const data = JSON.stringify(entry)
-  stmts.insertEntry.run(
+  getStmts().insertEntry.run(
     entry.id,
     data,
     entry.status,
@@ -404,28 +424,28 @@ export function saveEntry(entry) {
 }
 
 export function getEntryById(id) {
-  const row = stmts.getEntry.get(id)
+  const row = getStmts().getEntry.get(id)
   return row ? JSON.parse(row.data) : null
 }
 
 export function getAllEntries() {
-  return stmts.getAllEntries.all().map(r => JSON.parse(r.data))
+  return getStmts().getAllEntries.all().map(r => JSON.parse(r.data))
 }
 
 export function getEntriesByStatus(status) {
-  return stmts.getByStatus.all(status).map(r => JSON.parse(r.data))
+  return getStmts().getByStatus.all(status).map(r => JSON.parse(r.data))
 }
 
 export function getEntriesByFirm(firmId) {
-  return stmts.getByFirm.all(firmId).map(r => JSON.parse(r.data))
+  return getStmts().getByFirm.all(firmId).map(r => JSON.parse(r.data))
 }
 
 export function deleteEntry(id) {
-  stmts.deleteEntry.run(id)
+  getStmts().deleteEntry.run(id)
 }
 
 export function getEntryCount() {
-  return stmts.countEntries.get().count
+  return getStmts().countEntries.get().count
 }
 
 export function saveEntries(entries) {
@@ -440,19 +460,19 @@ export function saveEntries(entries) {
 // ─── Pipeline State ─────────────────────────────────────────────
 
 export function saveDirectJobs(firmId, jobs) {
-  db.prepare(`
+  getDb().prepare(`
     INSERT OR REPLACE INTO pipeline_direct_jobs (firm_id, jobs, updated_at)
     VALUES (?, ?, ?)
   `).run(firmId, JSON.stringify(jobs), new Date().toISOString())
 }
 
 export function getDirectJobs(firmId) {
-  const row = db.prepare(`SELECT jobs FROM pipeline_direct_jobs WHERE firm_id = ?`).get(firmId)
+  const row = getDb().prepare(`SELECT jobs FROM pipeline_direct_jobs WHERE firm_id = ?`).get(firmId)
   return row ? JSON.parse(row.jobs) : []
 }
 
 export function getAllDirectJobs() {
-  const rows = db.prepare(`SELECT firm_id, jobs FROM pipeline_direct_jobs`).all()
+  const rows = getDb().prepare(`SELECT firm_id, jobs FROM pipeline_direct_jobs`).all()
   const map = new Map()
   for (const row of rows) {
     map.set(row.firm_id, JSON.parse(row.jobs))
@@ -461,23 +481,23 @@ export function getAllDirectJobs() {
 }
 
 export function clearDirectJobs() {
-  db.prepare(`DELETE FROM pipeline_direct_jobs`).run()
+  getDb().prepare(`DELETE FROM pipeline_direct_jobs`).run()
 }
 
 export function saveSourceDiscovery(firmId, result) {
-  db.prepare(`
+  getDb().prepare(`
     INSERT OR REPLACE INTO pipeline_source_discovery (firm_id, result, updated_at)
     VALUES (?, ?, ?)
   `).run(firmId, JSON.stringify(result), new Date().toISOString())
 }
 
 export function getSourceDiscovery(firmId) {
-  const row = db.prepare(`SELECT result FROM pipeline_source_discovery WHERE firm_id = ?`).get(firmId)
+  const row = getDb().prepare(`SELECT result FROM pipeline_source_discovery WHERE firm_id = ?`).get(firmId)
   return row ? JSON.parse(row.result) : null
 }
 
 export function getAllSourceDiscoveries() {
-  const rows = db.prepare(`SELECT firm_id, result FROM pipeline_source_discovery`).all()
+  const rows = getDb().prepare(`SELECT firm_id, result FROM pipeline_source_discovery`).all()
   const map = new Map()
   for (const row of rows) {
     map.set(row.firm_id, JSON.parse(row.result))
@@ -486,20 +506,20 @@ export function getAllSourceDiscoveries() {
 }
 
 export function clearSourceDiscoveries() {
-  db.prepare(`DELETE FROM pipeline_source_discovery`).run()
+  getDb().prepare(`DELETE FROM pipeline_source_discovery`).run()
 }
 
 // ─── KV Store (generic) ────────────────────────────────────────
 
 export function setKV(key, value) {
-  db.prepare(`
+  getDb().prepare(`
     INSERT OR REPLACE INTO kv_store (key, value, updated_at)
     VALUES (?, ?, ?)
   `).run(key, JSON.stringify(value), new Date().toISOString())
 }
 
 export function getKV(key) {
-  const row = db.prepare(`SELECT value FROM kv_store WHERE key = ?`).get(key)
+  const row = getDb().prepare(`SELECT value FROM kv_store WHERE key = ?`).get(key)
   return row ? JSON.parse(row.value) : null
 }
 
@@ -507,7 +527,7 @@ export function getKV(key) {
 
 export function saveCompany(company) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     INSERT OR REPLACE INTO companies (id, canonical_name, aliases, domain, careers_url, company_type, company_tier, enabled, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM companies WHERE id = ?), ?), ?)
   `).run(
@@ -519,23 +539,23 @@ export function saveCompany(company) {
 }
 
 export function getCompanyById(id) {
-  const row = db.prepare(`SELECT * FROM companies WHERE id = ?`).get(id)
+  const row = getDb().prepare(`SELECT * FROM companies WHERE id = ?`).get(id)
   return row ? { ...row, aliases: JSON.parse(row.aliases || '[]'), enabled: !!row.enabled } : null
 }
 
 export function getAllCompanies() {
-  return db.prepare(`SELECT * FROM companies ORDER BY canonical_name`).all()
+  return getDb().prepare(`SELECT * FROM companies ORDER BY canonical_name`).all()
     .map(r => ({ ...r, aliases: JSON.parse(r.aliases || '[]'), enabled: !!r.enabled }))
 }
 
 export function getEnabledCompanies() {
-  return db.prepare(`SELECT * FROM companies WHERE enabled = 1 ORDER BY canonical_name`).all()
+  return getDb().prepare(`SELECT * FROM companies WHERE enabled = 1 ORDER BY canonical_name`).all()
     .map(r => ({ ...r, aliases: JSON.parse(r.aliases || '[]'), enabled: !!r.enabled }))
 }
 
 export function upsertCompanyByName(name, domain) {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-  const existing = db.prepare(`SELECT id FROM companies WHERE canonical_name = ?`).get(name)
+  const existing = getDb().prepare(`SELECT id FROM companies WHERE canonical_name = ?`).get(name)
   if (existing) return existing.id
   const id = `company:${slug}`
   saveCompany({ id, canonicalName: name, domain, companyType: 'unknown', companyTier: 'unknown', enabled: true })
@@ -546,7 +566,7 @@ export function upsertCompanyByName(name, domain) {
 
 export function saveCompanySource(source) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     INSERT OR REPLACE INTO company_sources (
       id, company_id, provider, source_url, careers_url, board_slug, tenant, site,
       company_identifier, enabled, priority, capability, verification_status,
@@ -568,23 +588,23 @@ export function saveCompanySource(source) {
 }
 
 export function getCompanySourceById(id) {
-  const row = db.prepare(`SELECT * FROM company_sources WHERE id = ?`).get(id)
+  const row = getDb().prepare(`SELECT * FROM company_sources WHERE id = ?`).get(id)
   return row ? { ...row, enabled: !!row.enabled, metadata: JSON.parse(row.metadata_json || '{}') } : null
 }
 
 export function getSourcesByCompanyId(companyId) {
-  return db.prepare(`SELECT * FROM company_sources WHERE company_id = ? ORDER BY priority DESC`).all()
+  return getDb().prepare(`SELECT * FROM company_sources WHERE company_id = ? ORDER BY priority DESC`).all()
     .map(r => ({ ...r, enabled: !!r.enabled, metadata: JSON.parse(r.metadata_json || '{}') }))
 }
 
 export function getAllEnabledSources() {
-  return db.prepare(`SELECT * FROM company_sources WHERE enabled = 1 ORDER BY priority DESC`).all()
+  return getDb().prepare(`SELECT * FROM company_sources WHERE enabled = 1 ORDER BY priority DESC`).all()
     .map(r => ({ ...r, enabled: !!r.enabled, metadata: JSON.parse(r.metadata_json || '{}') }))
 }
 
 export function updateSourceHealth(sourceId, data) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     INSERT OR REPLACE INTO source_health (
       source_id, status, last_checked_at, last_success_at, last_http_status,
       current_job_count, previous_job_count, rolling_avg_job_count,
@@ -599,7 +619,7 @@ export function updateSourceHealth(sourceId, data) {
     JSON.stringify(data.anomalyFlags || []), ts
   )
   // Also update the source record
-  db.prepare(`
+  getDb().prepare(`
     UPDATE company_sources SET last_checked_at = ?, last_success_at = ?, last_failure_at = ?,
     consecutive_failures = ?, last_job_count = ?, updated_at = ? WHERE id = ?
   `).run(ts, data.lastSuccessAt || null, data.consecutiveFailures > 0 ? ts : null,
@@ -607,7 +627,7 @@ export function updateSourceHealth(sourceId, data) {
 }
 
 export function getSourceHealth(sourceId) {
-  const row = db.prepare(`SELECT * FROM source_health WHERE source_id = ?`).get(sourceId)
+  const row = getDb().prepare(`SELECT * FROM source_health WHERE source_id = ?`).get(sourceId)
   return row ? { ...row, anomalyFlags: JSON.parse(row.anomaly_flags || '[]') } : null
 }
 
@@ -615,7 +635,7 @@ export function getSourceHealth(sourceId) {
 
 export function saveCanonicalJob(job) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     INSERT OR REPLACE INTO canonical_jobs (
       id, company_id, company_name, title, normalized_title, location, country, city,
       application_url, description, programme_type, employment_type, finance_category,
@@ -643,7 +663,7 @@ export function saveCanonicalJob(job) {
 }
 
 export function getCanonicalJobById(id) {
-  return db.prepare(`SELECT * FROM canonical_jobs WHERE id = ?`).get(id) || null
+  return getDb().prepare(`SELECT * FROM canonical_jobs WHERE id = ?`).get(id) || null
 }
 
 export function getCanonicalJobs({ companyId, status, programmeType, financeCategory, country, limit = 50, offset = 0, sort = 'last_seen_at', order = 'desc' } = {}) {
@@ -659,7 +679,7 @@ export function getCanonicalJobs({ companyId, status, programmeType, financeCate
   const sortCol = allowedSorts.includes(sort) ? sort : 'last_seen_at'
   const sortOrder = order === 'asc' ? 'ASC' : 'DESC'
   params.push(limit, offset)
-  return db.prepare(`SELECT * FROM canonical_jobs ${whereClause} ORDER BY ${sortCol} ${sortOrder} LIMIT ? OFFSET ?`).all(...params)
+  return getDb().prepare(`SELECT * FROM canonical_jobs ${whereClause} ORDER BY ${sortCol} ${sortOrder} LIMIT ? OFFSET ?`).all(...params)
 }
 
 export function countCanonicalJobs({ companyId, status, programmeType, financeCategory, country } = {}) {
@@ -671,22 +691,22 @@ export function countCanonicalJobs({ companyId, status, programmeType, financeCa
   if (financeCategory) { where.push('finance_category = ?'); params.push(financeCategory) }
   if (country) { where.push('country = ?'); params.push(country) }
   const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''
-  return db.prepare(`SELECT COUNT(*) as count FROM canonical_jobs ${whereClause}`).get(...params).count
+  return getDb().prepare(`SELECT COUNT(*) as count FROM canonical_jobs ${whereClause}`).get(...params).count
 }
 
 export function getNewCanonicalJobs(since) {
-  return db.prepare(`SELECT * FROM canonical_jobs WHERE created_at > ? ORDER BY created_at DESC`).all(since)
+  return getDb().prepare(`SELECT * FROM canonical_jobs WHERE created_at > ? ORDER BY created_at DESC`).all(since)
 }
 
 export function getJobsByCompanyId(companyId) {
-  return db.prepare(`SELECT * FROM canonical_jobs WHERE company_id = ? ORDER BY last_seen_at DESC`).all(companyId)
+  return getDb().prepare(`SELECT * FROM canonical_jobs WHERE company_id = ? ORDER BY last_seen_at DESC`).all(companyId)
 }
 
 // ─── Raw Job Observations ──────────────────────────────────────
 
 export function saveRawObservation(obs) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     INSERT INTO raw_job_observations (id, source_id, company_id, source_job_id, source_url, fetched_at, payload_json, payload_hash, http_status, parser_version, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -697,14 +717,14 @@ export function saveRawObservation(obs) {
 }
 
 export function getObservationsBySourceId(sourceId, limit = 100) {
-  return db.prepare(`SELECT * FROM raw_job_observations WHERE source_id = ? ORDER BY fetched_at DESC LIMIT ?`).all(sourceId, limit)
+  return getDb().prepare(`SELECT * FROM raw_job_observations WHERE source_id = ? ORDER BY fetched_at DESC LIMIT ?`).all(sourceId, limit)
 }
 
 // ─── Job Source Observations ───────────────────────────────────
 
 export function saveJobSourceObservation(canonicalJobId, sourceId, sourceJobId, sourceUrl) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     INSERT INTO job_source_observations (canonical_job_id, source_id, source_job_id, source_url, first_seen_at, last_seen_at, observation_count)
     VALUES (?, ?, ?, ?, ?, ?, 1)
     ON CONFLICT (canonical_job_id, source_id) DO UPDATE SET
@@ -716,7 +736,7 @@ export function saveJobSourceObservation(canonicalJobId, sourceId, sourceJobId, 
 }
 
 export function getObservationsForJob(canonicalJobId) {
-  return db.prepare(`
+  return getDb().prepare(`
     SELECT jso.*, cs.provider, cs.source_url as cs_url, c.canonical_name as company_name
     FROM job_source_observations jso
     JOIN company_sources cs ON jso.source_id = cs.id
@@ -729,12 +749,12 @@ export function getObservationsForJob(canonicalJobId) {
 
 export function upsertSighting(sighting) {
   const ts = new Date().toISOString()
-  const existing = db.prepare(
+  const existing = getDb().prepare(
     `SELECT id FROM job_sightings WHERE canonical_job_id = ? AND source = ?`
   ).get(sighting.canonicalJobId, sighting.source)
 
   if (existing) {
-    db.prepare(`
+    getDb().prepare(`
       UPDATE job_sightings SET
         source_external_key = COALESCE(?, source_external_key),
         source_job_id = COALESCE(?, source_job_id),
@@ -765,7 +785,7 @@ export function upsertSighting(sighting) {
     return existing.id
   } else {
     const id = `sighting:${sighting.canonicalJobId}:${sighting.source}:${Date.now()}`
-    db.prepare(`
+    getDb().prepare(`
       INSERT INTO job_sightings (
         id, canonical_job_id, source, source_tier, source_external_key,
         source_job_id, source_url, employer_url,
@@ -788,14 +808,14 @@ export function upsertSighting(sighting) {
 
 export function deactivateSighting(canonicalJobId, source) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     UPDATE job_sightings SET is_active = 0, last_checked_at = ?
     WHERE canonical_job_id = ? AND source = ?
   `).run(ts, canonicalJobId, source)
 }
 
 export function getActiveSightingsForJob(canonicalJobId) {
-  return db.prepare(`
+  return getDb().prepare(`
     SELECT * FROM job_sightings WHERE canonical_job_id = ? AND is_active = 1
     ORDER BY source_tier ASC, last_seen_at DESC
   `).all(canonicalJobId)
@@ -804,7 +824,7 @@ export function getActiveSightingsForJob(canonicalJobId) {
 export function getActiveSightingsForJobs(canonicalJobIds) {
   if (!canonicalJobIds || canonicalJobIds.length === 0) return new Map()
   const placeholders = canonicalJobIds.map(() => '?').join(',')
-  const rows = db.prepare(`
+  const rows = getDb().prepare(`
     SELECT * FROM job_sightings WHERE canonical_job_id IN (${placeholders}) AND is_active = 1
     ORDER BY source_tier ASC, last_seen_at DESC
   `).all(...canonicalJobIds)
@@ -817,27 +837,27 @@ export function getActiveSightingsForJobs(canonicalJobIds) {
 }
 
 export function getAllSightingsForJob(canonicalJobId) {
-  return db.prepare(`
+  return getDb().prepare(`
     SELECT * FROM job_sightings WHERE canonical_job_id = ?
     ORDER BY source_tier ASC, last_seen_at DESC
   `).all(canonicalJobId)
 }
 
 export function getSightingBySourceAndJob(canonicalJobId, source) {
-  return db.prepare(
+  return getDb().prepare(
     `SELECT * FROM job_sightings WHERE canonical_job_id = ? AND source = ?`
   ).get(canonicalJobId, source) || null
 }
 
 export function getActiveSightingCount(canonicalJobId) {
-  const row = db.prepare(
+  const row = getDb().prepare(
     `SELECT COUNT(*) as count FROM job_sightings WHERE canonical_job_id = ? AND is_active = 1`
   ).get(canonicalJobId)
   return row ? row.count : 0
 }
 
 export function getSourceTierForSighting(canonicalJobId, source) {
-  const row = db.prepare(
+  const row = getDb().prepare(
     `SELECT source_tier FROM job_sightings WHERE canonical_job_id = ? AND source = ?`
   ).get(canonicalJobId, source)
   return row ? row.source_tier : null
@@ -858,12 +878,12 @@ export function updateCanonicalLifecycle(id, lifecycle, closureReason) {
     params.push(ts)
   }
   params.push(id)
-  db.prepare(`UPDATE canonical_jobs SET ${sets.join(', ')} WHERE id = ?`).run(...params)
+  getDb().prepare(`UPDATE canonical_jobs SET ${sets.join(', ')} WHERE id = ?`).run(...params)
 }
 
 export function incrementAbsences(id) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     UPDATE canonical_jobs SET consecutive_absences = consecutive_absences + 1, updated_at = ?
     WHERE id = ?
   `).run(ts, id)
@@ -871,28 +891,28 @@ export function incrementAbsences(id) {
 
 export function resetAbsences(id) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     UPDATE canonical_jobs SET consecutive_absences = 0, last_verified_open_at = ?, updated_at = ?
     WHERE id = ?
   `).run(ts, ts, id)
 }
 
 export function getOpenCanonicalJobs() {
-  return db.prepare(
+  return getDb().prepare(
     `SELECT * FROM canonical_jobs WHERE lifecycle IN ('open', 'closing_soon') ORDER BY last_verified_open_at DESC`
   ).all()
 }
 
 export function findCanonicalByFingerprint(fingerprint) {
   if (!fingerprint) return null
-  return db.prepare(
+  return getDb().prepare(
     `SELECT * FROM canonical_jobs WHERE fingerprint = ? LIMIT 1`
   ).get(fingerprint) || null
 }
 
 export function findCanonicalByExternalKey(sourceExternalKey) {
   if (!sourceExternalKey) return null
-  return db.prepare(`
+  return getDb().prepare(`
     SELECT cj.* FROM canonical_jobs cj
     JOIN job_sightings js ON cj.id = js.canonical_job_id
     WHERE js.source_external_key = ? AND js.is_active = 1
@@ -904,10 +924,10 @@ export function findCanonicalByExternalKey(sourceExternalKey) {
 
 export function upsertAdapterHealth(health) {
   const ts = new Date().toISOString()
-  const existing = db.prepare(`SELECT source FROM adapter_health WHERE source = ?`).get(health.source)
+  const existing = getDb().prepare(`SELECT source FROM adapter_health WHERE source = ?`).get(health.source)
 
   if (existing) {
-    db.prepare(`
+    getDb().prepare(`
       UPDATE adapter_health SET
         status = ?, scan_started_at = ?, scan_finished_at = ?,
         http_status = ?, jobs_found = ?, previous_jobs_found = ?,
@@ -932,7 +952,7 @@ export function upsertAdapterHealth(health) {
       health.source
     )
   } else {
-    db.prepare(`
+    getDb().prepare(`
       INSERT INTO adapter_health (
         source, status, scan_started_at, scan_finished_at, http_status,
         jobs_found, previous_jobs_found, baseline_avg_jobs, duration_ms,
@@ -959,15 +979,15 @@ export function upsertAdapterHealth(health) {
 }
 
 export function getAdapterHealth(source) {
-  return db.prepare(`SELECT * FROM adapter_health WHERE source = ?`).get(source) || null
+  return getDb().prepare(`SELECT * FROM adapter_health WHERE source = ?`).get(source) || null
 }
 
 export function getAllAdapterHealth() {
-  return db.prepare(`SELECT * FROM adapter_health ORDER BY source`).all()
+  return getDb().prepare(`SELECT * FROM adapter_health ORDER BY source`).all()
 }
 
 export function getUnhealthyAdapters(threshold = 3) {
-  return db.prepare(
+  return getDb().prepare(
     `SELECT * FROM adapter_health WHERE consecutive_zero_scans >= ? OR status = 'error' ORDER BY consecutive_zero_scans DESC`
   ).all(threshold)
 }
@@ -976,7 +996,7 @@ export function getUnhealthyAdapters(threshold = 3) {
 
 export function saveJobVersion(version) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     INSERT INTO job_versions (id, canonical_job_id, version_number, changed_fields, previous_values, new_values, detected_at, source_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -987,14 +1007,14 @@ export function saveJobVersion(version) {
 }
 
 export function getVersionsForJob(canonicalJobId) {
-  return db.prepare(`SELECT * FROM job_versions WHERE canonical_job_id = ? ORDER BY version_number DESC`).all(canonicalJobId)
+  return getDb().prepare(`SELECT * FROM job_versions WHERE canonical_job_id = ? ORDER BY version_number DESC`).all(canonicalJobId)
 }
 
 // ─── Poll Schedule ─────────────────────────────────────────────
 
 export function savePollSchedule(schedule) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     INSERT OR REPLACE INTO poll_schedule (source_id, next_check_at, last_checked_at, last_success_at, priority, poll_interval_ms, consecutive_failures, last_error, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -1007,7 +1027,7 @@ export function savePollSchedule(schedule) {
 
 export function getDueSources() {
   const now = new Date().toISOString()
-  return db.prepare(`
+  return getDb().prepare(`
     SELECT ps.*, cs.provider, cs.source_url, cs.company_id, cs.enabled, c.canonical_name
     FROM poll_schedule ps
     JOIN company_sources cs ON ps.source_id = cs.id
@@ -1019,7 +1039,7 @@ export function getDueSources() {
 
 export function updatePollScheduleAfterRun(sourceId, success, error) {
   const ts = new Date().toISOString()
-  const schedule = db.prepare(`SELECT * FROM poll_schedule WHERE source_id = ?`).get(sourceId)
+  const schedule = getDb().prepare(`SELECT * FROM poll_schedule WHERE source_id = ?`).get(sourceId)
   if (!schedule) return
   const failures = success ? 0 : schedule.consecutive_failures + 1
   const baseInterval = schedule.poll_interval_ms
@@ -1029,7 +1049,7 @@ export function updatePollScheduleAfterRun(sourceId, success, error) {
   // Add jitter: ±10%
   const jitter = newInterval * 0.1 * (Math.random() * 2 - 1)
   const nextCheck = new Date(Date.now() + newInterval + jitter).toISOString()
-  db.prepare(`
+  getDb().prepare(`
     UPDATE poll_schedule SET next_check_at = ?, last_checked_at = ?, last_success_at = ?,
     consecutive_failures = ?, poll_interval_ms = ?, last_error = ?, updated_at = ?
     WHERE source_id = ?
@@ -1041,7 +1061,7 @@ export function updatePollScheduleAfterRun(sourceId, success, error) {
 export function createDiscoveryTarget(companyId, companyName, domain, knownCareersUrl) {
   const ts = new Date().toISOString()
   const id = `dq_${companyId}_${Date.now()}`
-  db.prepare(`
+  getDb().prepare(`
     INSERT OR IGNORE INTO discovery_queue
     (id, company_id, company_name, domain, known_careers_url, status, attempt_count, evidence, careers_pages_found, multi_source, manual_review_required, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, 'pending', 0, '[]', '[]', '[]', 0, ?, ?)
@@ -1050,15 +1070,15 @@ export function createDiscoveryTarget(companyId, companyName, domain, knownCaree
 }
 
 export function getDiscoveryTarget(companyId) {
-  return db.prepare(`SELECT * FROM discovery_queue WHERE company_id = ?`).get(companyId) || null
+  return getDb().prepare(`SELECT * FROM discovery_queue WHERE company_id = ?`).get(companyId) || null
 }
 
 export function getDiscoveryTargetsByStatus(status, limit = 50) {
-  return db.prepare(`SELECT * FROM discovery_queue WHERE status = ? ORDER BY CASE WHEN next_attempt_at IS NULL THEN 1 ELSE 0 END, next_attempt_at ASC LIMIT ?`).all(status, limit)
+  return getDb().prepare(`SELECT * FROM discovery_queue WHERE status = ? ORDER BY CASE WHEN next_attempt_at IS NULL THEN 1 ELSE 0 END, next_attempt_at ASC LIMIT ?`).all(status, limit)
 }
 
 export function getAllDiscoveryTargets() {
-  return db.prepare(`SELECT * FROM discovery_queue ORDER BY status, company_name`).all()
+  return getDb().prepare(`SELECT * FROM discovery_queue ORDER BY status, company_name`).all()
 }
 
 export function updateDiscoveryTarget(companyId, updates) {
@@ -1080,11 +1100,11 @@ export function updateDiscoveryTarget(companyId, updates) {
   fields.push('updated_at = ?')
   values.push(ts)
   values.push(companyId)
-  db.prepare(`UPDATE discovery_queue SET ${fields.join(', ')} WHERE company_id = ?`).run(...values)
+  getDb().prepare(`UPDATE discovery_queue SET ${fields.join(', ')} WHERE company_id = ?`).run(...values)
 }
 
 export function getDiscoveryStats() {
-  const rows = db.prepare(`SELECT status, COUNT(*) as count FROM discovery_queue GROUP BY status`).all()
+  const rows = getDb().prepare(`SELECT status, COUNT(*) as count FROM discovery_queue GROUP BY status`).all()
   const stats = { pending: 0, discovering: 0, supported_source_found: 0, unsupported_ats_found: 0, custom_careers_found: 0, multiple_sources_found: 0, access_restricted: 0, no_careers_source_found: 0, ambiguous: 0, failed: 0, manual_review: 0, total: 0 }
   for (const row of rows) {
     const key = row.status.replace(/-/g, '_')
@@ -1098,7 +1118,7 @@ export function getDiscoveryStats() {
 
 export function createUser(id, username, email, passwordHash) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     INSERT INTO users (id, username, email, password_hash, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(id, username.toLowerCase(), email.toLowerCase(), passwordHash, ts, ts)
@@ -1106,59 +1126,63 @@ export function createUser(id, username, email, passwordHash) {
 }
 
 export function getUserById(id) {
-  const row = db.prepare(`SELECT * FROM users WHERE id = ?`).get(id)
+  const row = getDb().prepare(`SELECT * FROM users WHERE id = ?`).get(id)
   return row || null
 }
 
 export function getUserByUsername(username) {
-  const row = db.prepare(`SELECT * FROM users WHERE username = ?`).get(username?.toLowerCase())
+  const row = getDb().prepare(`SELECT * FROM users WHERE username = ?`).get(username?.toLowerCase())
   return row || null
 }
 
 export function getUserByEmail(email) {
-  const row = db.prepare(`SELECT * FROM users WHERE email = ?`).get(email?.toLowerCase())
+  const row = getDb().prepare(`SELECT * FROM users WHERE email = ?`).get(email?.toLowerCase())
   return row || null
 }
 
 export function updateUserPassword(id, passwordHash) {
   const ts = new Date().toISOString()
-  db.prepare(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`).run(passwordHash, ts, id)
+  getDb().prepare(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`).run(passwordHash, ts, id)
 }
 
 // ─── Password Resets ───────────────────────────────────────────
 
 export function createPasswordReset(id, userId, tokenHash, expiresAt) {
   const ts = new Date().toISOString()
-  db.prepare(`
+  getDb().prepare(`
     INSERT INTO password_resets (id, user_id, token_hash, expires_at, used, created_at)
     VALUES (?, ?, ?, ?, 0, ?)
   `).run(id, userId, tokenHash, expiresAt, ts)
 }
 
 export function getPasswordReset(tokenHash) {
-  return db.prepare(`SELECT * FROM password_resets WHERE token_hash = ? AND used = 0`).get(tokenHash) || null
+  return getDb().prepare(`SELECT * FROM password_resets WHERE token_hash = ? AND used = 0`).get(tokenHash) || null
 }
 
 export function usePasswordReset(tokenHash) {
-  db.prepare(`UPDATE password_resets SET used = 1 WHERE token_hash = ?`).run(tokenHash)
+  getDb().prepare(`UPDATE password_resets SET used = 1 WHERE token_hash = ?`).run(tokenHash)
 }
 
 export function cleanupExpiredResets() {
-  db.prepare(`DELETE FROM password_resets WHERE expires_at < ? OR used = 1`).run(new Date().toISOString())
+  getDb().prepare(`DELETE FROM password_resets WHERE expires_at < ? OR used = 1`).run(new Date().toISOString())
 }
 
 // ─── Maintenance ────────────────────────────────────────────────
 
 export function getDbStats() {
   const entryCount = getEntryCount()
-  const directJobFirms = db.prepare(`SELECT COUNT(*) as count FROM pipeline_direct_jobs`).get().count
-  const sourceDiscoveryFirms = db.prepare(`SELECT COUNT(*) as count FROM pipeline_source_discovery`).get().count
-  const userCount = db.prepare(`SELECT COUNT(*) as count FROM users`).get().count
+  const directJobFirms = getDb().prepare(`SELECT COUNT(*) as count FROM pipeline_direct_jobs`).get().count
+  const sourceDiscoveryFirms = getDb().prepare(`SELECT COUNT(*) as count FROM pipeline_source_discovery`).get().count
+  const userCount = getDb().prepare(`SELECT COUNT(*) as count FROM users`).get().count
   return { entryCount, directJobFirms, sourceDiscoveryFirms, userCount }
 }
 
 export function closeDb() {
-  db.close()
+  if (_db) {
+    _db.close()
+    _db = null
+    _stmts = null
+  }
 }
 
-export default db
+export default getDb
