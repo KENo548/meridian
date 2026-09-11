@@ -42,13 +42,15 @@ export class MeridianDB extends Dexie {
 export const db = new MeridianDB()
 
 let activeDb: MeridianDB = db
+let activeUserId: string | null = null
 
 export function getUserDb(userId: string): MeridianDB {
-  if (activeDb !== db) {
-    // Already have a user-specific db open
+  if (activeDb !== db && activeUserId === userId) {
+    // Already have this user's db open
     return activeDb
   }
   activeDb = new MeridianDB(`meridian-finance-tracker-${userId}`)
+  activeUserId = userId
   return activeDb
 }
 

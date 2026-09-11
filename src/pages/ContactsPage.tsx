@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useMeridianStore } from '@/lib/store'
 import { formatDisplayDate, isValidUrl } from '@/lib/utils'
@@ -26,6 +27,7 @@ export function ContactsPage() {
   const [notes, setNotes] = useState('')
   const [applicationId, setApplicationId] = useState('')
   const [lastContact, setLastContact] = useState('')
+  const [deleteContactId, setDeleteContactId] = useState<string | null>(null)
 
   const sorted = [...contacts].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
@@ -143,7 +145,7 @@ export function ContactsPage() {
                         variant="ghost"
                         size="sm"
                         aria-label="Delete contact"
-                        onClick={() => void deleteContact(c.id)}
+                        onClick={() => setDeleteContactId(c.id)}
                       >
                         <Trash2 className="size-3.5 text-[var(--color-danger)]" />
                       </Button>
@@ -246,6 +248,16 @@ export function ContactsPage() {
           <Textarea label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleteContactId}
+        title="Delete Contact"
+        message="Permanently delete this contact? This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => { if (deleteContactId) void deleteContact(deleteContactId); setDeleteContactId(null) }}
+        onCancel={() => setDeleteContactId(null)}
+      />
     </div>
   )
 }

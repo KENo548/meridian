@@ -174,15 +174,22 @@ router.post('/forgot-password', async (req, res) => {
 
     // In production, send email with rawToken link
     // For now, return the token (dev mode only)
-    console.log(`[Auth] Password reset token for ${user.email}: ${rawToken}`)
-    console.log(`[Auth] Reset URL: http://localhost:5173/reset-password?token=${rawToken}`)
+    const isProduction = process.env.NODE_ENV === 'production'
+    if (!isProduction) {
+      console.log(`[Auth] Password reset token for ${user.email}: ${rawToken}`)
+      console.log(`[Auth] Reset URL: http://localhost:5173/reset-password?token=${rawToken}`)
+    }
 
-    res.json({
+    const response = {
       message: 'If that email is registered, you will receive a reset link.',
-      // Dev-only: include token in response
-      _dev_token: rawToken,
-      _dev_url: `http://localhost:5173/reset-password?token=${rawToken}`,
-    })
+    }
+    // Dev-only: include token in response
+    if (!isProduction) {
+      response._dev_token = rawToken
+      response._dev_url = `http://localhost:5173/reset-password?token=${rawToken}`
+    }
+
+    res.json(response)
   } catch (err) {
     console.error('[Auth] Forgot password error:', err.message)
     res.status(500).json({ error: 'Password reset request failed' })

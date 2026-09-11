@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Download, Upload, Database, Trash2, FileJson, Tag, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { APP_NAME } from '@/constants'
 import { useMeridianStore } from '@/lib/store'
 import { exportApplicationsCsv, exportJsonBackup, parseApplicationsCsv } from '@/lib/csv'
@@ -24,6 +25,7 @@ export function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [newTagName, setNewTagName] = useState('')
+  const [deleteTagId, setDeleteTagId] = useState<string | null>(null)
 
   const downloadText = (filename: string, content: string, mime: string) => {
     const blob = new Blob([content], { type: mime })
@@ -151,7 +153,7 @@ export function SettingsPage() {
                 <button
                   type="button"
                   className="text-[var(--color-faint)] hover:text-[var(--color-danger)] cursor-pointer ml-0.5"
-                  onClick={() => void deleteTag(t.id)}
+                  onClick={() => setDeleteTagId(t.id)}
                   aria-label={`Delete tag ${t.name}`}
                 >
                   <X className="size-3" />
@@ -235,6 +237,16 @@ export function SettingsPage() {
       <p className="text-xs text-[var(--color-faint)]">
         {APP_NAME} stores data locally in your browser (IndexedDB). Nothing is uploaded.
       </p>
+
+      <ConfirmDialog
+        open={!!deleteTagId}
+        title="Delete Tag"
+        message="Permanently delete this tag? Applications tagged with it will lose the tag."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => { if (deleteTagId) void deleteTag(deleteTagId); setDeleteTagId(null) }}
+        onCancel={() => setDeleteTagId(null)}
+      />
     </div>
   )
 }

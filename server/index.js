@@ -42,6 +42,7 @@ import {
   getOpenCanonicalJobs,
   countCanonicalJobs,
   getActiveSightingsForJob,
+  getActiveSightingsForJobs,
   getAllSightingsForJob,
   getCanonicalJobById,
   getAllAdapterHealth,
@@ -68,7 +69,7 @@ app.use(cors({
     if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
       return callback(null, true)
     }
-    callback(null, true)
+    callback(new Error('Not allowed by CORS'), false)
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -79,8 +80,12 @@ app.use(express.json());
 
 // ─── Session middleware ───────────────────────────────────────
 
-const SESSION_SECRET = process.env.SESSION_SECRET || 'meridian-dev-secret-change-in-production'
 const isProduction = process.env.NODE_ENV === 'production'
+if (isProduction && !process.env.SESSION_SECRET) {
+  console.error('[FATAL] SESSION_SECRET environment variable is required in production')
+  process.exit(1)
+}
+const SESSION_SECRET = process.env.SESSION_SECRET || 'meridian-dev-secret-change-in-production'
 
 app.use(session({
   name: 'meridian.sid',
@@ -406,8 +411,10 @@ function deriveDivisionFromText(text) {
   return null;
 }
 
-function deriveOpportunityFromCanonical(job) {
-  const sightings = getActiveSightingsForJob(job.id)
+function deriveOpportunityFromCanonical(job, sightingsMap) {
+  const sightings = sightingsMap
+    ? (sightingsMap.get(job.id) || getActiveSightingsForJob(job.id))
+    : getActiveSightingsForJob(job.id)
   const sources = [...new Set(sightings.map(s => s.source).filter(Boolean))]
   const hasEmployerSource = sightings.some(s => s.source_tier === 'employer_ats' || s.source_tier === 'employer_url')
   const hasTrackerSource = sightings.some(s => s.source_tier === 'tracker')
@@ -585,8 +592,11 @@ app.get('/api/opportunities', (req, res) => {
     // Read from canonical jobs
     const canonicalJobs = getCanonicalJobs({ status: 'active', limit: 100000 });
 
+    // Batch-load all sightings to avoid N+1 queries
+    const sightingsMap = getActiveSightingsForJobs(canonicalJobs.map(j => j.id))
+
     // Derive opportunities from canonical jobs + sightings
-    let opportunities = canonicalJobs.map(deriveOpportunityFromCanonical);
+    let opportunities = canonicalJobs.map(job => deriveOpportunityFromCanonical(job, sightingsMap));
 
     if (q) {
       const query = q.toLowerCase();
@@ -1174,6 +1184,8 @@ async function runStartupPipeline() {
 // Prevent unhandled errors from crashing the server
 process.on('uncaughtException', (err) => {
   console.error('[UncaughtException]', err.message, err.stack);
+  // After uncaught exception, process is in undefined state — must exit
+  process.exit(1);
 });
 process.on('SIGTERM', () => process.exit(0));
 process.on('SIGINT', () => process.exit(0));

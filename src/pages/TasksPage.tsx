@@ -3,6 +3,7 @@ import { CheckSquare, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useMeridianStore } from '@/lib/store'
 import { formatDisplayDate, clsx } from '@/lib/utils'
@@ -19,6 +20,7 @@ export function TasksPage() {
   const [dueDate, setDueDate] = useState('')
   const [applicationId, setApplicationId] = useState('')
   const [showDone, setShowDone] = useState(false)
+  const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null)
 
   const visible = [...tasks]
     .filter((t) => (showDone ? true : !t.completed))
@@ -139,7 +141,7 @@ export function TasksPage() {
                   variant="ghost"
                   size="sm"
                   aria-label="Delete task"
-                  onClick={() => void deleteTask(task.id)}
+                  onClick={() => setDeleteTaskId(task.id)}
                 >
                   <Trash2 className="size-3.5 text-[var(--color-danger)]" />
                 </Button>
@@ -148,6 +150,16 @@ export function TasksPage() {
           })}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTaskId}
+        title="Delete Task"
+        message="Permanently delete this task? This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => { if (deleteTaskId) void deleteTask(deleteTaskId); setDeleteTaskId(null) }}
+        onCancel={() => setDeleteTaskId(null)}
+      />
     </div>
   )
 }

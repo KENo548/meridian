@@ -48,7 +48,6 @@ async function fetchGreenhouseJobs(firm) {
       employmentType: mapEmploymentType(job),
       departments: (job.departments || []).map(d => d.name),
       offices: (job.offices || []).map(o => o.name),
-      source: 'greenhouse',
     }))
 
     return { jobs, source: 'greenhouse', total: jobs.length, firm: firm.name }

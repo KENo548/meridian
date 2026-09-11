@@ -433,12 +433,56 @@ function stopCronScan() {
   }
 }
 
-function scanSingleFirm(firmId) {
+async function scanSingleFirm(firmId) {
   const firms = getEnabledFirms()
   const firm = firms.find(f => f.id === firmId)
   if (!firm) return { error: `Firm not found or not enabled: ${firmId}` }
 
-  return fetchAllEnabledFirms([firm])
+  // Run full pipeline for single firm
+  const startTime = Date.now()
+  const newJobIds = []
+
+  try {
+    const { jobs: rawJobs, firmResults } = await fetchAllEnabledFirms([firm])
+
+    const normalizedJobs = rawJobs
+      .map(job => normalize(job, job.source))
+      .filter(Boolean)
+
+    const canonicalJobs = canonicalizeBatch(normalizedJobs)
+    const { jobs: dedupedJobs } = deduplicateJobs(canonicalJobs)
+
+    const sourceCounters = {}
+    for (const job of dedupedJobs) {
+      const source = job.source || 'unknown'
+      sourceCounters[source] = (sourceCounters[source] || 0) + 1
+      const result = upsertCanonicalJob(job, source)
+      if (result.isNew) newJobIds.push(job.id)
+    }
+
+    evaluateAllStaleness()
+
+    return {
+      status: 'completed',
+      timestamp: new Date().toISOString(),
+      durationMs: Date.now() - startTime,
+      firmId,
+      firmName: firm.name,
+      jobsFound: rawJobs.length,
+      jobsAfterDedup: dedupedJobs.length,
+      newJobs: newJobIds.length,
+      jobsBySource: sourceCounters,
+      firmResults,
+    }
+  } catch (err) {
+    return {
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      durationMs: Date.now() - startTime,
+      firmId,
+      error: err.message,
+    }
+  }
 }
 
 function getLastScanResult() {

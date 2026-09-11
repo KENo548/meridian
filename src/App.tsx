@@ -7,6 +7,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { Loader2 } from 'lucide-react'
 import { useMeridianStore } from '@/lib/store'
 import { getUserDb, setActiveDb } from '@/lib/db'
@@ -54,74 +55,76 @@ function AuthenticatedApp() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AuthenticatedApp />
-        <Routes>
-          {/* Public auth routes */}
-          <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-          <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
-          <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
-          <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <AuthenticatedApp />
+          <Routes>
+            {/* Public auth routes */}
+            <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+            <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
+            <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+            <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
 
-          {/* Protected app routes */}
-          <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-            <Route index element={<DashboardPage />} />
-            <Route path="opportunities" element={
-              <Suspense fallback={<PageLoader />}>
-                <OpportunitiesPage />
-              </Suspense>
-            } />
-            <Route path="applications" element={
-              <Suspense fallback={<PageLoader />}>
-                <ApplicationsPage />
-              </Suspense>
-            } />
-            <Route path="calendar" element={
-              <Suspense fallback={<PageLoader />}>
-                <CalendarPage />
-              </Suspense>
-            } />
-            <Route path="companies" element={
-              <Suspense fallback={<PageLoader />}>
-                <CompaniesPage />
-              </Suspense>
-            } />
-            <Route path="documents" element={
-              <Suspense fallback={<PageLoader />}>
-                <DocumentsPage />
-              </Suspense>
-            } />
-            <Route path="contacts" element={
-              <Suspense fallback={<PageLoader />}>
-                <ContactsPage />
-              </Suspense>
-            } />
-            <Route path="tasks" element={
-              <Suspense fallback={<PageLoader />}>
-                <TasksPage />
-              </Suspense>
-            } />
-            <Route path="analytics" element={
-              <Suspense fallback={<PageLoader />}>
-                <AnalyticsPage />
-              </Suspense>
-            } />
-            <Route path="sources" element={
-              <Suspense fallback={<PageLoader />}>
-                <SourcesPage />
-              </Suspense>
-            } />
-            <Route path="settings" element={
-              <Suspense fallback={<PageLoader />}>
-                <SettingsPage />
-              </Suspense>
-            } />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+            {/* Protected app routes */}
+            <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+              <Route index element={<DashboardPage />} />
+              <Route path="opportunities" element={
+                <Suspense fallback={<PageLoader />}>
+                  <OpportunitiesPage />
+                </Suspense>
+              } />
+              <Route path="applications" element={
+                <Suspense fallback={<PageLoader />}>
+                  <ApplicationsPage />
+                </Suspense>
+              } />
+              <Route path="calendar" element={
+                <Suspense fallback={<PageLoader />}>
+                  <CalendarPage />
+                </Suspense>
+              } />
+              <Route path="companies" element={
+                <Suspense fallback={<PageLoader />}>
+                  <CompaniesPage />
+                </Suspense>
+              } />
+              <Route path="documents" element={
+                <Suspense fallback={<PageLoader />}>
+                  <DocumentsPage />
+                </Suspense>
+              } />
+              <Route path="contacts" element={
+                <Suspense fallback={<PageLoader />}>
+                  <ContactsPage />
+                </Suspense>
+              } />
+              <Route path="tasks" element={
+                <Suspense fallback={<PageLoader />}>
+                  <TasksPage />
+                </Suspense>
+              } />
+              <Route path="analytics" element={
+                <Suspense fallback={<PageLoader />}>
+                  <AnalyticsPage />
+                </Suspense>
+              } />
+              <Route path="sources" element={
+                <Suspense fallback={<PageLoader />}>
+                  <SourcesPage />
+                </Suspense>
+              } />
+              <Route path="settings" element={
+                <Suspense fallback={<PageLoader />}>
+                  <SettingsPage />
+                </Suspense>
+              } />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

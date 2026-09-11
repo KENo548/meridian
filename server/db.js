@@ -801,6 +801,21 @@ export function getActiveSightingsForJob(canonicalJobId) {
   `).all(canonicalJobId)
 }
 
+export function getActiveSightingsForJobs(canonicalJobIds) {
+  if (!canonicalJobIds || canonicalJobIds.length === 0) return new Map()
+  const placeholders = canonicalJobIds.map(() => '?').join(',')
+  const rows = db.prepare(`
+    SELECT * FROM job_sightings WHERE canonical_job_id IN (${placeholders}) AND is_active = 1
+    ORDER BY source_tier ASC, last_seen_at DESC
+  `).all(...canonicalJobIds)
+  const map = new Map()
+  for (const row of rows) {
+    if (!map.has(row.canonical_job_id)) map.set(row.canonical_job_id, [])
+    map.get(row.canonical_job_id).push(row)
+  }
+  return map
+}
+
 export function getAllSightingsForJob(canonicalJobId) {
   return db.prepare(`
     SELECT * FROM job_sightings WHERE canonical_job_id = ?
@@ -1039,7 +1054,7 @@ export function getDiscoveryTarget(companyId) {
 }
 
 export function getDiscoveryTargetsByStatus(status, limit = 50) {
-  return db.prepare(`SELECT * FROM discovery_queue WHERE status = ? ORDER BY next_attempt_at ASC NULLS LAST LIMIT ?`).all(status, limit)
+  return db.prepare(`SELECT * FROM discovery_queue WHERE status = ? ORDER BY CASE WHEN next_attempt_at IS NULL THEN 1 ELSE 0 END, next_attempt_at ASC LIMIT ?`).all(status, limit)
 }
 
 export function getAllDiscoveryTargets() {
@@ -1050,9 +1065,15 @@ export function updateDiscoveryTarget(companyId, updates) {
   const ts = new Date().toISOString()
   const fields = []
   const values = []
+  const ALLOWED_COLUMNS = [
+    'status', 'company_name', 'resolved_firm_id', 'careers_url', 'ats_type',
+    'ats_hostname', 'confidence', 'notes', 'next_attempt_at', 'last_attempt_at',
+    'attempt_count', 'error_message', 'source', 'user_id', 'updated_at',
+  ]
   for (const [key, value] of Object.entries(updates)) {
     if (key === 'id' || key === 'company_id' || key === 'created_at') continue
     const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase()
+    if (!ALLOWED_COLUMNS.includes(dbKey)) continue
     fields.push(`${dbKey} = ?`)
     values.push(typeof value === 'object' ? JSON.stringify(value) : value)
   }

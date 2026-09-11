@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Archive, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { STATUS_LABELS, STATUS_ORDER } from '@/constants'
 import { useMeridianStore } from '@/lib/store'
 import type { ApplicationStatus } from '@/types'
@@ -11,6 +13,8 @@ export function BulkActionsBar() {
   const bulkUpdateStatus = useMeridianStore((s) => s.bulkUpdateStatus)
   const archiveApplications = useMeridianStore((s) => s.archiveApplications)
   const deleteApplications = useMeridianStore((s) => s.deleteApplications)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   if (!selectedIds.length) return null
 
@@ -34,7 +38,7 @@ export function BulkActionsBar() {
       <Button
         variant="secondary"
         size="sm"
-        onClick={() => void archiveApplications(selectedIds, true)}
+        onClick={() => setShowArchiveConfirm(true)}
       >
         <Archive className="size-3.5" />
         Archive
@@ -42,11 +46,7 @@ export function BulkActionsBar() {
       <Button
         variant="danger"
         size="sm"
-        onClick={() => {
-          if (window.confirm(`Delete ${selectedIds.length} application(s)?`)) {
-            void deleteApplications(selectedIds)
-          }
-        }}
+        onClick={() => setShowDeleteConfirm(true)}
       >
         <Trash2 className="size-3.5" />
         Delete
@@ -55,6 +55,25 @@ export function BulkActionsBar() {
         <X className="size-3.5" />
         Clear
       </Button>
+
+      <ConfirmDialog
+        open={showArchiveConfirm}
+        title="Archive Applications"
+        message={`Archive ${selectedIds.length} selected application(s)? They'll be hidden from the main list but not deleted.`}
+        confirmLabel="Archive"
+        variant="warning"
+        onConfirm={() => { void archiveApplications(selectedIds, true); setShowArchiveConfirm(false) }}
+        onCancel={() => setShowArchiveConfirm(false)}
+      />
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete Applications"
+        message={`Permanently delete ${selectedIds.length} selected application(s)? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => { void deleteApplications(selectedIds); setShowDeleteConfirm(false) }}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </div>
   )
 }

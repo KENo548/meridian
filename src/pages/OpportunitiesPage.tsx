@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Search, ExternalLink, Star, MapPin, Clock, Building2, X, Filter, Loader2, Shield } from 'lucide-react'
+import { Search, ExternalLink, Star, MapPin, Clock, Building2, X, Filter, Loader2, Shield, ArrowUpDown, Flame } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -65,6 +65,32 @@ const SOURCE_LABELS: Record<string, string> = {
   successfactors: 'SuccessFactors',
 }
 
+const SPECIALTY_OPTIONS = [
+  { value: 'M&A', label: 'M&A' },
+  { value: 'LevFin', label: 'LevFin' },
+  { value: 'ECM', label: 'ECM' },
+  { value: 'DCM', label: 'DCM' },
+  { value: 'PE', label: 'Private Equity' },
+  { value: 'AM', label: 'Asset Management' },
+  { value: 'S&T', label: 'Sales & Trading' },
+  { value: 'Quant', label: 'Quantitative' },
+  { value: 'Restructuring', label: 'Restructuring' },
+  { value: 'VC', label: 'Venture Capital' },
+]
+
+const SORT_OPTIONS = [
+  { value: 'updatedAt', label: 'Most Recent' },
+  { value: 'deadline', label: 'Deadline Soonest' },
+  { value: 'companyName', label: 'Company A-Z' },
+]
+
+const QUICK_FILTERS = [
+  { key: 'spring_week', label: 'Spring Week', icon: '🌸' },
+  { key: 'summer_intern', label: 'Summer', icon: '☀️' },
+  { key: 'off_cycle', label: 'Off-Cycle', icon: '🔄' },
+  { key: 'grad', label: 'Graduate', icon: '🎓' },
+]
+
 export function OpportunitiesPage() {
   const [pageTab, setPageTab] = useState<PageTab>('feed')
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
@@ -81,7 +107,12 @@ export function OpportunitiesPage() {
   const [selectedStatus, setSelectedStatus] = useState<string[]>([])
   const [selectedSource, setSelectedSource] = useState<string[]>([])
   const [selectedLanguage, setSelectedLanguage] = useState<string[]>([])
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string[]>([])
+  const [selectedDivision, setSelectedDivision] = useState<string[]>([])
   const [showFilters, setShowFilters] = useState(false)
+  const [sortBy, setSortBy] = useState('updatedAt')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [onlyOpen, setOnlyOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [detail, setDetail] = useState<Opportunity | null>(null)
   const [total, setTotal] = useState(0)
@@ -93,16 +124,27 @@ export function OpportunitiesPage() {
   const fetchOpportunities = useCallback(async () => {
     setLoading(true)
     try {
-      const activeFilters: OpportunityFilters = { ...filters, page }
+      const activeFilters: OpportunityFilters = { ...filters, page, sort: sortBy, order: sortOrder }
       if (searchQuery) activeFilters.q = searchQuery
       if (selectedCategory.length > 0) activeFilters.category = selectedCategory.join(',')
       if (selectedCountry.length > 0) activeFilters.country = selectedCountry.join(',')
       if (selectedStatus.length > 0) activeFilters.status = selectedStatus.join(',')
       if (selectedSource.length > 0) activeFilters.source = selectedSource.join(',')
       if (selectedLanguage.length > 0) activeFilters.language = selectedLanguage.join(',')
+      if (selectedDivision.length > 0) activeFilters.division = selectedDivision.join(',')
+      if (onlyOpen) activeFilters.deadline = 'closing_soon'
 
       const result = await getOpportunities(activeFilters)
-      setOpportunities(result.opportunities)
+      let filteredOpps = result.opportunities
+
+      // Client-side specialty filter (specialties are stored in JSON)
+      if (selectedSpecialty.length > 0) {
+        filteredOpps = filteredOpps.filter(opp =>
+          opp.specialties?.some(s => selectedSpecialty.some(sel => s.toLowerCase().includes(sel.toLowerCase())))
+        )
+      }
+
+      setOpportunities(filteredOpps)
       setMetrics(result.metrics)
       setTotal(result.total)
     } catch (err) {
@@ -110,7 +152,7 @@ export function OpportunitiesPage() {
     } finally {
       setLoading(false)
     }
-  }, [filters, page, searchQuery, selectedCategory, selectedCountry, selectedStatus, selectedSource, selectedLanguage])
+  }, [filters, page, searchQuery, selectedCategory, selectedCountry, selectedStatus, selectedSource, selectedLanguage, selectedSpecialty, selectedDivision, sortBy, sortOrder, onlyOpen])
 
   useEffect(() => {
     fetchOpportunities()
@@ -182,11 +224,17 @@ export function OpportunitiesPage() {
     setSelectedStatus([])
     setSelectedSource([])
     setSelectedLanguage([])
+    setSelectedSpecialty([])
+    setSelectedDivision([])
+    setOnlyOpen(false)
+    setSortBy('updatedAt')
+    setSortOrder('desc')
     setPage(1)
   }
 
   const hasFilters = searchQuery || selectedCategory.length > 0 || selectedCountry.length > 0 ||
-    selectedStatus.length > 0 || selectedSource.length > 0 || selectedLanguage.length > 0
+    selectedStatus.length > 0 || selectedSource.length > 0 || selectedLanguage.length > 0 ||
+    selectedSpecialty.length > 0 || selectedDivision.length > 0 || onlyOpen
 
   return (
     <div className="space-y-6">
@@ -248,10 +296,60 @@ export function OpportunitiesPage() {
           Filters
           {hasFilters && (
             <Badge tone="accent" className="ml-1">
-              {[selectedCategory, selectedCountry, selectedStatus, selectedSource, selectedLanguage].filter(a => a.length > 0).length}
+              {[selectedCategory, selectedCountry, selectedStatus, selectedSource, selectedLanguage, selectedSpecialty, selectedDivision].filter(a => a.length > 0).length + (onlyOpen ? 1 : 0)}
             </Badge>
           )}
         </Button>
+      </div>
+
+      {/* Quick filter chips */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {QUICK_FILTERS.map(qf => (
+          <button
+            key={qf.key}
+            onClick={() => toggleFilter(qf.key, setSelectedCategory)}
+            className={clsx(
+              'px-3 py-1.5 rounded-full text-xs font-medium transition-all border',
+              selectedCategory.includes(qf.key)
+                ? 'bg-[var(--color-accent)]/20 border-[var(--color-accent)]/50 text-[var(--color-accent)]'
+                : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-accent)]/30 hover:text-[var(--color-text)]'
+            )}
+          >
+            {qf.icon} {qf.label}
+          </button>
+        ))}
+        <div className="w-px h-5 bg-[var(--color-border)]" />
+        <button
+          onClick={() => setOnlyOpen(!onlyOpen)}
+          className={clsx(
+            'px-3 py-1.5 rounded-full text-xs font-medium transition-all border flex items-center gap-1',
+            onlyOpen
+              ? 'bg-green-500/20 border-green-500/50 text-green-400'
+              : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-green-500/30'
+          )}
+        >
+          <Flame className="size-3" />
+          Currently Open
+        </button>
+        <div className="w-px h-5 bg-[var(--color-border)]" />
+        <div className="flex items-center gap-1">
+          <select
+            value={sortBy}
+            onChange={e => { setSortBy(e.target.value); setPage(1) }}
+            className="px-2 py-1 rounded-lg text-xs bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
+          >
+            {SORT_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => { setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc'); setPage(1) }}
+            className="p-1 rounded hover:bg-[var(--color-surface)] text-[var(--color-muted)]"
+            title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+          >
+            <ArrowUpDown className={clsx('size-3', sortOrder === 'asc' && 'rotate-180')} />
+          </button>
+        </div>
       </div>
 
       {showFilters && (
@@ -300,6 +398,26 @@ export function OpportunitiesPage() {
               ))}
             </FilterGroup>
 
+            <FilterGroup label="Division">
+              {[
+                { value: 'Investment Banking', label: 'IB' },
+                { value: 'Private Equity', label: 'PE' },
+                { value: 'Hedge Fund', label: 'HF' },
+                { value: 'Asset Management', label: 'AM' },
+                { value: 'Sales & Trading', label: 'S&T' },
+                { value: 'Quantitative', label: 'Quant' },
+                { value: 'Research', label: 'Research' },
+                { value: 'Technology', label: 'Tech' },
+              ].map(opt => (
+                <FilterChip
+                  key={opt.value}
+                  label={opt.label}
+                  active={selectedDivision.includes(opt.value)}
+                  onClick={() => toggleFilter(opt.value, setSelectedDivision)}
+                />
+              ))}
+            </FilterGroup>
+
             <FilterGroup label="Language">
               {metrics && Object.entries(metrics.byLanguage).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([lang, count]) => (
                 <FilterChip
@@ -318,6 +436,17 @@ export function OpportunitiesPage() {
                   label={`${code.toUpperCase()} (${count})`}
                   active={selectedCountry.includes(code)}
                   onClick={() => toggleFilter(code, setSelectedCountry)}
+                />
+              ))}
+            </FilterGroup>
+
+            <FilterGroup label="Specialty">
+              {SPECIALTY_OPTIONS.map(opt => (
+                <FilterChip
+                  key={opt.value}
+                  label={opt.label}
+                  active={selectedSpecialty.includes(opt.value)}
+                  onClick={() => toggleFilter(opt.value, setSelectedSpecialty)}
                 />
               ))}
             </FilterGroup>

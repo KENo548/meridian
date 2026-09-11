@@ -85,17 +85,17 @@ export async function trackedScan(source, scanFn, options = {}) {
   upsertAdapterHealth({
     source,
     status,
-    last_scan_at: new Date().toISOString(),
-    last_success_at: error ? null : new Date().toISOString(),
-    http_status: httpStatus || (error ? null : 200),
-    jobs_found: jobsFound,
-    previous_jobs_found: previousJobsFound,
-    baseline_avg_jobs: newBaselineAvg,
-    duration_ms: durationMs,
-    parser_version: parserVersion,
-    error_message: error?.message || null,
-    consecutive_zero_scans: consecutiveZeroScans,
-    last_non_zero_at: lastNonZeroAt,
+    scanStartedAt: new Date().toISOString(),
+    scanFinishedAt: error ? null : new Date().toISOString(),
+    httpStatus: httpStatus || (error ? null : 200),
+    jobsFound: jobsFound,
+    previousJobsFound: previousJobsFound,
+    baselineAvgJobs: newBaselineAvg,
+    durationMs: durationMs,
+    parserVersion: parserVersion,
+    errorMessage: error?.message || null,
+    consecutiveZeroScans: consecutiveZeroScans,
+    lastNonZeroAt: lastNonZeroAt,
   })
 
   return {
