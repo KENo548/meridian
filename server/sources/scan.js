@@ -70,12 +70,15 @@ function upsertCanonicalJob(job, sourceId) {
       seniority: null,
       graduationYear: null,
       deadline: job.deadline || null,
+      openingDate: job.openingDate || null,
       postedAt: job.posted || null,
       firstSeenAt: now,
       lastSeenAt: now,
       closedAt: null,
       status: 'active',
       confidence: 0.5,
+      specialties: job.specialties || [],
+      sourceUrl: job.sourceUrl || job.employerUrl || null,
     }
     saveCanonicalJob(newJob)
 
@@ -148,12 +151,15 @@ function upsertCanonicalJob(job, sourceId) {
     seniority: existing.seniority,
     graduationYear: existing.graduation_year,
     deadline: changedFields.includes('deadline') ? newValues.deadline : existing.deadline,
+    openingDate: existing.opening_date || job.openingDate || null,
     postedAt: existing.posted_at || job.posted || null,
     firstSeenAt: existing.first_seen_at,
     lastSeenAt: now,
     closedAt: null,
     status: 'active',
     confidence: existing.confidence || 0.5,
+    specialties: job.specialties || JSON.parse(existing.specialties || '[]'),
+    sourceUrl: existing.source_url || job.sourceUrl || job.employerUrl || null,
   }
   saveCanonicalJob(updatedJob)
 

@@ -287,6 +287,18 @@ if (!deColumns.includes('user_id')) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_de_user ON discovery_entries(user_id)`)
 }
 
+// Phase 2.3: Add opening_date and specialties to canonical_jobs
+const cjColumns = db.prepare(`PRAGMA table_info(canonical_jobs)`).all().map(c => c.name)
+if (!cjColumns.includes('opening_date')) {
+  db.exec(`ALTER TABLE canonical_jobs ADD COLUMN opening_date TEXT`)
+}
+if (!cjColumns.includes('specialties')) {
+  db.exec(`ALTER TABLE canonical_jobs ADD COLUMN specialties TEXT DEFAULT '[]'`)
+}
+if (!cjColumns.includes('source_url')) {
+  db.exec(`ALTER TABLE canonical_jobs ADD COLUMN source_url TEXT`)
+}
+
 // ─── Discovery Entries ──────────────────────────────────────────
 
 const stmts = {
@@ -535,9 +547,10 @@ export function saveCanonicalJob(job) {
     INSERT OR REPLACE INTO canonical_jobs (
       id, company_id, company_name, title, normalized_title, location, country, city,
       application_url, description, programme_type, employment_type, finance_category,
-      finance_subcategory, seniority, graduation_year, deadline, posted_at,
-      first_seen_at, last_seen_at, closed_at, status, confidence, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM canonical_jobs WHERE id = ?), ?), ?)
+      finance_subcategory, seniority, graduation_year, deadline, opening_date, posted_at,
+      first_seen_at, last_seen_at, closed_at, status, confidence, specialties, source_url,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM canonical_jobs WHERE id = ?), ?), ?)
   `).run(
     job.id, job.companyId || null, job.companyName, job.title,
     job.normalizedTitle || null, job.location || null, job.country || null,
@@ -545,8 +558,9 @@ export function saveCanonicalJob(job) {
     job.programmeType || 'unknown', job.employmentType || 'unknown',
     job.financeCategory || 'unknown', job.financeSubcategory || null,
     job.seniority || null, job.graduationYear || null, job.deadline || null,
-    job.postedAt || null, job.firstSeenAt, job.lastSeenAt,
+    job.openingDate || null, job.postedAt || null, job.firstSeenAt, job.lastSeenAt,
     job.closedAt || null, job.status || 'active', job.confidence || 0.5,
+    JSON.stringify(job.specialties || []), job.sourceUrl || null,
     ts, job.id, ts
   )
   return job.id

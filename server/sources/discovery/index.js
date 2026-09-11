@@ -1,33 +1,43 @@
 import { fetchLandTheOffer } from './landtheoffer.js'
 import { fetchFyntraq } from './fyntraq.js'
-import { fetchTrackr } from './trackr.js'
+import { fetchTrackrProgrammes } from './trackr.js'
+import { fetchAnalystClass } from './analystclass.js'
 import { normalizeTrackerEntry } from './normalize.js'
 import { resolveFirm } from './resolve.js'
 import * as store from './store.js'
 import { classifyUrl } from '../ats/classifier.js'
 
+// Scheduling: AnalystClass = daily (smaller, stable), Fyntraq = 6hr, Trackr = daily, LTO = daily
 const ADAPTERS = [
-  { name: 'landtheoffer', fetch: fetchLandTheOffer },
+  { name: 'analystclass', fetch: fetchAnalystClass },
   { name: 'fyntraq', fetch: fetchFyntraq },
-  { name: 'trackr', fetch: fetchTrackr },
+  { name: 'trackr', fetch: fetchTrackrProgrammes },
+  { name: 'landtheoffer', fetch: fetchLandTheOffer },
 ]
 
-const TRACKER_STALENESS_MS = 24 * 60 * 60 * 1000 // 24 hours
+// Per-adapter staleness thresholds
+const STALENESS = {
+  analystclass: 24 * 60 * 60 * 1000,  // 24 hours
+  fyntraq: 6 * 60 * 60 * 1000,         // 6 hours
+  trackr: 24 * 60 * 60 * 1000,         // 24 hours
+  landtheoffer: 24 * 60 * 60 * 1000,   // 24 hours
+}
 
 let lastDiscoveryResult = null
 
 async function runDiscovery(options = {}) {
-  const { force = false } = options
+  const { force = false, adapter: onlyAdapter } = options
   const startTime = Date.now()
 
-  // Skip if data is fresh and not forced
+  // Per-adapter freshness check
   if (!force) {
     const lastRun = store.getLastDiscoveryTimestamp()
     const entryCount = store.getAll().length
     if (lastRun && entryCount > 0) {
       const age = Date.now() - new Date(lastRun).getTime()
-      if (age < TRACKER_STALENESS_MS) {
-        console.log(`[Discovery] Tracker data is fresh (${Math.round(age / 60000)}min old, ${entryCount} entries) — skipping`)
+      const maxStaleness = Math.max(...Object.values(STALENESS))
+      if (age < maxStaleness) {
+        console.log(`[Discovery] Tracker data is fresh (${Math.round(age / 60000)}min old, ${entryCount} entries) — skipping all`)
         return {
           timestamp: new Date().toISOString(),
           sources: {},
@@ -44,7 +54,7 @@ async function runDiscovery(options = {}) {
           byCategory: {},
           byGeography: {},
           skipped: true,
-          reason: `Tracker data is ${Math.round(age / 60000)}min old (threshold: ${TRACKER_STALENESS_MS / 60000}min)`,
+          reason: `Tracker data is ${Math.round(age / 60000)}min old (threshold: ${maxStaleness / 60000}min)`,
         }
       }
       console.log(`[Discovery] Tracker data is stale (${Math.round(age / 3600000)}h old) — re-fetching`)
@@ -68,14 +78,17 @@ async function runDiscovery(options = {}) {
   }
 
   const allEntries = []
+  const adapters = onlyAdapter ? ADAPTERS.filter(a => a.name === onlyAdapter) : ADAPTERS
 
-  for (const adapter of ADAPTERS) {
+  for (const adapter of adapters) {
     try {
       const result = await adapter.fetch()
       const entries = (result.entries || []).map(e => ({
         ...e,
         source: adapter.name,
-        sourceUrl: e.applyUrl || null,
+        // Prefer employerUrl (direct posting), then sourceUrl, then applyUrl
+        applyUrl: e.employerUrl || e.sourceUrl || e.applyUrl || null,
+        sourceUrl: e.sourceUrl || e.employerUrl || e.applyUrl || null,
       }))
       allEntries.push(...entries)
       report.sources[adapter.name] = {
@@ -119,6 +132,9 @@ async function runDiscovery(options = {}) {
       location: first.location,
       country: first.country,
       applyUrl: first.applyUrl,
+      employerUrl: first.employerUrl,
+      sourceUrl: first.sourceUrl,
+      specialties: first.specialties,
       classifiedProvider: classified?.provider || null,
       observations: entries.map(e => ({
         source: e.source,
