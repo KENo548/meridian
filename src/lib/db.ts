@@ -10,6 +10,8 @@ import type {
   Task,
 } from '@/types'
 
+const SESSION_KEY = 'meridian_user_id'
+
 export class MeridianDB extends Dexie {
   applications!: EntityTable<Application, 'id'>
   companies!: EntityTable<Company, 'id'>
@@ -37,35 +39,41 @@ export class MeridianDB extends Dexie {
       savedViews: 'id, name',
       meta: 'key',
     })
-
-    // Version 2: Future — add new indexes/tables here with migration
-    // Example:
-    // this.version(2).stores({
-    //   applications: 'id, companyName, companyId, status, roleType, specialization, country, city, deadline, openingDate, applicationDate, startDate, updatedAt, archived, recruitmentCycle, newField, *tagIds',
-    //   // newTable: 'id, name',
-    // }).upgrade(tx => {
-    //   // Migrate existing data — preserve everything
-    //   return tx.table('applications').toCollection().modify(app => {
-    //     app.newField = app.newField || null
-    //   })
-    // })
   }
 }
 
-// Default instance for unauthenticated / legacy usage
-export const db = new MeridianDB()
-
-let activeDb: MeridianDB = db
+// Restore userId from sessionStorage so the correct DB is opened immediately
+// after module re-evaluation (e.g., full page reload, HMR boundary break)
 let activeUserId: string | null = null
+let activeDb: MeridianDB
+
+try {
+  const savedUserId = sessionStorage.getItem(SESSION_KEY)
+  if (savedUserId) {
+    activeUserId = savedUserId
+    activeDb = new MeridianDB(`meridian-finance-tracker-${savedUserId}`)
+  } else {
+    activeDb = new MeridianDB()
+  }
+} catch {
+  // sessionStorage unavailable (SSR, incognito quirks) — fall back to default
+  activeDb = new MeridianDB()
+}
 
 export function getUserDb(userId: string): MeridianDB {
-  if (activeDb !== db && activeUserId === userId) {
-    // Already have this user's db open
+  if (activeDb && activeUserId === userId) {
     return activeDb
   }
   activeDb = new MeridianDB(`meridian-finance-tracker-${userId}`)
   activeUserId = userId
+  // Persist so it survives module re-evaluation
+  try { sessionStorage.setItem(SESSION_KEY, userId) } catch { /* ignore */ }
   return activeDb
+}
+
+export function clearUserSession() {
+  activeUserId = null
+  try { sessionStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
 }
 
 export function setActiveDb(database: MeridianDB) {

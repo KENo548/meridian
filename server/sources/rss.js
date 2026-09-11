@@ -2,6 +2,12 @@ import Parser from 'rss-parser';
 import NodeCache from 'node-cache';
 import { normalize } from './normalize.js';
 import { setKV, getKV } from '../db.js';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const FEEDS_FILE = join(dirname(__filename), '..', 'data', 'rss-feeds.json');
 
 const cache = new NodeCache({ stdTTL: 1800, checkperiod: 300, maxKeys: 100 });
 const parser = new Parser({
@@ -96,7 +102,25 @@ const DEFAULT_FEEDS = [
 
 let configuredFeeds = loadFeedsFromStorage();
 
+function loadFeedsFromFile() {
+  try {
+    if (existsSync(FEEDS_FILE)) {
+      const raw = readFileSync(FEEDS_FILE, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function saveFeedsToFile(feeds) {
+  try {
+    writeFileSync(FEEDS_FILE, JSON.stringify(feeds, null, 2), 'utf8');
+  } catch { /* ignore */ }
+}
+
 function loadFeedsFromStorage() {
+  // Try SQLite KV store first
   try {
     const saved = getKV(KV_KEY);
     if (Array.isArray(saved) && saved.length > 0) {
@@ -107,20 +131,41 @@ function loadFeedsFromStorage() {
           merged.push(f);
         }
       }
+      // Sync to file as backup
+      saveFeedsToFile(merged);
       return merged;
     }
   } catch {
-    // KV store not available, fall back to defaults
+    // KV store not available
   }
+
+  // Fallback: try file-based storage
+  const fileFeeds = loadFeedsFromFile();
+  if (fileFeeds) {
+    const savedMap = new Map(fileFeeds.map(f => [f.url, f]));
+    const merged = DEFAULT_FEEDS.map(f => savedMap.get(f.url) || { ...f });
+    for (const f of fileFeeds) {
+      if (!merged.some(m => m.url === f.url)) {
+        merged.push(f);
+      }
+    }
+    // Sync back to KV store if possible
+    try { setKV(KV_KEY, merged); } catch { /* ignore */ }
+    return merged;
+  }
+
   return [...DEFAULT_FEEDS];
 }
 
 function persistFeeds() {
+  // Write to SQLite KV store
   try {
     setKV(KV_KEY, configuredFeeds);
   } catch {
-    // KV store not available, feeds will be in-memory only
+    // KV store not available
   }
+  // Also write to file as backup (survives DB resets)
+  saveFeedsToFile(configuredFeeds);
 }
 
 function getConfiguredFeeds() {

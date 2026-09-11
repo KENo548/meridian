@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { type AuthUser, getCurrentUser, signOut as apiSignOut } from '@/lib/auth'
+import { clearUserSession } from '@/lib/db'
 
 interface AuthContextValue {
   user: AuthUser | null
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Even if server call fails, clear local state
     }
+    clearUserSession()
     setUser(null)
   }, [])
 

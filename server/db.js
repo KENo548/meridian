@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { mkdirSync, existsSync } from 'node:fs'
 
 const __filename = fileURLToPath(import.meta.url)
-const DATA_DIR = join(dirname(__filename), '..', 'data')
+const DATA_DIR = join(dirname(__filename), 'data')
 const DB_PATH = join(DATA_DIR, 'meridian.db')
 
 if (!existsSync(DATA_DIR)) {
