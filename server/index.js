@@ -14,6 +14,7 @@ import {
   getConfiguredFeeds,
   addFeed,
   removeFeed,
+  toggleFeed,
   fetchAllFeeds,
 } from './sources/rss.js';
 import {
@@ -41,6 +42,8 @@ import {
   getOpenCanonicalJobs,
   countCanonicalJobs,
   getActiveSightingsForJob,
+  getAllSightingsForJob,
+  getCanonicalJobById,
   getAllAdapterHealth,
 } from './db.js';
 
@@ -795,10 +798,17 @@ app.post('/api/opportunities/staleness/apply', (_req, res) => {
 
 app.get('/api/opportunities/:id', (req, res) => {
   try {
-    const entries = getAllDiscoveries();
-    const entry = entries.find(e => e.id === req.params.id);
-    if (!entry) return res.status(404).json({ error: 'Opportunity not found' });
-    res.json(deriveOpportunityFromEntry(entry));
+    // Try canonical jobs first (primary store)
+    const canonicalJob = getCanonicalJobById(req.params.id)
+    if (canonicalJob) {
+      return res.json(deriveOpportunityFromCanonical(canonicalJob))
+    }
+
+    // Fallback to legacy discovery store
+    const entries = getAllDiscoveries()
+    const entry = entries.find(e => e.id === req.params.id)
+    if (!entry) return res.status(404).json({ error: 'Opportunity not found' })
+    res.json(deriveOpportunityFromEntry(entry))
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch opportunity', details: err.message });
   }

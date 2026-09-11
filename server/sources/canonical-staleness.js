@@ -39,6 +39,7 @@ const LIFECYCLE_STATES = {
 
 const EXPIRED_AFTER_DAYS = 30
 const CLOSING_SOON_DAYS = 7
+const ABSENCES_BEFORE_CLOSE = 3 // Require 3 consecutive misses before closing
 
 // ─── Main Evaluation Function ───────────────────────────────────
 
@@ -133,8 +134,17 @@ export function evaluateJob(job) {
 // ─── Sighting-Level Evaluation ──────────────────────────────────
 
 function evaluateSighting(sighting) {
+  // Null-safety: if last_seen_at is missing, treat as never seen
+  if (!sighting.last_seen_at) {
+    return { sightingId: sighting.id, status: 'inactive', daysSinceLastSeen: Infinity, reason: 'no_timestamp' }
+  }
+
   const now = new Date()
   const lastSeen = new Date(sighting.last_seen_at)
+  if (isNaN(lastSeen.getTime())) {
+    return { sightingId: sighting.id, status: 'inactive', daysSinceLastSeen: Infinity, reason: 'invalid_timestamp' }
+  }
+
   const daysSinceLastSeen = (now - lastSeen) / (1000 * 60 * 60 * 24)
   const tier = sighting.source_tier || classifySourceTier(sighting.source)
   const thresholds = SIGHTING_THRESHOLDS[tier] || SIGHTING_THRESHOLDS.aggregator
@@ -176,9 +186,14 @@ function deriveLifecycle(job, sightingResults, hasActiveEmployerSighting) {
     incrementAbsences(job.id)
   }
 
-  // All sightings inactive → close
+  // All sightings inactive — only close after enough consecutive absences
   if (activeCount === 0 && inactiveCount > 0) {
-    return { lifecycle: LIFECYCLE_STATES.CLOSED, reason: 'all_sightings_inactive' }
+    const absences = (job.consecutive_absences || 0) + (inactiveCount > 0 ? 1 : 0)
+    if (absences >= ABSENCES_BEFORE_CLOSE) {
+      return { lifecycle: LIFECYCLE_STATES.CLOSED, reason: 'all_sightings_inactive' }
+    }
+    // Not enough absences yet — keep open but mark as at risk
+    return { lifecycle: LIFECYCLE_STATES.OPEN, reason: 'sightings_missing_but_within_threshold' }
   }
 
   // Employer sighting still active → definitely open
@@ -207,4 +222,5 @@ export {
   LIFECYCLE_STATES,
   CLOSING_SOON_DAYS,
   EXPIRED_AFTER_DAYS,
+  ABSENCES_BEFORE_CLOSE,
 }

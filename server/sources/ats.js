@@ -8,6 +8,7 @@ import { fetchOracleHcmJobs } from './ats/oracle-hcm.js'
 import { fetchAvatureJobs } from './ats/avature.js'
 import { fetchEightfoldJobs } from './ats/eightfold.js'
 import { fetchSuccessFactorsJobs } from './ats/successfactors.js'
+import { trackedScan } from './adapter-health.js'
 
 // ─── Source Capability States ──────────────────────────────────
 // SUPPORTED: Full adapter, reliably fetches jobs
@@ -222,41 +223,63 @@ async function fetchSourceJobs(firm, source) {
     successfactors: source.successfactors || firm.successfactors,
   }
 
-  return adapter(enrichedFirm, source)
+  // Wrap adapter call with health tracking
+  const { jobs, health } = await trackedScan(
+    source.provider,
+    async () => {
+      const result = await adapter(enrichedFirm, source)
+      // Adapter may return { jobs: [...] } or just [...]
+      return Array.isArray(result) ? result : (result.jobs || [])
+    },
+  )
+
+  return {
+    jobs,
+    source: source.provider,
+    total: jobs.length,
+    firm: firm.name,
+    error: health.error || null,
+  }
 }
 
 async function fetchAllEnabledFirms(firms) {
-  const results = await Promise.allSettled(
-    firms.filter(f => f.enabled).map(f => fetchFirmJobs(f))
-  )
-
+  const enabledFirms = firms.filter(f => f.enabled)
+  const CONCURRENCY = 5
   const allJobs = []
   const firmResults = []
 
-  results.forEach((result, i) => {
-    const firm = firms[i]
-    if (result.status === 'fulfilled') {
-      const { jobs, sources, error } = result.value
-      allJobs.push(...(jobs || []))
-      firmResults.push({
-        firmId: firm.id,
-        firmName: firm.name,
-        provider: firm.careersProvider,
-        count: (jobs || []).length,
-        error: error || null,
-        sources: sources || {},
-      })
-    } else {
-      firmResults.push({
-        firmId: firm.id,
-        firmName: firm.name,
-        provider: firm.careersProvider,
-        count: 0,
-        error: result.reason?.message || 'Unknown error',
-        sources: {},
-      })
-    }
-  })
+  // Process firms in batches to avoid overwhelming ATS APIs
+  for (let i = 0; i < enabledFirms.length; i += CONCURRENCY) {
+    const batch = enabledFirms.slice(i, i + CONCURRENCY)
+    const results = await Promise.allSettled(
+      batch.map(f => fetchFirmJobs(f))
+    )
+
+    results.forEach((result, j) => {
+      const firm = batch[j]
+      if (result.status === 'fulfilled') {
+        const { jobs, sources, error } = result.value
+        allJobs.push(...(jobs || []))
+        firmResults.push({
+          firmId: firm.id,
+          firmName: firm.name,
+          provider: firm.careersProvider,
+          count: (jobs || []).length,
+          error: error || null,
+          sources: sources || {},
+        })
+      } else {
+        firmResults.push({
+          firmId: firm.id,
+          firmName: firm.name,
+          provider: firm.careersProvider,
+          count: 0,
+          error: result.reason?.message || 'Unknown error',
+          sources: {},
+        })
+      }
+    })
+  }
 
   return { jobs: allJobs, firmResults }
 }

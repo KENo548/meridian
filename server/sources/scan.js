@@ -394,8 +394,28 @@ function startCronScan(intervalMs) {
 }
 
 async function runAdaptiveLoop() {
+  let lastDiscoveryRun = 0
+  const DISCOVERY_INTERVAL = PRIORITY_INTERVALS.cold // 4 hours
+
   while (true) {
     try {
+      // Run discovery + resolution every 4 hours
+      const now = Date.now()
+      if (now - lastDiscoveryRun >= DISCOVERY_INTERVAL) {
+        console.log('[Scan] Running discovery phase...')
+        try {
+          await discoverSources()
+        } catch (err) {
+          console.error('[Scan] Discovery error:', err.message)
+        }
+        try {
+          await resolveOpportunities({ verify: true, limit: 100 })
+        } catch (err) {
+          console.error('[Scan] Resolution error:', err.message)
+        }
+        lastDiscoveryRun = now
+      }
+
       const result = await ingestFromSources()
       console.log(`[Scan] Ingestion completed: ${result.totalJobs || 0} jobs, ${result.newJobs || 0} new`)
     } catch (err) {
