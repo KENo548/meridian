@@ -6,8 +6,18 @@ import { normalizeTrackerEntry } from './normalize.js'
 import { resolveFirm } from './resolve.js'
 import * as store from './store.js'
 import { classifyUrl } from '../ats/classifier.js'
+import { computeFingerprint, computeContentHash, buildExternalKey } from '../ats/dedup.js'
+import {
+  saveCanonicalJob,
+  getCanonicalJobById,
+  upsertCompanyByName,
+  upsertSighting,
+  findCanonicalByFingerprint,
+} from '../../db.js'
 
-// Scheduling: AnalystClass = daily (smaller, stable), Fyntraq = 6hr, Trackr = daily, LTO = daily
+const findCanonicalByFingerprintSync = findCanonicalByFingerprint
+
+// Scheduling: AnalystClass = daily, Fyntraq = 6hr, Trackr = daily, LTO = daily
 const ADAPTERS = [
   { name: 'analystclass', fetch: fetchAnalystClass },
   { name: 'fyntraq', fetch: fetchFyntraq },
@@ -60,6 +70,7 @@ async function runDiscovery(options = {}) {
       console.log(`[Discovery] Tracker data is stale (${Math.round(age / 3600000)}h old) — re-fetching`)
     }
   }
+
   const report = {
     timestamp: new Date().toISOString(),
     sources: {},
@@ -113,6 +124,8 @@ async function runDiscovery(options = {}) {
   report.uniqueOpportunities = Object.keys(grouped).length
   report.crossSourceDuplicates = allEntries.length - report.uniqueOpportunities
 
+  let sightingsWritten = 0
+
   for (const [key, entries] of Object.entries(grouped)) {
     const first = entries[0]
     const firmMatch = resolveFirm(first.company, first.applyUrl)
@@ -122,7 +135,18 @@ async function runDiscovery(options = {}) {
       classified = classifyUrl(first.applyUrl)
     }
 
-    const entry = store.findOrCreate({
+    // Write sighting for each tracker entry (linked to canonical job)
+    for (const entry of entries) {
+      try {
+        writeTrackerSighting(entry, firmMatch.firmId)
+        sightingsWritten++
+      } catch (err) {
+        console.error(`[Discovery] Failed to write sighting for ${entry.company}: ${err.message}`)
+      }
+    }
+
+    // Also write to legacy discovery store
+    const legacyEntry = store.findOrCreate({
       companyName: first.company,
       programme: first.programme,
       category: first.category,
@@ -149,19 +173,16 @@ async function runDiscovery(options = {}) {
       })),
     })
 
-    if (entry) {
+    if (legacyEntry) {
       if (firmMatch.firmId && firmMatch.confidence !== 'none') {
-        store.updateField(entry.id, 'resolvedFirmId', firmMatch.firmId)
-        store.transition(entry.id, store.STATES.RESOLVED)
+        store.updateField(legacyEntry.id, 'resolvedFirmId', firmMatch.firmId)
+        store.transition(legacyEntry.id, store.STATES.RESOLVED)
       }
 
       if (classified && classified.provider !== 'unknown') {
         report.knownAtsUrls++
         report.byAts[classified.provider] = (report.byAts[classified.provider] || 0) + 1
-
-        if (firmMatch.firmId) {
-          report.directSourceMatches++
-        }
+        if (firmMatch.firmId) report.directSourceMatches++
       } else {
         report.unknownUrls++
       }
@@ -182,10 +203,121 @@ async function runDiscovery(options = {}) {
     }
   }
 
+  report.sightingsWritten = sightingsWritten
   report.durationMs = Date.now() - startTime
   lastDiscoveryResult = report
   return report
+}
 
+// ─── Write Tracker Sighting to Canonical + Sightings ──────────
+
+function writeTrackerSighting(entry, resolvedFirmId) {
+  const now = new Date().toISOString()
+
+  // Resolve company name
+  const companyName = entry.company || ''
+  if (!companyName) return
+
+  const companyId = upsertCompanyByName(companyName)
+
+  // Determine if we have a canonical job to link to
+  let canonicalJobId = null
+
+  if (resolvedFirmId) {
+    // Try to find an existing canonical job for this firm
+    const fingerprint = computeFingerprint({
+      company: companyName,
+      title: entry.programme || '',
+      location: entry.location || '',
+      programmeType: entry.category || '',
+      deadline: entry.closingDate,
+    })
+
+    if (fingerprint) {
+      // Look for canonical jobs with matching fingerprint
+      const existing = findCanonicalByFingerprintSync(fingerprint)
+      if (existing) {
+        canonicalJobId = existing.id
+      }
+    }
+  }
+
+  // If no canonical job exists, create one from tracker data
+  if (!canonicalJobId) {
+    const jobId = `meridian:${entry.source}:${Date.now()}:${Math.random().toString(36).substring(2, 8)}`
+    const fingerprint = computeFingerprint({
+      company: companyName,
+      title: entry.programme || '',
+      location: entry.location || '',
+      programmeType: entry.category || '',
+      deadline: entry.closingDate,
+    })
+
+    const newJob = {
+      id: jobId,
+      companyId,
+      companyName,
+      title: entry.programme || '',
+      normalizedTitle: entry.programme || '',
+      location: entry.location || '',
+      country: entry.country || '',
+      city: '',
+      applicationUrl: entry.applyUrl || '',
+      description: '',
+      programmeType: entry.category || 'unknown',
+      employmentType: 'unknown',
+      financeCategory: 'unknown',
+      financeSubcategory: null,
+      seniority: null,
+      graduationYear: null,
+      deadline: entry.closingDate || null,
+      openingDate: entry.openingDate || null,
+      postedAt: null,
+      firstSeenAt: now,
+      lastSeenAt: now,
+      closedAt: null,
+      status: 'active',
+      confidence: 0.6,
+      specialties: entry.specialties || [],
+      sourceUrl: entry.sourceUrl || null,
+      identityTier: 'tracker',
+      fingerprint,
+      lifecycle: 'open',
+      closureReason: null,
+      consecutiveAbsences: 0,
+      lastVerifiedOpenAt: now,
+    }
+    saveCanonicalJob(newJob)
+    canonicalJobId = jobId
+  }
+
+  // Write the sighting
+  const externalKey = buildExternalKey(entry.source, {
+    sourceJobId: `${entry.source}:${companyName}:${entry.programme || ''}`,
+    url: entry.applyUrl || entry.sourceUrl,
+  })
+
+  upsertSighting({
+    canonicalJobId,
+    source: entry.source,
+    sourceTier: 'tracker',
+    sourceExternalKey: externalKey || `${entry.source}:${canonicalJobId}`,
+    sourceJobId: `${entry.source}:${companyName}:${entry.programme || ''}`,
+    sourceUrl: entry.sourceUrl || null,
+    employerUrl: entry.employerUrl || null,
+    rawTitle: entry.programme || '',
+    rawCompany: companyName,
+    rawLocation: entry.location || '',
+    rawPayload: JSON.stringify(entry).substring(0, 10000),
+    contentHash: computeContentHash({
+      company: companyName,
+      title: entry.programme || '',
+      location: entry.location || '',
+      url: entry.applyUrl || '',
+      description: '',
+    }),
+    isActive: true,
+  })
 }
 
 function groupByCompanyAndProgramme(entries) {

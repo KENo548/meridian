@@ -252,7 +252,8 @@ export async function checkRssFeeds(): Promise<JobResult[]> {
 export interface Opportunity {
   id: string
   companyName: string
-  resolvedFirmId: string | null
+  resolvedFirmId?: string | null
+  title?: string
   programme: string | null
   category: string
   division: string | null
@@ -262,6 +263,7 @@ export interface Opportunity {
   country: string | null
   applyUrl: string | null
   status: 'verified_open' | 'tracker_open' | 'unknown' | 'closed'
+  lifecycle?: 'open' | 'closing_soon' | 'closed' | 'expired' | 'discovered'
   deadline: string | null
   opening: string | null
   rolling: boolean
@@ -269,7 +271,25 @@ export interface Opportunity {
   sources: string[]
   sourceCount: number
   languages: string[]
-  observations: Array<{
+  sightings?: Array<{
+    source: string
+    sourceTier: string
+    sourceUrl: string | null
+    employerUrl: string | null
+    firstSeenAt: string
+    lastSeenAt: string
+    externalKey: string | null
+  }>
+  hasEmployerSource?: boolean
+  hasTrackerSource?: boolean
+  firstSeenAt?: string
+  lastSeenAt?: string
+  lastVerifiedOpenAt?: string | null
+  consecutiveAbsences?: number
+  identityTier?: string
+  fingerprint?: string | null
+  specialties?: string[]
+  observations?: Array<{
     source: string
     sourceUrl: string | null
     firstSeenAt: string
@@ -282,11 +302,11 @@ export interface Opportunity {
     eligibility: string | null
     process: string | null
   }>
-  createdAt: string
-  updatedAt: string
-  lastObservationAt: string | null
-  consecutiveMisses: number
-  totalObservations: number
+  createdAt?: string
+  updatedAt?: string
+  lastObservationAt?: string | null
+  consecutiveMisses?: number
+  totalObservations?: number
 }
 
 export interface OpportunityMetrics {
@@ -296,7 +316,6 @@ export interface OpportunityMetrics {
   tracker_open: number
   unknown: number
   closed: number
-  rolling: number
   closing_soon: number
   byCategory: Record<string, number>
   byCountry: Record<string, number>
@@ -353,7 +372,7 @@ export async function getOpportunities(filters: OpportunityFilters = {}): Promis
     return await res.json()
   } catch (err) {
     console.error('[jobSources] getOpportunities error:', err)
-    return { opportunities: [], total: 0, page: 1, limit: 50, totalPages: 0, metrics: { total: 0, live: 0, verified_open: 0, tracker_open: 0, unknown: 0, closed: 0, rolling: 0, closing_soon: 0, byCategory: {}, byCountry: {}, bySource: {}, byLanguage: {} } }
+    return { opportunities: [], total: 0, page: 1, limit: 50, totalPages: 0, metrics: { total: 0, live: 0, verified_open: 0, tracker_open: 0, unknown: 0, closed: 0, closing_soon: 0, byCategory: {}, byCountry: {}, bySource: {}, byLanguage: {} } }
   }
 }
 
@@ -364,7 +383,7 @@ export async function getOpportunityMetrics(): Promise<OpportunityMetrics> {
     return await res.json()
   } catch (err) {
     console.error('[jobSources] getOpportunityMetrics error:', err)
-    return { total: 0, live: 0, verified_open: 0, tracker_open: 0, unknown: 0, closed: 0, rolling: 0, closing_soon: 0, byCategory: {}, byCountry: {}, bySource: {}, byLanguage: {} }
+    return { total: 0, live: 0, verified_open: 0, tracker_open: 0, unknown: 0, closed: 0, closing_soon: 0, byCategory: {}, byCountry: {}, bySource: {}, byLanguage: {} }
   }
 }
 

@@ -33,18 +33,36 @@ const STATUS_LABELS: Record<string, string> = {
   closed: 'Closed',
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  verified_open: 'success',
-  reachable: 'info',
-  tracker_open: 'warning',
-  unknown: 'muted',
+const LIFECYCLE_LABELS: Record<string, string> = {
+  open: 'Live',
+  closing_soon: 'Closing Soon',
+  closed: 'Closed',
+  expired: 'Expired',
+  discovered: 'Discovered',
+}
+
+const LIFECYCLE_COLORS: Record<string, string> = {
+  open: 'success',
+  closing_soon: 'warning',
   closed: 'danger',
+  expired: 'muted',
+  discovered: 'info',
 }
 
 const SOURCE_LABELS: Record<string, string> = {
   landtheoffer: 'Land the Offer',
   fyntraq: 'Fyntraq',
   trackr: 'Trackr',
+  analystclass: 'AnalystClass',
+  greenhouse: 'Greenhouse',
+  workday: 'Workday',
+  lever: 'Lever',
+  ashby: 'Ashby',
+  smartrecruiters: 'SmartRecruiters',
+  oracle_hcm: 'Oracle HCM',
+  avature: 'Avature',
+  eightfold: 'Eightfold',
+  successfactors: 'SuccessFactors',
 }
 
 export function OpportunitiesPage() {
@@ -204,10 +222,9 @@ export function OpportunitiesPage() {
         <CoverageDashboard />
       ) : (<>
         {metrics && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <MetricCard label="Live" value={metrics.live} tone="accent" />
             <MetricCard label="Closing Soon" value={metrics.closing_soon} tone="warning" />
-            <MetricCard label="Rolling" value={metrics.rolling} tone="teal" />
             <MetricCard label="Verified" value={metrics.verified_open} tone="success" />
             <MetricCard label="Tracker" value={metrics.tracker_open} tone="info" />
             <MetricCard label="Unknown" value={metrics.unknown} tone="muted" />
@@ -434,7 +451,6 @@ function OpportunityCard({
   onApply: () => void
 }) {
   const categoryTone = CATEGORY_COLORS[opp.category] || 'muted'
-  const statusTone = STATUS_COLORS[opp.status] || 'muted'
 
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:border-[var(--color-border-strong)] transition-colors">
@@ -448,7 +464,7 @@ function OpportunityCard({
             {opp.status === 'verified_open' && (
               <Badge tone="success" className="text-[10px]">Verified</Badge>
             )}
-            {opp.consecutiveMisses > 0 && opp.consecutiveMisses < 3 && (
+            {opp.consecutiveMisses != null && opp.consecutiveMisses > 0 && opp.consecutiveMisses < 3 && (
               <Badge tone="warning" className="text-[10px]">{opp.consecutiveMisses} miss{opp.consecutiveMisses > 1 ? 'es' : ''}</Badge>
             )}
           </div>
@@ -500,16 +516,27 @@ function OpportunityCard({
       </div>
 
       <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[var(--color-border)]">
-        <Badge tone={statusTone as any}>
-          {STATUS_LABELS[opp.status] || opp.status}
-        </Badge>
+        {/* Lifecycle badge (primary) */}
+        {opp.lifecycle && (
+          <Badge tone={(LIFECYCLE_COLORS[opp.lifecycle] || 'muted') as any}>
+            {LIFECYCLE_LABELS[opp.lifecycle] || opp.lifecycle}
+          </Badge>
+        )}
 
-        {opp.rolling ? (
-          <span className="inline-flex items-center gap-1 text-xs text-[var(--color-teal)]">
-            <Clock className="size-3" />
-            Rolling
+        {/* Source type indicator */}
+        {opp.hasEmployerSource ? (
+          <span className="inline-flex items-center gap-1 text-xs text-[var(--color-success)]">
+            <Shield className="size-3" />
+            Direct ATS
           </span>
-        ) : opp.daysUntilClose !== null ? (
+        ) : opp.hasTrackerSource ? (
+          <span className="inline-flex items-center gap-1 text-xs text-[var(--color-warning)]">
+            <Shield className="size-3" />
+            Tracker Only
+          </span>
+        ) : null}
+
+        {opp.daysUntilClose !== null && opp.daysUntilClose !== undefined ? (
           <span className={clsx('inline-flex items-center gap-1 text-xs', 
             opp.daysUntilClose <= 3 ? 'text-[var(--color-danger)]' :
             opp.daysUntilClose <= 7 ? 'text-[var(--color-warning)]' :
@@ -528,17 +555,16 @@ function OpportunityCard({
           </span>
         )}
 
-        {opp.sourceCount > 1 && (
+        {/* Source count + sightings */}
+        {opp.sightings && opp.sightings.length > 0 ? (
+          <span className="text-[10px] text-[var(--color-faint)]">
+            {opp.sightings.length} sighting{opp.sightings.length !== 1 ? 's' : ''}
+          </span>
+        ) : opp.sourceCount > 1 ? (
           <Badge tone="info" className="text-[10px]">
             {opp.sourceCount} sources
           </Badge>
-        )}
-
-        {opp.totalObservations > 1 && (
-          <span className="text-[10px] text-[var(--color-faint)]">
-            {opp.totalObservations} observations
-          </span>
-        )}
+        ) : null}
       </div>
     </div>
   )
@@ -577,26 +603,41 @@ function OpportunityDetailModal({
             </div>
             <div>
               <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-1">Programme</div>
-              <div>{opp.programme || 'Not specified'}</div>
+              <div>{opp.title || opp.programme || 'Not specified'}</div>
             </div>
             <div>
               <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-1">Status</div>
-              <Badge tone={STATUS_COLORS[opp.status] as any}>
-                {STATUS_LABELS[opp.status]}
-              </Badge>
+              {opp.lifecycle && (
+                <Badge tone={(LIFECYCLE_COLORS[opp.lifecycle] || 'muted') as any}>
+                  {LIFECYCLE_LABELS[opp.lifecycle] || opp.lifecycle}
+                </Badge>
+              )}
             </div>
             <div>
               <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-1">Deadline</div>
               <div>
-                {opp.rolling ? (
-                  <span className="text-[var(--color-teal)]">Rolling</span>
-                ) : opp.deadline ? (
+                {opp.deadline ? (
                   new Date(opp.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
                 ) : (
                   'Not specified'
                 )}
               </div>
             </div>
+            {opp.hasEmployerSource !== undefined && (
+              <div>
+                <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-1">Source Type</div>
+                <div className="flex items-center gap-1">
+                  <Shield className="size-3" />
+                  {opp.hasEmployerSource ? 'Direct ATS Verified' : 'Tracker Only'}
+                </div>
+              </div>
+            )}
+            {opp.identityTier && (
+              <div>
+                <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-1">Identity</div>
+                <div className="text-xs">{opp.identityTier}</div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -610,19 +651,20 @@ function OpportunityDetailModal({
             </div>
           </div>
 
-          {opp.observations.length > 0 && (
+          {opp.sightings && opp.sightings.length > 0 && (
             <div>
-              <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-2">Observations</div>
+              <div className="text-[var(--color-faint)] text-xs uppercase tracking-wider mb-2">Sightings</div>
               <div className="space-y-2">
-                {opp.observations.map((obs, i) => (
+                {opp.sightings.map((sighting, i) => (
                   <div key={i} className="text-xs rounded bg-[var(--color-surface-2)] p-2">
                     <div className="flex items-center gap-2">
-                      <Badge tone="muted">{SOURCE_LABELS[obs.source] || obs.source}</Badge>
-                      {obs.eligibility && <span>Eligibility: {obs.eligibility}</span>}
-                      {obs.process && <span>Process: {obs.process}</span>}
+                      <Badge tone={sighting.sourceTier === 'employer_ats' ? 'success' : sighting.sourceTier === 'tracker' ? 'warning' : 'muted'}>
+                        {SOURCE_LABELS[sighting.source] || sighting.source}
+                      </Badge>
+                      <span className="text-[var(--color-faint)]">{sighting.sourceTier}</span>
                     </div>
                     <div className="text-[var(--color-faint)] mt-1">
-                      Last seen: {new Date(obs.lastSeenAt).toLocaleDateString()}
+                      Last seen: {new Date(sighting.lastSeenAt).toLocaleDateString()}
                     </div>
                   </div>
                 ))}

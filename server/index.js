@@ -36,6 +36,13 @@ import { runDiscovery, getDiscoveryStats as getDiscoveryReport } from './sources
 import { resolveOpportunities, generateCoverageGapReport, SUPPORTED_DIRECT_PROVIDERS } from './sources/discovery/resolve-ats.js';
 import { discoverFirmSources, enumerateDirectJobs, matchTrackerToDirect, getPipelineStatus, clearPipelineState } from './sources/discovery/pipeline.js';
 import { getStalenessReport, applyStalenessTransitions } from './sources/discovery/staleness.js';
+import {
+  getCanonicalJobs,
+  getOpenCanonicalJobs,
+  countCanonicalJobs,
+  getActiveSightingsForJob,
+  getAllAdapterHealth,
+} from './db.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -148,6 +155,16 @@ app.get('/api/health', (_req, res) => {
     ),
   });
 });
+
+// Adapter health
+app.get('/api/adapter-health', (_req, res) => {
+  try {
+    const health = getAllAdapterHealth()
+    res.json({ adapters: health })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch adapter health', details: err.message })
+  }
+})
 
 // Source listing
 app.get('/api/sources', (_req, res) => {
@@ -386,6 +403,89 @@ function deriveDivisionFromText(text) {
   return null;
 }
 
+function deriveOpportunityFromCanonical(job) {
+  const sightings = getActiveSightingsForJob(job.id)
+  const sources = [...new Set(sightings.map(s => s.source).filter(Boolean))]
+  const hasEmployerSource = sightings.some(s => s.source_tier === 'employer_ats' || s.source_tier === 'employer_url')
+  const hasTrackerSource = sightings.some(s => s.source_tier === 'tracker')
+
+  // Derive deadline from the earliest closing date across sightings
+  const deadlines = sightings.map(s => {
+    try { return JSON.parse(s.raw_payload || '{}').closingDate } catch { return null }
+  }).filter(Boolean).sort()
+
+  const deadline = job.deadline || (deadlines.length > 0 ? deadlines[deadlines.length - 1] : null)
+
+  // Derive opening date
+  const openings = sightings.map(s => {
+    try { return JSON.parse(s.raw_payload || '{}').openingDate } catch { return null }
+  }).filter(Boolean).sort()
+  const opening = job.opening_date || (openings.length > 0 ? openings[0] : null)
+
+  // Derive status
+  let status = 'unknown'
+  if (job.lifecycle === 'closed') status = 'closed'
+  else if (hasEmployerSource) status = 'verified_open'
+  else if (hasTrackerSource) status = 'tracker_open'
+  else status = 'unknown'
+
+  // Days until close
+  let daysUntilClose = null
+  if (deadline) {
+    const closeTime = new Date(deadline).getTime()
+    const now = Date.now()
+    daysUntilClose = Math.ceil((closeTime - now) / (1000 * 60 * 60 * 24))
+    if (daysUntilClose < 0) status = 'closed'
+  }
+
+  // Languages
+  const languages = extractLanguagesFromJob({
+    title: job.title || '',
+    description: job.description || '',
+  })
+
+  return {
+    id: job.id,
+    companyName: job.company_name,
+    title: job.title,
+    programme: job.title,
+    category: job.programme_type,
+    division: null,
+    office: null,
+    year: null,
+    location: job.location,
+    country: job.country,
+    applyUrl: job.application_url,
+    status,
+    lifecycle: job.lifecycle,
+    deadline,
+    opening,
+    rolling: false,
+    daysUntilClose,
+    sources,
+    sourceCount: sources.length,
+    languages,
+    hasEmployerSource,
+    hasTrackerSource,
+    sightings: sightings.map(s => ({
+      source: s.source,
+      sourceTier: s.source_tier,
+      sourceUrl: s.source_url,
+      employerUrl: s.employer_url,
+      firstSeenAt: s.first_seen_at,
+      lastSeenAt: s.last_seen_at,
+      externalKey: s.source_external_key,
+    })),
+    firstSeenAt: job.first_seen_at,
+    lastSeenAt: job.last_seen_at,
+    lastVerifiedOpenAt: job.last_verified_open_at,
+    consecutiveAbsences: job.consecutive_absences || 0,
+    identityTier: job.identity_tier,
+    fingerprint: job.fingerprint,
+    specialties: JSON.parse(job.specialties || '[]'),
+  }
+}
+
 function deriveOpportunityFromEntry(entry) {
   const observations = entry.observations || [];
   const sources = [...new Set(observations.map(o => o.source).filter(Boolean))];
@@ -472,21 +572,24 @@ app.get('/api/opportunities', (req, res) => {
       deadline,
       programme,
       language,
+      lifecycle,
       sort,
       order,
       page,
       limit,
     } = req.query;
 
-    let entries = getAllDiscoveries();
+    // Read from canonical jobs
+    const canonicalJobs = getCanonicalJobs({ status: 'active', limit: 100000 });
 
-    let opportunities = entries.map(deriveOpportunityFromEntry);
+    // Derive opportunities from canonical jobs + sightings
+    let opportunities = canonicalJobs.map(deriveOpportunityFromCanonical);
 
     if (q) {
       const query = q.toLowerCase();
       opportunities = opportunities.filter(o =>
         o.companyName.toLowerCase().includes(query) ||
-        (o.programme && o.programme.toLowerCase().includes(query)) ||
+        (o.title && o.title.toLowerCase().includes(query)) ||
         (o.location && o.location.toLowerCase().includes(query))
       );
     }
@@ -511,6 +614,11 @@ app.get('/api/opportunities', (req, res) => {
       opportunities = opportunities.filter(o => statuses.includes(o.status));
     }
 
+    if (lifecycle) {
+      const lifecycles = lifecycle.split(',').map(l => l.trim());
+      opportunities = opportunities.filter(o => lifecycles.includes(o.lifecycle));
+    }
+
     if (source) {
       const sources = source.split(',').map(s => s.trim());
       opportunities = opportunities.filter(o => o.sources.some(s => sources.includes(s)));
@@ -519,8 +627,7 @@ app.get('/api/opportunities', (req, res) => {
     if (firm) {
       const firms = firm.split(',').map(f => f.trim().toLowerCase());
       opportunities = opportunities.filter(o =>
-        firms.includes(o.companyName.toLowerCase()) ||
-        (o.resolvedFirmId && firms.includes(o.resolvedFirmId.toLowerCase()))
+        firms.includes(o.companyName.toLowerCase())
       );
     }
 
@@ -537,7 +644,6 @@ app.get('/api/opportunities', (req, res) => {
           o.deadline && new Date(o.deadline).getTime() <= monthFromNow && new Date(o.deadline).getTime() >= now
         );
       } else if (deadline === 'closing_soon') {
-        const weekFromNow = now + 7 * 24 * 60 * 60 * 1000;
         opportunities = opportunities.filter(o =>
           o.daysUntilClose !== null && o.daysUntilClose >= 0 && o.daysUntilClose <= 7
         );
@@ -546,8 +652,8 @@ app.get('/api/opportunities', (req, res) => {
 
     if (programme) {
       const progs = programme.split(',').map(p => p.trim().toLowerCase());
-      opportunities = opportunities.filter(o => o.programme && progs.some(p =>
-        o.programme.toLowerCase().includes(p)
+      opportunities = opportunities.filter(o => o.title && progs.some(p =>
+        o.title.toLowerCase().includes(p)
       ));
     }
 
@@ -558,7 +664,7 @@ app.get('/api/opportunities', (req, res) => {
       ));
     }
 
-    const sortField = sort || 'updatedAt';
+    const sortField = sort || 'lastSeenAt';
     const sortOrder = order === 'asc' ? 1 : -1;
     opportunities.sort((a, b) => {
       if (sortField === 'companyName') return sortOrder * a.companyName.localeCompare(b.companyName);
@@ -580,13 +686,12 @@ app.get('/api/opportunities', (req, res) => {
     const paged = opportunities.slice(offset, offset + limitNum);
 
     const metrics = {
-      total: entries.length,
+      total: canonicalJobs.length,
       live: opportunities.filter(o => o.status !== 'closed').length,
-      verified_open: opportunities.filter(o => o.status === 'verified_open').length,
-      tracker_open: opportunities.filter(o => o.status === 'tracker_open').length,
-      unknown: opportunities.filter(o => o.status === 'unknown').length,
-      closed: opportunities.filter(o => o.status === 'closed').length,
-      rolling: opportunities.filter(o => o.rolling).length,
+      verified_open: opportunities.filter(o => o.lifecycle === 'open' && o.hasEmployerSource).length,
+      tracker_open: opportunities.filter(o => o.lifecycle === 'open' && !o.hasEmployerSource).length,
+      unknown: opportunities.filter(o => o.lifecycle === 'unknown').length,
+      closed: opportunities.filter(o => o.lifecycle === 'closed').length,
       closing_soon: opportunities.filter(o => o.daysUntilClose !== null && o.daysUntilClose >= 0 && o.daysUntilClose <= 7).length,
       byCategory: {},
       byCountry: {},

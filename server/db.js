@@ -277,6 +277,54 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_dq_status ON discovery_queue(status);
   CREATE INDEX IF NOT EXISTS idx_dq_company ON discovery_queue(company_id);
   CREATE INDEX IF NOT EXISTS idx_dq_next ON discovery_queue(next_attempt_at);
+
+  -- ─── Sprint 1: Canonical + Sightings Architecture ───────────
+
+  CREATE TABLE IF NOT EXISTS job_sightings (
+    id TEXT PRIMARY KEY,
+    canonical_job_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    source_tier TEXT NOT NULL DEFAULT 'tracker',
+    source_external_key TEXT,
+    source_job_id TEXT,
+    source_url TEXT,
+    employer_url TEXT,
+    raw_title TEXT,
+    raw_company TEXT,
+    raw_location TEXT,
+    raw_payload TEXT,
+    content_hash TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    last_checked_at TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (canonical_job_id) REFERENCES canonical_jobs(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_js_job ON job_sightings(canonical_job_id);
+  CREATE INDEX IF NOT EXISTS idx_js_source ON job_sightings(source);
+  CREATE INDEX IF NOT EXISTS idx_js_tier ON job_sightings(source_tier);
+  CREATE INDEX IF NOT EXISTS idx_js_active ON job_sightings(is_active);
+  CREATE INDEX IF NOT EXISTS idx_js_ext_key ON job_sightings(source_external_key);
+
+  CREATE TABLE IF NOT EXISTS adapter_health (
+    source TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'unknown',
+    scan_started_at TEXT,
+    scan_finished_at TEXT,
+    http_status INTEGER,
+    jobs_found INTEGER DEFAULT 0,
+    previous_jobs_found INTEGER DEFAULT 0,
+    baseline_avg_jobs REAL DEFAULT 0,
+    duration_ms INTEGER DEFAULT 0,
+    parser_version TEXT DEFAULT 'v1',
+    error_message TEXT,
+    consecutive_zero_scans INTEGER DEFAULT 0,
+    last_non_zero_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
 `)
 
 // ─── Migrations for existing databases ─────────────────────────
@@ -298,6 +346,30 @@ if (!cjColumns.includes('specialties')) {
 if (!cjColumns.includes('source_url')) {
   db.exec(`ALTER TABLE canonical_jobs ADD COLUMN source_url TEXT`)
 }
+
+// Sprint 1: Canonical identity + lifecycle columns
+if (!cjColumns.includes('identity_tier')) {
+  db.exec(`ALTER TABLE canonical_jobs ADD COLUMN identity_tier TEXT DEFAULT 'text'`)
+}
+if (!cjColumns.includes('fingerprint')) {
+  db.exec(`ALTER TABLE canonical_jobs ADD COLUMN fingerprint TEXT`)
+}
+if (!cjColumns.includes('lifecycle')) {
+  db.exec(`ALTER TABLE canonical_jobs ADD COLUMN lifecycle TEXT DEFAULT 'active'`)
+}
+if (!cjColumns.includes('closure_reason')) {
+  db.exec(`ALTER TABLE canonical_jobs ADD COLUMN closure_reason TEXT`)
+}
+if (!cjColumns.includes('consecutive_absences')) {
+  db.exec(`ALTER TABLE canonical_jobs ADD COLUMN consecutive_absences INTEGER DEFAULT 0`)
+}
+if (!cjColumns.includes('last_verified_open_at')) {
+  db.exec(`ALTER TABLE canonical_jobs ADD COLUMN last_verified_open_at TEXT`)
+}
+
+// Backfill lifecycle from status for existing rows
+db.prepare(`UPDATE canonical_jobs SET lifecycle = status WHERE lifecycle = 'active' AND status != 'active'`).run()
+db.prepare(`UPDATE canonical_jobs SET lifecycle = 'open' WHERE lifecycle = 'active'`).run()
 
 // ─── Discovery Entries ──────────────────────────────────────────
 
@@ -549,8 +621,9 @@ export function saveCanonicalJob(job) {
       application_url, description, programme_type, employment_type, finance_category,
       finance_subcategory, seniority, graduation_year, deadline, opening_date, posted_at,
       first_seen_at, last_seen_at, closed_at, status, confidence, specialties, source_url,
+      identity_tier, fingerprint, lifecycle, closure_reason, consecutive_absences, last_verified_open_at,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM canonical_jobs WHERE id = ?), ?), ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM canonical_jobs WHERE id = ?), ?), ?)
   `).run(
     job.id, job.companyId || null, job.companyName, job.title,
     job.normalizedTitle || null, job.location || null, job.country || null,
@@ -561,6 +634,9 @@ export function saveCanonicalJob(job) {
     job.openingDate || null, job.postedAt || null, job.firstSeenAt, job.lastSeenAt,
     job.closedAt || null, job.status || 'active', job.confidence || 0.5,
     JSON.stringify(job.specialties || []), job.sourceUrl || null,
+    job.identityTier || 'text', job.fingerprint || null,
+    job.lifecycle || 'open', job.closureReason || null,
+    job.consecutiveAbsences ?? 0, job.lastVerifiedOpenAt || null,
     ts, job.id, ts
   )
   return job.id
@@ -647,6 +723,238 @@ export function getObservationsForJob(canonicalJobId) {
     LEFT JOIN companies c ON cs.company_id = c.id
     WHERE jso.canonical_job_id = ?
   `).all(canonicalJobId)
+}
+
+// ─── Job Sightings (Sprint 1) ──────────────────────────────────
+
+export function upsertSighting(sighting) {
+  const ts = new Date().toISOString()
+  const existing = db.prepare(
+    `SELECT id FROM job_sightings WHERE canonical_job_id = ? AND source = ?`
+  ).get(sighting.canonicalJobId, sighting.source)
+
+  if (existing) {
+    db.prepare(`
+      UPDATE job_sightings SET
+        source_external_key = COALESCE(?, source_external_key),
+        source_job_id = COALESCE(?, source_job_id),
+        source_url = COALESCE(?, source_url),
+        employer_url = COALESCE(?, employer_url),
+        raw_title = COALESCE(?, raw_title),
+        raw_company = COALESCE(?, raw_company),
+        raw_location = COALESCE(?, raw_location),
+        raw_payload = COALESCE(?, raw_payload),
+        content_hash = COALESCE(?, content_hash),
+        is_active = 1,
+        last_seen_at = ?,
+        last_checked_at = ?
+      WHERE id = ?
+    `).run(
+      sighting.sourceExternalKey || null,
+      sighting.sourceJobId || null,
+      sighting.sourceUrl || null,
+      sighting.employerUrl || null,
+      sighting.rawTitle || null,
+      sighting.rawCompany || null,
+      sighting.rawLocation || null,
+      sighting.rawPayload || null,
+      sighting.contentHash || null,
+      ts, ts,
+      existing.id
+    )
+    return existing.id
+  } else {
+    const id = `sighting:${sighting.canonicalJobId}:${sighting.source}:${Date.now()}`
+    db.prepare(`
+      INSERT INTO job_sightings (
+        id, canonical_job_id, source, source_tier, source_external_key,
+        source_job_id, source_url, employer_url,
+        raw_title, raw_company, raw_location, raw_payload, content_hash,
+        is_active, first_seen_at, last_seen_at, last_checked_at, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+    `).run(
+      id, sighting.canonicalJobId, sighting.source, sighting.sourceTier || 'tracker',
+      sighting.sourceExternalKey || null,
+      sighting.sourceJobId || null, sighting.sourceUrl || null,
+      sighting.employerUrl || null,
+      sighting.rawTitle || null, sighting.rawCompany || null,
+      sighting.rawLocation || null, sighting.rawPayload || null,
+      sighting.contentHash || null,
+      ts, ts, ts, ts
+    )
+    return id
+  }
+}
+
+export function deactivateSighting(canonicalJobId, source) {
+  const ts = new Date().toISOString()
+  db.prepare(`
+    UPDATE job_sightings SET is_active = 0, last_checked_at = ?
+    WHERE canonical_job_id = ? AND source = ?
+  `).run(ts, canonicalJobId, source)
+}
+
+export function getActiveSightingsForJob(canonicalJobId) {
+  return db.prepare(`
+    SELECT * FROM job_sightings WHERE canonical_job_id = ? AND is_active = 1
+    ORDER BY source_tier ASC, last_seen_at DESC
+  `).all(canonicalJobId)
+}
+
+export function getAllSightingsForJob(canonicalJobId) {
+  return db.prepare(`
+    SELECT * FROM job_sightings WHERE canonical_job_id = ?
+    ORDER BY source_tier ASC, last_seen_at DESC
+  `).all(canonicalJobId)
+}
+
+export function getSightingBySourceAndJob(canonicalJobId, source) {
+  return db.prepare(
+    `SELECT * FROM job_sightings WHERE canonical_job_id = ? AND source = ?`
+  ).get(canonicalJobId, source) || null
+}
+
+export function getActiveSightingCount(canonicalJobId) {
+  const row = db.prepare(
+    `SELECT COUNT(*) as count FROM job_sightings WHERE canonical_job_id = ? AND is_active = 1`
+  ).get(canonicalJobId)
+  return row ? row.count : 0
+}
+
+export function getSourceTierForSighting(canonicalJobId, source) {
+  const row = db.prepare(
+    `SELECT source_tier FROM job_sightings WHERE canonical_job_id = ? AND source = ?`
+  ).get(canonicalJobId, source)
+  return row ? row.source_tier : null
+}
+
+// ─── Canonical Job Lifecycle Updates (Sprint 1) ────────────────
+
+export function updateCanonicalLifecycle(id, lifecycle, closureReason) {
+  const ts = new Date().toISOString()
+  const sets = ['lifecycle = ?', 'updated_at = ?']
+  const params = [lifecycle, ts]
+  if (closureReason !== undefined) {
+    sets.push('closure_reason = ?')
+    params.push(closureReason)
+  }
+  if (lifecycle === 'closed') {
+    sets.push('closed_at = ?')
+    params.push(ts)
+  }
+  params.push(id)
+  db.prepare(`UPDATE canonical_jobs SET ${sets.join(', ')} WHERE id = ?`).run(...params)
+}
+
+export function incrementAbsences(id) {
+  const ts = new Date().toISOString()
+  db.prepare(`
+    UPDATE canonical_jobs SET consecutive_absences = consecutive_absences + 1, updated_at = ?
+    WHERE id = ?
+  `).run(ts, id)
+}
+
+export function resetAbsences(id) {
+  const ts = new Date().toISOString()
+  db.prepare(`
+    UPDATE canonical_jobs SET consecutive_absences = 0, last_verified_open_at = ?, updated_at = ?
+    WHERE id = ?
+  `).run(ts, ts, id)
+}
+
+export function getOpenCanonicalJobs() {
+  return db.prepare(
+    `SELECT * FROM canonical_jobs WHERE lifecycle IN ('open', 'closing_soon') ORDER BY last_verified_open_at DESC`
+  ).all()
+}
+
+export function findCanonicalByFingerprint(fingerprint) {
+  if (!fingerprint) return null
+  return db.prepare(
+    `SELECT * FROM canonical_jobs WHERE fingerprint = ? LIMIT 1`
+  ).get(fingerprint) || null
+}
+
+export function findCanonicalByExternalKey(sourceExternalKey) {
+  if (!sourceExternalKey) return null
+  return db.prepare(`
+    SELECT cj.* FROM canonical_jobs cj
+    JOIN job_sightings js ON cj.id = js.canonical_job_id
+    WHERE js.source_external_key = ? AND js.is_active = 1
+    LIMIT 1
+  `).get(sourceExternalKey) || null
+}
+
+// ─── Adapter Health (Sprint 1) ─────────────────────────────────
+
+export function upsertAdapterHealth(health) {
+  const ts = new Date().toISOString()
+  const existing = db.prepare(`SELECT source FROM adapter_health WHERE source = ?`).get(health.source)
+
+  if (existing) {
+    db.prepare(`
+      UPDATE adapter_health SET
+        status = ?, scan_started_at = ?, scan_finished_at = ?,
+        http_status = ?, jobs_found = ?, previous_jobs_found = ?,
+        baseline_avg_jobs = ?, duration_ms = ?, parser_version = ?,
+        error_message = ?, consecutive_zero_scans = ?, last_non_zero_at = ?,
+        updated_at = ?
+      WHERE source = ?
+    `).run(
+      health.status || 'unknown',
+      health.scanStartedAt || null,
+      health.scanFinishedAt || null,
+      health.httpStatus || null,
+      health.jobsFound ?? 0,
+      health.previousJobsFound ?? 0,
+      health.baselineAvgJobs ?? 0,
+      health.durationMs ?? 0,
+      health.parserVersion || 'v1',
+      health.errorMessage || null,
+      health.consecutiveZeroScans ?? 0,
+      health.lastNonZeroAt || null,
+      ts,
+      health.source
+    )
+  } else {
+    db.prepare(`
+      INSERT INTO adapter_health (
+        source, status, scan_started_at, scan_finished_at, http_status,
+        jobs_found, previous_jobs_found, baseline_avg_jobs, duration_ms,
+        parser_version, error_message, consecutive_zero_scans, last_non_zero_at,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      health.source,
+      health.status || 'unknown',
+      health.scanStartedAt || null,
+      health.scanFinishedAt || null,
+      health.httpStatus || null,
+      health.jobsFound ?? 0,
+      health.previousJobsFound ?? 0,
+      health.baselineAvgJobs ?? 0,
+      health.durationMs ?? 0,
+      health.parserVersion || 'v1',
+      health.errorMessage || null,
+      health.consecutiveZeroScans ?? 0,
+      health.lastNonZeroAt || null,
+      ts, ts
+    )
+  }
+}
+
+export function getAdapterHealth(source) {
+  return db.prepare(`SELECT * FROM adapter_health WHERE source = ?`).get(source) || null
+}
+
+export function getAllAdapterHealth() {
+  return db.prepare(`SELECT * FROM adapter_health ORDER BY source`).all()
+}
+
+export function getUnhealthyAdapters(threshold = 3) {
+  return db.prepare(
+    `SELECT * FROM adapter_health WHERE consecutive_zero_scans >= ? OR status = 'error' ORDER BY consecutive_zero_scans DESC`
+  ).all(threshold)
 }
 
 // ─── Job Versions ──────────────────────────────────────────────

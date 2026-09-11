@@ -2,9 +2,11 @@ import { getEnabledFirms } from './registry.js'
 import { fetchAllEnabledFirms } from './ats.js'
 import { normalize } from './normalize.js'
 import { canonicalizeBatch } from './ats/canonicalize.js'
-import { deduplicateJobs } from './ats/dedup.js'
+import { deduplicateJobs, computeFingerprint, computeContentHash, buildExternalKey } from './ats/dedup.js'
 import { runDiscovery, getDiscoveryStats } from './discovery/index.js'
-import { resolveOpportunities, generateCoverageGapReport } from './discovery/resolve-ats.js'
+import { resolveOpportunities } from './discovery/resolve-ats.js'
+import { evaluateAllStaleness } from './canonical-staleness.js'
+import { trackedScan, getHealthSummary, getZeroResultWarnings } from './adapter-health.js'
 import {
   saveCanonicalJob,
   getCanonicalJobs,
@@ -18,6 +20,8 @@ import {
   saveCompanySource,
   updateSourceHealth,
   getObservationsForJob,
+  upsertSighting,
+  upsertAdapterHealth,
 } from '../db.js'
 import crypto from 'node:crypto'
 
@@ -27,31 +31,23 @@ let scanInterval = null
 let lastScanResult = null
 let scanning = false
 
-// ─── Content Hashing (§29) ─────────────────────────────────────
+// ─── Canonical Job Persistence (v2 — identity resolution) ──────
 
-function contentHash(job) {
-  const normalized = JSON.stringify({
-    title: (job.title || '').toLowerCase().trim(),
-    location: (job.location || '').toLowerCase().trim(),
-    company: (job.company || '').toLowerCase().trim(),
-    url: job.url || '',
-    applyUrl: job.applyUrl || '',
-    description: (job.description || '').substring(0, 500),
-  })
-  return crypto.createHash('sha256').update(normalized).digest('hex').substring(0, 16)
-}
-
-// ─── Canonical Job Persistence (§6, §7) ────────────────────────
-
-function upsertCanonicalJob(job, sourceId) {
+function upsertCanonicalJob(job, source) {
   const now = new Date().toISOString()
   const companyId = job.company ? upsertCompanyByName(job.company) : null
+
+  // Compute fingerprint for this job
+  const fingerprint = computeFingerprint(job)
+  const contentHash = computeContentHash(job)
+  const externalKey = buildExternalKey(source, job)
+  const tier = classifySourceTier(source)
 
   // Check if canonical job already exists
   const existing = getCanonicalJobById(job.id)
 
   if (!existing) {
-    // NEW canonical job — first seen ever
+    // NEW canonical job
     const newJob = {
       id: job.id,
       companyId,
@@ -79,28 +75,31 @@ function upsertCanonicalJob(job, sourceId) {
       confidence: 0.5,
       specialties: job.specialties || [],
       sourceUrl: job.sourceUrl || job.employerUrl || null,
+      identityTier: tier,
+      fingerprint,
+      lifecycle: 'open',
+      closureReason: null,
+      consecutiveAbsences: 0,
+      lastVerifiedOpenAt: now,
     }
     saveCanonicalJob(newJob)
 
-    // Record source observation
-    if (sourceId) {
-      saveJobSourceObservation(job.id, sourceId, job.sourceJobId || job.id, job.url || null)
-    }
-
-    // Record raw observation
-    if (sourceId) {
-      saveRawObservation({
-        id: `obs:${job.id}:${sourceId}:${Date.now()}`,
-        sourceId,
-        companyId,
-        sourceJobId: job.sourceJobId || job.id,
-        sourceUrl: job.url || null,
-        fetchedAt: now,
-        payload: job,
-        payloadHash: contentHash(job),
-        httpStatus: 200,
-      })
-    }
+    // Record sighting
+    upsertSighting({
+      canonicalJobId: job.id,
+      source,
+      sourceTier: tier,
+      sourceExternalKey: externalKey || `${source}:${job.id}`,
+      sourceJobId: job.sourceJobId || job.id,
+      sourceUrl: job.url || null,
+      employerUrl: job.employerUrl || null,
+      rawTitle: job.rawTitle || job.title || '',
+      rawCompany: job.rawCompany || job.company || '',
+      rawLocation: job.rawLocation || job.location || '',
+      rawPayload: JSON.stringify(job).substring(0, 10000),
+      contentHash,
+      isActive: true,
+    })
 
     return { isNew: true, job: newJob }
   }
@@ -110,7 +109,6 @@ function upsertCanonicalJob(job, sourceId) {
   const previousValues = {}
   const newValues = {}
 
-  // Detect meaningful changes (§29)
   if (job.title && job.title !== existing.title) {
     changedFields.push('title')
     previousValues.title = existing.title
@@ -132,7 +130,6 @@ function upsertCanonicalJob(job, sourceId) {
     newValues.location = job.location
   }
 
-  // Update the canonical job
   const updatedJob = {
     id: existing.id,
     companyId: existing.company_id || companyId,
@@ -155,52 +152,64 @@ function upsertCanonicalJob(job, sourceId) {
     postedAt: existing.posted_at || job.posted || null,
     firstSeenAt: existing.first_seen_at,
     lastSeenAt: now,
-    closedAt: null,
+    closedAt: existing.closed_at, // Never hardcode null — preserve existing
     status: 'active',
     confidence: existing.confidence || 0.5,
     specialties: job.specialties || JSON.parse(existing.specialties || '[]'),
     sourceUrl: existing.source_url || job.sourceUrl || job.employerUrl || null,
+    identityTier: existing.identity_tier || tier,
+    fingerprint: existing.fingerprint || fingerprint,
+    lifecycle: existing.lifecycle || 'open',
+    closureReason: existing.closure_reason,
+    consecutiveAbsences: existing.consecutive_absences || 0,
+    lastVerifiedOpenAt: now,
   }
   saveCanonicalJob(updatedJob)
 
-  // Record source observation
-  if (sourceId) {
-    saveJobSourceObservation(job.id, sourceId, job.sourceJobId || job.id, job.url || null)
-  }
+  // Record sighting (always — proves the job was still live when this source saw it)
+  upsertSighting({
+    canonicalJobId: existing.id,
+    source,
+    sourceTier: tier,
+    sourceExternalKey: externalKey || `${source}:${existing.id}`,
+    sourceJobId: job.sourceJobId || existing.id,
+    sourceUrl: job.url || null,
+    employerUrl: job.employerUrl || null,
+    rawTitle: job.rawTitle || job.title || '',
+    rawCompany: job.rawCompany || job.company || '',
+    rawLocation: job.rawLocation || job.location || '',
+    rawPayload: JSON.stringify(job).substring(0, 10000),
+    contentHash,
+    isActive: true,
+  })
 
-  // Record raw observation
-  if (sourceId) {
-    saveRawObservation({
-      id: `obs:${job.id}:${sourceId}:${Date.now()}`,
-      sourceId,
-      companyId,
-      sourceJobId: job.sourceJobId || job.id,
-      sourceUrl: job.url || null,
-      fetchedAt: now,
-      payload: job,
-      payloadHash: contentHash(job),
-      httpStatus: 200,
-    })
-  }
-
-  // Record version if fields changed (§28)
+  // Record version if fields changed
   if (changedFields.length > 0) {
-    const versionCount = existing.id ? 1 : 0 // simplified
     saveJobVersion({
       id: `ver:${existing.id}:${Date.now()}`,
       canonicalJobId: existing.id,
-      versionNumber: versionCount + 1,
+      versionNumber: 1,
       changedFields,
       previousValues,
       newValues,
-      sourceId,
+      sourceId: `source:${source}`,
     })
   }
 
   return { isNew: false, job: updatedJob, changedFields }
 }
 
-// ─── Job Ingestion Loop (§9A) ─────────────────────────────────
+// ─── Source Classification ─────────────────────────────────────
+
+function classifySourceTier(source) {
+  const ATS_SOURCES = ['greenhouse', 'workday', 'oleeo_rss', 'smartrecruiters', 'lever', 'ashby', 'oracle_hcm', 'avature', 'eightfold', 'successfactors']
+  const TRACKER_SOURCES = ['analystclass', 'fyntraq', 'trackr', 'landtheoffer']
+  if (ATS_SOURCES.includes(source)) return 'employer_ats'
+  if (TRACKER_SOURCES.includes(source)) return 'tracker'
+  return 'aggregator'
+}
+
+// ─── Job Ingestion Loop (v2 — identity resolution) ──────────────
 
 async function ingestFromSources() {
   if (scanning) {
@@ -210,6 +219,7 @@ async function ingestFromSources() {
   scanning = true
   const startTime = Date.now()
   const newJobIds = []
+  const healthReports = []
 
   try {
     const firms = getEnabledFirms()
@@ -217,6 +227,7 @@ async function ingestFromSources() {
       return { error: 'No enabled firms in registry', status: 'empty' }
     }
 
+    // Fetch with adapter health tracking
     const { jobs: rawJobs, firmResults } = await fetchAllEnabledFirms(firms)
 
     const normalizedJobs = rawJobs
@@ -226,20 +237,20 @@ async function ingestFromSources() {
     const canonicalJobs = canonicalizeBatch(normalizedJobs)
     const { jobs: dedupedJobs } = deduplicateJobs(canonicalJobs)
 
-    // Persist each job to SQLite and track new insertions
-    const sourceIds = new Map()
+    // Persist each job with identity resolution + sighting
+    const sourceCounters = {}
     for (const job of dedupedJobs) {
-      // Resolve source ID from provider name
-      const sourceKey = job.source || 'unknown'
-      if (!sourceIds.has(sourceKey)) {
-        const sourceId = `source:${sourceKey}`
-        sourceIds.set(sourceKey, sourceId)
-      }
-      const result = upsertCanonicalJob(job, sourceIds.get(sourceKey))
+      const source = job.source || 'unknown'
+      sourceCounters[source] = (sourceCounters[source] || 0) + 1
+
+      const result = upsertCanonicalJob(job, source)
       if (result.isNew) {
         newJobIds.push(job.id)
       }
     }
+
+    // Run staleness evaluation
+    const stalenessReport = evaluateAllStaleness()
 
     const totalJobs = countCanonicalJobs({ status: 'active' })
 
@@ -253,6 +264,12 @@ async function ingestFromSources() {
       totalJobs,
       newJobs: newJobIds.length,
       newJobIds,
+      jobsBySource: sourceCounters,
+      staleness: {
+        evaluated: stalenessReport.evaluated,
+        closed: stalenessReport.closed,
+        healthy: stalenessReport.healthy,
+      },
       firmResults,
     }
 
@@ -270,7 +287,7 @@ async function ingestFromSources() {
   }
 }
 
-// ─── Source Discovery Loop (§9B) ──────────────────────────────
+// ─── Source Discovery Loop ─────────────────────────────────────
 
 async function discoverSources() {
   try {
@@ -291,7 +308,6 @@ async function scanAll() {
   const startTime = Date.now()
 
   try {
-    // Phase 1: Source discovery (infrequent, can be slow)
     let discoveryReport = null
     try {
       discoveryReport = await discoverSources()
@@ -299,7 +315,6 @@ async function scanAll() {
       discoveryReport = { error: err.message }
     }
 
-    // Phase 2: Resolution (moderate frequency)
     let resolutionReport = null
     try {
       resolutionReport = await resolveOpportunities({ verify: true, limit: 100 })
@@ -307,8 +322,11 @@ async function scanAll() {
       resolutionReport = { error: err.message }
     }
 
-    // Phase 3: Job ingestion (frequent, must be fast)
     const ingestionResult = await ingestFromSources()
+
+    // Get adapter health summary
+    const adapterHealth = getHealthSummary()
+    const zeroWarnings = getZeroResultWarnings()
 
     const withDeadlines = getCanonicalJobs({ status: 'active', sort: 'deadline', order: 'asc', limit: 20 })
       .filter(j => j.deadline)
@@ -325,6 +343,14 @@ async function scanAll() {
       discovery: discoveryReport,
       discoveryStats: getDiscoveryStats(),
       resolution: resolutionReport,
+      adapterHealth: adapterHealth.map(a => ({
+        source: a.source,
+        status: a.status,
+        jobsFound: a.jobs_found,
+        consecutiveZeroScans: a.consecutive_zero_scans,
+        zeroWarning: a.zeroWarning,
+      })),
+      zeroWarnings: zeroWarnings.map(w => w.source),
     }
 
     lastScanResult = result
@@ -341,19 +367,18 @@ async function scanAll() {
   }
 }
 
-// ─── Adaptive Scheduler (§8) ──────────────────────────────────
+// ─── Adaptive Scheduler ────────────────────────────────────────
 
 const PRIORITY_INTERVALS = {
-  hot: 3 * 60 * 1000,      // 3 minutes
-  warm: 12 * 60 * 1000,    // 12 minutes
-  normal: 45 * 60 * 1000,  // 45 minutes
-  cold: 4 * 60 * 60 * 1000, // 4 hours
+  hot: 3 * 60 * 1000,
+  warm: 12 * 60 * 1000,
+  normal: 45 * 60 * 1000,
+  cold: 4 * 60 * 60 * 1000,
 }
 
 function startCronScan(intervalMs) {
   stopCronScan()
 
-  // Use adaptive scheduling if no explicit interval
   if (!intervalMs) {
     console.log(`[Scan] Starting adaptive scheduler`)
     runAdaptiveLoop()
@@ -377,7 +402,6 @@ async function runAdaptiveLoop() {
       console.error(`[Scan] Ingestion error:`, err.message)
     }
 
-    // Wait for next interval (default: normal priority)
     await new Promise(resolve => setTimeout(resolve, PRIORITY_INTERVALS.normal))
   }
 }

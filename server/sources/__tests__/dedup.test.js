@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { deduplicateJobs, mergeWithPersisted, getDedupKey, DIRECT_SOURCES } from '../ats/dedup.js'
+import { deduplicateJobs, mergeWithPersisted, getDedupKey, EMPLOYER_ATS_SOURCES, computeFingerprint, buildExternalKey } from '../ats/dedup.js'
 
 describe('getDedupKey', () => {
   it('uses canonicalId when available', () => {
@@ -14,15 +14,58 @@ describe('getDedupKey', () => {
   })
 })
 
-describe('DIRECT_SOURCES', () => {
+describe('EMPLOYER_ATS_SOURCES', () => {
   it('contains expected providers', () => {
-    assert.ok(DIRECT_SOURCES.has('greenhouse'))
-    assert.ok(DIRECT_SOURCES.has('workday'))
-    assert.ok(DIRECT_SOURCES.has('oleeo_rss'))
-    assert.ok(DIRECT_SOURCES.has('smartrecruiters'))
-    assert.ok(DIRECT_SOURCES.has('lever'))
-    assert.ok(!DIRECT_SOURCES.has('efc'))
-    assert.ok(!DIRECT_SOURCES.has('rss'))
+    assert.ok(EMPLOYER_ATS_SOURCES.has('greenhouse'))
+    assert.ok(EMPLOYER_ATS_SOURCES.has('workday'))
+    assert.ok(EMPLOYER_ATS_SOURCES.has('oleeo_rss'))
+    assert.ok(EMPLOYER_ATS_SOURCES.has('smartrecruiters'))
+    assert.ok(EMPLOYER_ATS_SOURCES.has('lever'))
+    assert.ok(!EMPLOYER_ATS_SOURCES.has('efc'))
+    assert.ok(!EMPLOYER_ATS_SOURCES.has('rss'))
+  })
+})
+
+describe('computeFingerprint', () => {
+  it('generates consistent fingerprint for same job', () => {
+    const job = { company: 'Goldman Sachs', title: 'Summer Analyst', location: 'London', programmeType: 'summer_intern' }
+    const fp1 = computeFingerprint(job)
+    const fp2 = computeFingerprint(job)
+    assert.equal(fp1, fp2)
+    assert.ok(fp1.length > 0)
+  })
+
+  it('generates different fingerprint for different jobs', () => {
+    const job1 = { company: 'Goldman Sachs', title: 'Summer Analyst', location: 'London' }
+    const job2 = { company: 'Morgan Stanley', title: 'Summer Analyst', location: 'London' }
+    assert.notEqual(computeFingerprint(job1), computeFingerprint(job2))
+  })
+
+  it('returns null for insufficient data', () => {
+    assert.equal(computeFingerprint({}), null)
+    assert.equal(computeFingerprint({ company: 'GS' }), null)
+  })
+})
+
+describe('buildExternalKey', () => {
+  it('builds key from ATS req ID', () => {
+    const job = { atsReqId: '12345' }
+    assert.equal(buildExternalKey('greenhouse', job), 'greenhouse:12345')
+  })
+
+  it('builds key from source job ID', () => {
+    const job = { sourceJobId: 'abc-123' }
+    assert.equal(buildExternalKey('workday', job), 'workday:abc-123')
+  })
+
+  it('builds key from URL hash', () => {
+    const job = { url: 'https://careers.example.com/job/123' }
+    const key = buildExternalKey('lever', job)
+    assert.ok(key.startsWith('lever:url:'))
+  })
+
+  it('returns null when no identifier available', () => {
+    assert.equal(buildExternalKey('lever', {}), null)
   })
 })
 
