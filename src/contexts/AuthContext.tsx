@@ -45,19 +45,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch { /* sessionStorage unavailable */ }
 
-    // No cached user — must check server (but don't block UI forever)
+    // No cached user — show login form immediately (don't block on server)
+    setLoading(false)
+
+    // Try to restore session in background (server may already be warm)
     getCurrentUser()
       .then(({ user: fresh }) => {
-        if (mountedRef.current) {
+        if (mountedRef.current && fresh) {
           setUser(fresh)
-          if (fresh) sessionStorage.setItem('meridian_auth_user', JSON.stringify(fresh))
+          sessionStorage.setItem('meridian_auth_user', JSON.stringify(fresh))
         }
       })
       .catch(() => {
-        if (mountedRef.current) setUser(null)
-      })
-      .finally(() => {
-        if (mountedRef.current) setLoading(false)
+        // Server sleeping or no session — user will log in manually
       })
 
     return () => { mountedRef.current = false }
@@ -73,13 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
-    try {
-      await apiSignOut()
-    } catch {
-      // Even if server call fails, clear local state
-    }
+    // Clear local state immediately — don't block on server
     clearUserSession()
     setUserAndCache(null)
+    // Fire server logout in background (best-effort)
+    apiSignOut().catch(() => {})
   }, [setUserAndCache])
 
   return (
