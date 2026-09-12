@@ -1060,11 +1060,9 @@ app.post('/api/pipeline/clear', async (_req, res) => {
 
 // ─── Gold Set & Matcher V3 Evaluation ────────────────────────────────
 
-import { getGoldSet, evaluateMatcher } from './sources/discovery/gold-set.js';
-import { matchOpportunityV3, MATCH_THRESHOLDS as V3_THRESHOLDS } from './sources/discovery/matcher-v3.js';
-
-app.get('/api/gold-set', (_req, res) => {
+app.get('/api/gold-set', async (_req, res) => {
   try {
+    const { getGoldSet } = await import('./sources/discovery/gold-set.js');
     const goldSet = getGoldSet();
     res.json({ count: goldSet.length, entries: goldSet });
   } catch (err) {
@@ -1072,8 +1070,10 @@ app.get('/api/gold-set', (_req, res) => {
   }
 });
 
-app.post('/api/gold-set/evaluate', (_req, res) => {
+app.post('/api/gold-set/evaluate', async (_req, res) => {
   try {
+    const { evaluateMatcher } = await import('./sources/discovery/gold-set.js');
+    const { matchOpportunityV3 } = await import('./sources/discovery/matcher-v3.js');
     const evaluation = evaluateMatcher((tracker, direct) => {
       if (!direct) return null
       return matchOpportunityV3(tracker, direct)
@@ -1084,8 +1084,9 @@ app.post('/api/gold-set/evaluate', (_req, res) => {
   }
 });
 
-app.post('/api/matcher/test', (req, res) => {
+app.post('/api/matcher/test', async (req, res) => {
   try {
+    const { matchOpportunityV3 } = await import('./sources/discovery/matcher-v3.js');
     const { tracker, direct } = req.body || {};
     if (!tracker || !direct) {
       return res.status(400).json({ error: 'Both tracker and direct job required' });
@@ -1307,10 +1308,9 @@ app.listen(PORT, async () => {
 
   startCronScan();
 
-  // Auto-run discovery pipeline on startup (background, non-blocking)
-  runStartupPipeline().catch(err => {
-    console.error('[Startup] Pipeline failed:', err.message);
-  });
+  // NOTE: Startup pipeline disabled — cron handles data ingestion.
+  // Running heavy network I/O on cold start starves auth endpoints
+  // on Render free tier (512MB RAM).
 });
 
 async function runStartupPipeline() {

@@ -38,6 +38,24 @@ function getStmts() {
 }
 
 function initSchema(db) {
+// Fast path: if users table exists, schema is already initialized — skip everything
+const existing = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='users'`).get()
+if (existing) {
+  // Still need prepared statements
+  _stmts = {
+    insertEntry: db.prepare(`INSERT OR REPLACE INTO discovery_entries (id, data, status, company_name, resolved_firm_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`),
+    getEntry: db.prepare(`SELECT data FROM discovery_entries WHERE id = ?`),
+    getAllEntries: db.prepare(`SELECT data FROM discovery_entries`),
+    getByStatus: db.prepare(`SELECT data FROM discovery_entries WHERE status = ?`),
+    getByFirm: db.prepare(`SELECT data FROM discovery_entries WHERE resolved_firm_id = ?`),
+    deleteEntry: db.prepare(`DELETE FROM discovery_entries WHERE id = ?`),
+    countEntries: db.prepare(`SELECT COUNT(*) as count FROM discovery_entries`),
+    updateEntry: db.prepare(`UPDATE discovery_entries SET data = ?, status = ?, company_name = ?, resolved_firm_id = ?, updated_at = ? WHERE id = ?`),
+  }
+  console.log('[DB] Schema already initialized — skipping CREATE TABLE + migrations')
+  return
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
