@@ -103,8 +103,13 @@ app.use(cors({
     if (allowed.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+):\d+$/.test(origin)) {
       return callback(null, true)
     }
-    // In production, allow the configured frontend URL
-    if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+    // Allow configured frontend URLs (comma-separated)
+    if (process.env.FRONTEND_URL) {
+      const urls = process.env.FRONTEND_URL.split(',').map(u => u.trim())
+      if (urls.includes(origin)) return callback(null, true)
+    }
+    // In staging, allow any Vercel preview URL for this project
+    if (process.env.NODE_ENV === 'staging' && /\.vercel\.app$/.test(origin)) {
       return callback(null, true)
     }
     callback(new Error('Not allowed by CORS'), false)
