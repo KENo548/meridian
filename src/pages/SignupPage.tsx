@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { signUp } from '@/lib/auth'
 import { useAuth } from '@/contexts/AuthContext'
 import { APP_NAME } from '@/constants'
+import { Loader2 } from 'lucide-react'
 
 export function SignupPage() {
   const { setUser } = useAuth()
@@ -45,7 +46,14 @@ export function SignupPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
+            <div className={`text-sm rounded-lg px-4 py-3 ${
+              error.includes('waking up') || error.includes('try again')
+                ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+                : 'bg-red-500/10 border border-red-500/30 text-red-400'
+            }`}>
+              {error.includes('waking up') && (
+                <Loader2 className="size-3.5 animate-spin inline-block mr-2" />
+              )}
               {error}
             </div>
           )}
@@ -108,8 +116,9 @@ export function SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-[var(--color-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="w-full rounded-lg bg-[var(--color-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--color-bg)] hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
           >
+            {loading && <Loader2 className="size-3.5 animate-spin" />}
             {loading ? 'Creating account…' : 'Create Account'}
           </button>
 
