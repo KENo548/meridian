@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { type AuthUser, getCurrentUser, signOut as apiSignOut } from '@/lib/auth'
 import { clearUserSession } from '@/lib/db'
 
@@ -14,12 +14,62 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
+
+    // Try sessionStorage first for instant restore
+    try {
+      const cached = sessionStorage.getItem('meridian_auth_user')
+      if (cached) {
+        const parsed = JSON.parse(cached) as AuthUser
+        setUser(parsed)
+        setLoading(false)
+        // Still verify in background, but don't block UI
+        getCurrentUser()
+          .then(({ user: fresh }) => {
+            if (mountedRef.current && fresh) {
+              setUser(fresh)
+              sessionStorage.setItem('meridian_auth_user', JSON.stringify(fresh))
+            }
+          })
+          .catch(() => {
+            // Session expired — clear cached user
+            if (mountedRef.current) {
+              setUser(null)
+              sessionStorage.removeItem('meridian_auth_user')
+            }
+          })
+        return () => { mountedRef.current = false }
+      }
+    } catch { /* sessionStorage unavailable */ }
+
+    // No cached user — must check server (but don't block UI forever)
     getCurrentUser()
-      .then(({ user }) => setUser(user))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false))
+      .then(({ user: fresh }) => {
+        if (mountedRef.current) {
+          setUser(fresh)
+          if (fresh) sessionStorage.setItem('meridian_auth_user', JSON.stringify(fresh))
+        }
+      })
+      .catch(() => {
+        if (mountedRef.current) setUser(null)
+      })
+      .finally(() => {
+        if (mountedRef.current) setLoading(false)
+      })
+
+    return () => { mountedRef.current = false }
+  }, [])
+
+  const setUserAndCache = useCallback((u: AuthUser | null) => {
+    setUser(u)
+    if (u) {
+      try { sessionStorage.setItem('meridian_auth_user', JSON.stringify(u)) } catch { /* ignore */ }
+    } else {
+      try { sessionStorage.removeItem('meridian_auth_user') } catch { /* ignore */ }
+    }
   }, [])
 
   const logout = useCallback(async () => {
@@ -29,11 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Even if server call fails, clear local state
     }
     clearUserSession()
-    setUser(null)
-  }, [])
+    setUserAndCache(null)
+  }, [setUserAndCache])
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, logout, setUser: setUserAndCache }}>
       {children}
     </AuthContext.Provider>
   )

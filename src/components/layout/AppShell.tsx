@@ -11,7 +11,6 @@ import { APP_NAME } from '@/constants'
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const hydrated = useMeridianStore((s) => s.hydrated)
   const activeApplicationId = useMeridianStore((s) => s.activeApplicationId)
   const setActiveApplicationId = useMeridianStore((s) => s.setActiveApplicationId)
   const addWizardOpen = useMeridianStore((s) => s.addWizardOpen)
@@ -33,17 +32,6 @@ export function AppShell() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [addWizardOpen, activeApplicationId, mobileOpen, setAddWizardOpen, setActiveApplicationId])
-
-  if (!hydrated) {
-    return (
-      <div className="min-h-full flex items-center justify-center bg-[var(--color-bg)]">
-        <div className="text-center">
-          <p className="font-display text-2xl font-bold text-[var(--color-accent)]">{APP_NAME}</p>
-          <p className="mt-2 text-sm text-[var(--color-muted)]">Loading your tracker…</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-full flex bg-[var(--color-bg)] text-[var(--color-text)]">

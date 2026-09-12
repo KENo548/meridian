@@ -97,6 +97,13 @@ async function refreshCollections(set: (partial: Partial<MeridianState>) => void
   set({ applications, companies, requirements, documents, contacts, tasks, tags, savedViews })
 }
 
+/** Load only tags (needed for add/edit forms immediately) — ultra-fast */
+async function refreshTagsOnly(set: (partial: Partial<MeridianState>) => void) {
+  const d = getDb()
+  const tags = await d.tags.toArray()
+  set({ tags })
+}
+
 export const useMeridianStore = create<MeridianState>((set, get) => ({
   hydrated: false,
   applications: [],
@@ -116,7 +123,10 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
   toasts: [],
 
   hydrate: async () => {
-    await refreshCollections(set)
+    // Phase 1: Load only tags (needed for forms) — ultra-fast
+    await refreshTagsOnly(set)
+
+    // Check if first launch
     const d = getDb()
     const meta = await d.meta.get('seeded')
     if (!meta && get().applications.length === 0) {
@@ -124,9 +134,16 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
       const tags = DEFAULT_TAGS.map((name) => ({ id: uid('tag'), name }))
       await d.tags.bulkPut(tags)
       await d.meta.put({ key: 'seeded', value: '1' })
-      await refreshCollections(set)
+      await refreshTagsOnly(set)
     }
+
+    // Mark as hydrated immediately after tags loaded
     set({ hydrated: true })
+
+    // Phase 2: Load remaining collections in background (non-blocking)
+    refreshCollections(set).catch(() => {
+      // Background refresh failed — will retry on next interaction
+    })
   },
 
   setFilters: (patch) => set({ filters: { ...get().filters, ...patch } }),

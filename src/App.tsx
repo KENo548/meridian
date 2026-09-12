@@ -24,15 +24,15 @@ const ContactsPage = lazy(() => import('@/pages/ContactsPage').then(m => ({ defa
 const SourcesPage = lazy(() => import('@/pages/SourcesPage').then(m => ({ default: m.SourcesPage })))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-  if (loading) return <PageLoader message="Connecting to server..." />
-  if (!user) return <Navigate to="/login" replace />
-  return <>{children}</>
+  const { user } = useAuth()
+  // If we have a user (cached or fresh), show the app immediately
+  if (user) return <>{children}</>
+  // No user — redirect to login
+  return <Navigate to="/login" replace />
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-  if (loading) return <PageLoader message="Connecting to server..." />
+  const { user } = useAuth()
   if (user) return <Navigate to="/" replace />
   return <>{children}</>
 }
@@ -41,12 +41,13 @@ function AuthenticatedApp() {
   const { user } = useAuth()
   const hydrate = useMeridianStore((s) => s.hydrate)
 
-  // Switch to user-specific DB when user changes
+  // Switch to user-specific DB when user changes — fire and forget
   useEffect(() => {
     if (user?.id) {
       const userDb = getUserDb(user.id)
       setActiveDb(userDb)
-      void hydrate()
+      // Don't await — hydration happens in background
+      hydrate()
     }
   }, [user?.id, hydrate])
 

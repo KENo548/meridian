@@ -5,20 +5,30 @@ import { useAuth } from '@/contexts/AuthContext'
 import { APP_NAME } from '@/constants'
 
 export function LoginPage() {
-  const { setUser } = useAuth()
+  const { setUser, user } = useAuth()
   const navigate = useNavigate()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // If user is already logged in (cached), redirect immediately
+  if (user) {
+    navigate('/', { replace: true })
+    return null
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const { user } = await signIn(identifier, password)
-      if (user) setUser(user)
+      const { user: newUser } = await signIn(identifier, password)
+      if (newUser) {
+        setUser(newUser)
+        // Cache immediately for instant restore on next visit
+        try { sessionStorage.setItem('meridian_auth_user', JSON.stringify(newUser)) } catch { /* ignore */ }
+      }
       navigate('/')
     } catch (err: any) {
       setError(err.message || 'Sign in failed')
