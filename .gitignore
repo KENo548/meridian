@@ -29,10 +29,12 @@ dist-ssr
 data/
 server/data/
 
-# Environment variables
+# Environment variables (ignore all variants, keep templates)
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
 
 # Deploy temp
 _server_deploy_tmp/

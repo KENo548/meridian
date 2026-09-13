@@ -23,7 +23,10 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 128
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'meridian-jwt-secret-change-in-production'
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT signing secret is not configured - set JWT_SECRET (or legacy SESSION_SECRET) in the environment')
+}
 const JWT_EXPIRY = '7d'
 const COOKIE_NAME = 'meridian_token'
 const isProduction = process.env.NODE_ENV === 'production'
