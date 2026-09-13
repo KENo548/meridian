@@ -6,14 +6,14 @@
 
 ## Quick Start
 
-```powershell
+```bash
 # Frontend (Vite dev server on :5173)
-cd C:\Users\Admin\Documents\Meridian
+cd Meridian
 npm install
 npm run dev
 
 # Backend (Express API on :3001) — separate terminal
-cd C:\Users\Admin\Documents\Meridian\server
+cd Meridian/server
 npm install
 npm run dev
 ```
@@ -25,31 +25,31 @@ Open `http://localhost:5173` — sign up, then start tracking applications.
 ## High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    FRONTEND (SPA)                     │
-│  React 19 + Vite 8 + TypeScript + Tailwind CSS 4    │
-│  Zustand (state) + Dexie (IndexedDB per-user DB)     │
-│                                                       │
-│  Deployed: Vercel (Production: meridian-finance-six)  │
-└──────────────────────┬──────────────────────────────┘
-                       │ fetch() with credentials
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│                  BACKEND (Express)                    │
-│  Node.js + Express + better-sqlite3 + bcrypt         │
-│  Session auth (express-session + SQLite store)        │
-│                                                       │
-│  Deployed: Render (meridian-rcfu.onrender.com)        │
-│  Port: 3001 (auto-assigned by Render)                 │
-└──────────────────────┬──────────────────────────────┘
-                       │
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-   ┌──────────┐ ┌──────────┐ ┌──────────────┐
-   │ SQLite   │ │ 10 ATS   │ │ 4 Tracker    │
-   │ Database │ │ Adapters │ │ Discoveries  │
-   │ (60MB)   │ │          │ │              │
-   └──────────┘ └──────────┘ └──────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                    FRONTEND (SPA)                         │
+│  React 19 + Vite 8 + TypeScript + Tailwind CSS 4        │
+│  Zustand (state) + Dexie (IndexedDB per-user DB)         │
+│                                                           │
+│  Deployed: Vercel (Production: meridian-finance-six)      │
+└──────────────────────────┬───────────────────────────────┘
+                           │ fetch() with credentials (httpOnly cookie)
+                           ▼
+┌──────────────────────────────────────────────────────────┐
+│                  BACKEND (Express)                        │
+│  Node.js + Express + better-sqlite3 + bcrypt + JWT       │
+│  Auth: JWT in httpOnly cookie (stateless, no DB needed)  │
+│                                                           │
+│  Deployed: Render Free Tier (meridian-rcfu.onrender.com) │
+│  Port: 3001 (auto-assigned by Render)                     │
+└──────────────────────────┬───────────────────────────────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+       ┌──────────┐ ┌──────────┐ ┌──────────────┐
+       │ SQLite   │ │ 10 ATS   │ │ 4 Tracker    │
+       │ Database │ │ Adapters │ │ Discoveries  │
+       │ (60MB)   │ │          │ │              │
+       └──────────┘ └──────────┘ └──────────────┘
 ```
 
 ---
@@ -66,16 +66,16 @@ Meridian/
 │   │   ├── sources/              # Source management UI
 │   │   └── ui/                   # Reusable: ErrorBoundary, ConfirmDialog, etc.
 │   ├── contexts/
-│   │   └── AuthContext.tsx        # Auth provider (login state, session)
+│   │   └── AuthContext.tsx        # Auth provider (JWT + sessionStorage cache)
 │   ├── constants/
 │   │   └── index.ts              # Application statuses, programme types
 │   ├── data/
-│   │   └── sampleData.ts         # Demo data for onboarding
+│   │   └── demo.ts               # Demo data seed
 │   ├── lib/
-│   │   ├── auth.ts               # API auth calls (signup, login, logout)
+│   │   ├── auth.ts               # API auth calls (signup, login, logout, retry logic)
 │   │   ├── db.ts                 # IndexedDB (Dexie) — per-user client DB
 │   │   ├── jobSources.ts         # Frontend API URL resolution
-│   │   └── store.ts              # Zustand global state
+│   │   └── store.ts              # Zustand global state (non-blocking hydration)
 │   ├── pages/
 │   │   ├── DashboardPage.tsx
 │   │   ├── OpportunitiesPage.tsx  # Browse 6000+ finance jobs
@@ -97,7 +97,7 @@ Meridian/
 │
 ├── server/                       # Backend (Express API)
 │   ├── index.js                  # Main server — routes, middleware, startup
-│   ├── auth.js                   # Auth routes (signup, login, forgot password)
+│   ├── auth.js                   # JWT auth (signup, login, logout, /me)
 │   ├── db.js                     # SQLite database (lazy-loaded, 60MB)
 │   ├── email.js                  # Gmail SMTP for password resets
 │   ├── sources/
@@ -132,11 +132,13 @@ Meridian/
 │   ├── data/                     # Server data (SQLite DB, RSS feeds)
 │   └── package.json
 │
+├── .devcontainer/                # GitHub Codespaces config
+│   └── devcontainer.json
 ├── render.yaml                   # Render deployment config (2 services)
 ├── vercel.json                   # Vercel config
+├── ARCHITECTURE.md               # This file
 ├── package.json                  # Frontend dependencies
 ├── tsconfig.json
-├── tailwind.config.ts
 └── vite.config.ts
 ```
 
@@ -153,6 +155,7 @@ Meridian/
 ### SQLite Database (Backend — 60MB)
 - Single `meridian.db` file stores all job data
 - **Lazy-loaded**: opens on first query, not at import time (server starts in <1s)
+- **Schema fast-path**: skips CREATE TABLE + migrations if tables already exist
 - Tables:
   - `canonical_jobs` — 6,299 unique finance job listings
   - `companies` — 370 companies with domains, career URLs
@@ -173,15 +176,37 @@ Meridian/
 
 ---
 
-## Authentication Flow
+## Authentication Flow (JWT)
 
-1. **Signup**: Username + email + password → bcrypt hash → stored in SQLite
-2. **Login**: Credentials → bcrypt.compare → express-session cookie (`meridian.sid`)
-3. **Session**: httpOnly cookie, 7-day expiry, SQLite-backed session store
-4. **Auth check**: Frontend calls `GET /api/auth/me` on mount (8s timeout)
+### How It Works
+1. **Signup**: Username + email + password → bcrypt hash → stored in SQLite → sign JWT → set httpOnly cookie
+2. **Login**: Credentials → bcrypt.compare → sign JWT → set httpOnly cookie
+3. **Auth check**: Frontend calls `GET /api/auth/me` → server verifies JWT signature (sub-millisecond, NO database lookup)
+4. **Logout**: Clear httpOnly cookie → respond (no server call needed)
 5. **Password reset**: Gmail SMTP sends reset link (requires `GMAIL_USER` + `GMAIL_APP_PASSWORD` env vars)
 
-**Session lifecycle**: Sessions are invalidated on every server restart/deploy (`sessionStore.clearAll()`). Users must re-login after deploys. Application data (jobs, companies, discoveries) persists across restarts.
+### JWT Details
+- **Algorithm**: HS256
+- **Expiry**: 7 days
+- **Cookie**: `meridian_token`, httpOnly, secure (production), sameSite: none
+- **Secret**: `JWT_SECRET` env var (falls back to `SESSION_SECRET`)
+- **No server-side state**: JWT is self-contained. Server never stores sessions. Cold starts don't break auth.
+
+### Why JWT Over Sessions
+| Aspect | Sessions (old) | JWT (current) |
+|--------|---------------|---------------|
+| Auth check speed | 10-50s (open DB + query) | <1ms (verify signature) |
+| Cold start impact | Auth broken until DB opens | Auth works instantly |
+| Server state | SQLite session store | None (stateless) |
+| Scalability | Single-server only | Multi-server ready |
+
+### Frontend Auth Flow
+```
+Page load → sessionStorage cache? → YES → show app instantly
+                                → NO  → show login form instantly
+                                       ↳ background: getCurrentUser() checks server
+Login → POST /api/auth/login → set cookie + cache user → navigate to /app
+```
 
 ---
 
@@ -223,7 +248,7 @@ canonical_job (1) ←── sightings (N)
 4. **Matching** (`matchTrackerToDirect`) — Match tracker entries to direct ATS listings
 5. **Staleness** (`applyStalenessTransitions`) — Mark jobs as stale/closed if not seen
 
-Runs on startup + cron (every 15min/1h/4h/8h depending on adapter health).
+Runs on cron (every 4h/8h depending on adapter health). **NOT on startup** — to avoid starving auth endpoints on Render free tier.
 
 ---
 
@@ -265,16 +290,28 @@ DACH boutiques: Wyser, ACXIT, Goetzpartners, Rust & Partners, SPP, Lang & Partne
 - **Backend**: Render Free Tier → `https://meridian-rcfu.onrender.com`
 - **Database**: Render disk mount at `/opt/render/project/src/server/data` (1GB, persistent)
 
+### Cloud Development (Oracle Cloud Free VM)
+- **OpenCode Server**: `http://130.61.60.47:4096` (always-on, auto-restart)
+- **Backend API**: `http://130.61.60.47:3001`
+- **Mobile app**: Connect to `http://130.61.60.47:4096` with password `meridian2026`
+- **Services**: systemd (`opencode.service`, `meridian-api.service`) — survive reboots
+
 ### Staging
-- **Frontend**: Vercel Preview → `https://meridian-finance-f9bsi5yk3-keno548s-projects.vercel.app`
+- **Frontend**: Vercel Preview
 - **Backend**: Render Free Tier → `https://meridian-staging-oyfk.onrender.com`
 - **Database**: Separate Render disk (isolated from production)
 
 ### Render Free Tier Constraints
 - 512MB RAM, 0.1 CPU
 - Spins down after 15 minutes idle
-- Cold start: ~20-30s (container) + <1s (our code, thanks to lazy loading)
+- Cold start: ~20-30s (container spin-up only — our code responds in <1s)
+- Startup pipeline DISABLED to avoid starving auth endpoints
 - Memory monitoring + forced GC at 400MB heap
+
+### Keep-Alive (cron-job.org)
+- Pings `https://meridian-rcfu.onrender.com/api/health` every 10 minutes
+- Prevents Render from sleeping
+- Uses ~745 hours/month of 750 free hours
 
 ---
 
@@ -282,31 +319,52 @@ DACH boutiques: Wyser, ACXIT, Goetzpartners, Rust & Partners, SPP, Lang & Partne
 
 ### Backend (Render Dashboard)
 ```
-NODE_ENV=production|staging
+NODE_ENV=production
+JWT_SECRET=<auto-generated-64-char>
+FRONTEND_URL=https://meridian-finance-six.vercel.app
+GMAIL_USER=siddharthlovesuni@gmail.com
+GMAIL_APP_PASSWORD=<16-char-app-password>
+```
+
+### Backend (Oracle Cloud VM)
+```
+NODE_ENV=production
+PORT=3001
+JWT_SECRET=<auto-generated>
 SESSION_SECRET=<auto-generated>
 FRONTEND_URL=https://meridian-finance-six.vercel.app
-GMAIL_USER=<your-gmail>
-GMAIL_APP_PASSWORD=<your-app-password>
+GMAIL_USER=siddharthlovesuni@gmail.com
+GMAIL_APP_PASSWORD=sewo fgjr zsfw fdri
+OPENCODE_SERVER_PASSWORD=meridian2026
 ```
 
 ### Frontend (Vercel Dashboard)
 ```
 VITE_API_BASE=https://meridian-rcfu.onrender.com  (production)
-VITE_API_BASE=https://meridian-staging-oyfk.onrender.com  (staging/preview)
 ```
 
 ---
 
 ## Performance Optimizations
 
-1. **Lazy database init**: SQLite opens on first query, not at import time
-2. **Lazy module loading**: Heavy modules (ATS adapters, discovery pipeline) loaded via `await import()` on first route hit
-3. **Batch sighting loading**: `getActiveSightingsForJobs()` eliminates N+1 queries on opportunities endpoint
-4. **SQLite WAL mode**: Better concurrent read performance
-5. **NodeCache with cap**: In-memory cache for API responses (maxKeys=50)
-6. **8-second auth timeout**: Frontend auth check aborts after 8s, shows login page immediately
-7. **Session invalidation on boot**: Clean ephemeral sessions, persistent application data
-8. **Memory monitoring**: Logs every 5 min, forced GC at 400MB heap
+### Backend
+1. **JWT auth**: `/api/auth/me` responds in <1ms (no DB lookup)
+2. **Lazy database init**: SQLite opens on first query, not at import time
+3. **Schema fast-path**: Skips CREATE TABLE + migrations if tables exist
+4. **Lazy module loading**: Heavy modules loaded via `await import()` on first route hit
+5. **Startup pipeline disabled**: Cron handles data ingestion (avoids starving auth on cold start)
+6. **Batch sighting loading**: `getActiveSightingsForJobs()` eliminates N+1 queries
+7. **SQLite WAL mode**: Better concurrent read performance
+8. **NodeCache with cap**: In-memory cache for API responses (maxKeys=50)
+9. **Memory monitoring**: Logs every 5 min, forced GC at 400MB heap
+
+### Frontend
+10. **sessionStorage auth cache**: Instant user restore on page reload
+11. **Non-blocking hydration**: Tags load instantly, full data loads in background
+12. **AppShell renders immediately**: No `hydrated` gate
+13. **Lazy page imports**: React.lazy() for all routes except Dashboard
+14. **Login/signup auto-retry**: 3 attempts with backoff for cold starts
+15. **Instant signout**: Clear local state immediately, fire server call in background
 
 ---
 
@@ -314,13 +372,15 @@ VITE_API_BASE=https://meridian-staging-oyfk.onrender.com  (staging/preview)
 
 | Decision | Reason |
 |----------|--------|
+| JWT over sessions | Auth check <1ms, no DB dependency, survives cold starts |
 | SQLite over PostgreSQL | Single-file simplicity, no external deps, fits Render free tier |
-| Express-session over JWT | Simpler, httpOnly cookies, server-controlled expiry |
 | Dexie over raw IndexedDB | Type-safe, reactive queries, per-user DB isolation |
 | Zustand over Redux | Minimal boilerplate, works great with Dexie |
 | Lazy loading everything | Server starts in <1s despite 60MB DB + 20+ modules |
 | Canonical job model | One record per real-world opening, no duplicates, full provenance |
 | bcrypt 12 rounds | Industry standard password hashing |
+| Oracle Cloud free VM | Always-on opencode server, no laptop dependency |
+| cron-job.org keep-alive | Prevents Render free tier from sleeping |
 | Free tier for both envs | User declined paid hosting; acceptable trade-offs |
 
 ---
@@ -329,4 +389,19 @@ VITE_API_BASE=https://meridian-staging-oyfk.onrender.com  (staging/preview)
 
 - **Repo**: `https://github.com/KENo548/meridian` (private)
 - **Branches**: `main` (production), `staging` (staging)
-- **Latest commit**: `9d02407`
+- **Codespaces**: `.devcontainer/devcontainer.json` configured
+- **Auto-deploy**: Push to `main` → Vercel (frontend) + Render (backend) auto-deploy
+
+---
+
+## Git Commits (Recent)
+
+| Commit | Description |
+|--------|-------------|
+| `a3a4e3f` | chore: add GitHub Codespaces config for mobile dev |
+| `e2ea6d1` | feat: JWT auth replaces server sessions |
+| `15856cd` | fix: instant login + instant signout |
+| `1a5b7c9` | perf: disable startup pipeline + skip schema re-init |
+| `6dead11` | fix: cold-start login retry with warming-up UX |
+| `1b7ad26` | perf: non-blocking auth, instant login, background hydration |
+| `9d02407` | perf: cold-start lazy loading optimization |
