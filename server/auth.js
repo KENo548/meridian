@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
 import {
   createUser,
@@ -21,6 +22,47 @@ const USERNAME_REGEX = /^[a-zA-Z0-9_-]{3,30}$/
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 128
+
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'meridian-jwt-secret-change-in-production'
+const JWT_EXPIRY = '7d'
+const COOKIE_NAME = 'meridian_token'
+const isProduction = process.env.NODE_ENV === 'production'
+
+function signToken(userId) {
+  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: JWT_EXPIRY })
+}
+
+function setAuthCookie(res, token) {
+  res.cookie(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+  })
+}
+
+function clearAuthCookie(res) {
+  res.clearCookie(COOKIE_NAME, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path: '/',
+  })
+}
+
+/** Verify JWT from cookie — no DB call, sub-millisecond */
+export function verifyAuth(req, res, next) {
+  const token = req.cookies?.[COOKIE_NAME]
+  if (!token) return res.status(401).json({ error: 'Authentication required' })
+  try {
+    const payload = jwt.verify(token, JWT_SECRET)
+    req.userId = payload.sub
+    next()
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' })
+  }
+}
 
 function validatePassword(pw) {
   if (pw.length < PASSWORD_MIN) return `Password must be at least ${PASSWORD_MIN} characters`
@@ -52,7 +94,6 @@ router.post('/signup', async (req, res) => {
     const pwError = validatePassword(password)
     if (pwError) return res.status(400).json({ error: pwError })
 
-    // Check duplicates
     if (getUserByUsername(username)) {
       return res.status(409).json({ error: 'Username already taken' })
     }
@@ -64,20 +105,12 @@ router.post('/signup', async (req, res) => {
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS)
     const user = createUser(id, username, email, hash)
 
-    // Auto-login after signup
-    req.session.userId = id
-    req.session.save((err) => {
-      if (err) {
-        console.error('[Auth] Session save error:', err.message)
-        return res.status(201).json({
-          user: { id: user.id, username: user.username, email: user.email },
-          message: 'Account created. Please sign in.',
-        })
-      }
-      res.status(201).json({
-        user: { id: user.id, username: user.username, email: user.email },
-        message: 'Account created and signed in',
-      })
+    const token = signToken(user.id)
+    setAuthCookie(res, token)
+
+    res.status(201).json({
+      user: { id: user.id, username: user.username, email: user.email },
+      message: 'Account created and signed in',
     })
   } catch (err) {
     console.error('[Auth] Signup error:', err.message)
@@ -95,7 +128,6 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username/email and password are required' })
     }
 
-    // Look up by username or email
     let user = getUserByUsername(identifier)
     if (!user) user = getUserByEmail(identifier)
     if (!user) {
@@ -107,16 +139,12 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' })
     }
 
-    req.session.userId = user.id
-    req.session.save((err) => {
-      if (err) {
-        console.error('[Auth] Session save error:', err.message)
-        return res.status(500).json({ error: 'Login failed' })
-      }
-      res.json({
-        user: { id: user.id, username: user.username, email: user.email },
-        message: 'Signed in',
-      })
+    const token = signToken(user.id)
+    setAuthCookie(res, token)
+
+    res.json({
+      user: { id: user.id, username: user.username, email: user.email },
+      message: 'Signed in',
     })
   } catch (err) {
     console.error('[Auth] Login error:', err.message)
@@ -126,25 +154,17 @@ router.post('/login', async (req, res) => {
 
 // ─── Sign Out ─────────────────────────────────────────────────
 
-router.post('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('[Auth] Logout error:', err.message)
-      return res.status(500).json({ error: 'Logout failed' })
-    }
-    res.clearCookie('meridian.sid')
-    res.json({ message: 'Signed out' })
-  })
+router.post('/logout', (_req, res) => {
+  clearAuthCookie(res)
+  res.json({ message: 'Signed out' })
 })
 
 // ─── Current User ─────────────────────────────────────────────
 
-router.get('/me', (req, res) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({ error: 'Not authenticated' })
-  }
-  const user = getUserById(req.session.userId)
+router.get('/me', verifyAuth, (req, res) => {
+  const user = getUserById(req.userId)
   if (!user) {
+    clearAuthCookie(res)
     return res.status(401).json({ error: 'User not found' })
   }
   res.json({ user: { id: user.id, username: user.username, email: user.email } })
@@ -158,32 +178,25 @@ router.post('/forgot-password', async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email is required' })
 
     const user = getUserByEmail(email)
-    // Always return success to prevent email enumeration
     if (!user) {
       return res.json({ message: 'If that email is registered, you will receive a reset link.' })
     }
 
-    // Generate token (stored as SHA-256 hash)
     const rawToken = crypto.randomBytes(32).toString('hex')
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex')
     const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS).toISOString()
     const resetId = `rst_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`
 
-    // Cleanup old resets for this user
     cleanupExpiredResets()
     createPasswordReset(resetId, user.id, tokenHash, expiresAt)
 
-    // Build reset URL
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
     const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`
 
-    // Send email in production, log in dev
-    const isProduction = process.env.NODE_ENV === 'production'
     if (isProduction) {
       const emailResult = await sendPasswordResetEmail(user.email, resetUrl)
       if (!emailResult.success) {
         console.error(`[Auth] Failed to send reset email to ${user.email}:`, emailResult.error)
-        // Still return success to prevent email enumeration
       }
     } else {
       console.log(`[Auth] Password reset token for ${user.email}: ${rawToken}`)
@@ -193,7 +206,6 @@ router.post('/forgot-password', async (req, res) => {
     const response = {
       message: 'If that email is registered, you will receive a reset link.',
     }
-    // Dev-only: include token in response
     if (!isProduction) {
       response._dev_token = rawToken
       response._dev_url = resetUrl
@@ -225,12 +237,10 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired reset token' })
     }
 
-    // Check expiry
     if (new Date(reset.expires_at) < new Date()) {
       return res.status(400).json({ error: 'Reset token has expired' })
     }
 
-    // Update password
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS)
     updateUserPassword(reset.user_id, hash)
     usePasswordReset(tokenHash)

@@ -1,11 +1,11 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import authRouter from './auth.js';
+import authRouter, { verifyAuth } from './auth.js';
 
 process.on('unhandledRejection', (err) => {
   console.error('[UnhandledRejection]', err?.message || err);
@@ -88,6 +88,7 @@ import {
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const isProduction = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', 1);
 
@@ -120,138 +121,12 @@ app.use(cors({
 }));
 
 app.use(express.json());
-
-// ─── Session middleware ───────────────────────────────────────
-
-import Session from 'express-session'
-
-const isProduction = process.env.NODE_ENV === 'production'
-if (isProduction && !process.env.SESSION_SECRET) {
-  console.error('[FATAL] SESSION_SECRET environment variable is required in production')
-  process.exit(1)
-}
-const SESSION_SECRET = process.env.SESSION_SECRET || 'meridian-dev-secret-change-in-production'
-
-// SQLite session store — lazily initialized (DB file opened on first request)
-import Database from 'better-sqlite3'
-import { mkdirSync, existsSync } from 'node:fs'
-
-const sessionDbDir = join(dirname(fileURLToPath(import.meta.url)), 'data')
-if (!existsSync(sessionDbDir)) mkdirSync(sessionDbDir, { recursive: true })
-
-let _sessionDb = null
-function getSessionDb() {
-  if (_sessionDb) return _sessionDb
-  const t0 = Date.now()
-  _sessionDb = new Database(join(sessionDbDir, 'sessions.db'))
-  _sessionDb.pragma('journal_mode = WAL')
-  _sessionDb.exec(`
-    CREATE TABLE IF NOT EXISTS sessions (
-      sid TEXT PRIMARY KEY,
-      sess TEXT NOT NULL,
-      expired_at INTEGER NOT NULL
-    )
-  `)
-  _sessionDb.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_expired ON sessions(expired_at)`)
-  console.log(`[Session] DB opened in ${Date.now() - t0}ms`)
-  return _sessionDb
-}
-
-class SQLiteSessionStore extends Session.Store {
-  constructor(ttlMs = 7 * 24 * 60 * 60 * 1000) {
-    super()
-    this.ttlMs = ttlMs
-    this._cleanupInterval = setInterval(() => this.cleanup(), 60 * 60 * 1000)
-  }
-
-  get(sid, cb) {
-    try {
-      const db = getSessionDb()
-      const row = db.prepare('SELECT sess, expired_at FROM sessions WHERE sid = ?').get(sid)
-      if (!row) return cb(null, null)
-      if (Date.now() > row.expired_at) {
-        db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid)
-        return cb(null, null)
-      }
-      cb(null, JSON.parse(row.sess))
-    } catch (err) {
-      cb(err)
-    }
-  }
-
-  set(sid, sess, cb) {
-    try {
-      const db = getSessionDb()
-      const expired_at = Date.now() + this.ttlMs
-      db.prepare('INSERT OR REPLACE INTO sessions (sid, sess, expired_at) VALUES (?, ?, ?)').run(
-        sid, JSON.stringify(sess), expired_at
-      )
-      cb(null)
-    } catch (err) {
-      cb(err)
-    }
-  }
-
-  destroy(sid, cb) {
-    try {
-      const db = getSessionDb()
-      db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid)
-      cb(null)
-    } catch (err) {
-      cb(err)
-    }
-  }
-
-  cleanup() {
-    try {
-      const db = getSessionDb()
-      const result = db.prepare('DELETE FROM sessions WHERE expired_at < ?').run(Date.now())
-      if (result.changes > 0) {
-        console.log(`[Session] Cleaned up ${result.changes} expired sessions`)
-      }
-    } catch (err) {
-      console.error('[Session] Cleanup error:', err.message)
-    }
-  }
-
-  /** Invalidate all sessions — called on server startup so old auth state
-   *  never survives a deploy/restart. Users simply log in again. */
-  clearAll() {
-    try {
-      const db = getSessionDb()
-      const result = db.prepare('DELETE FROM sessions').run()
-      console.log(`[Session] Invalidated ${result.changes} session(s) from previous run (${process.env.NODE_ENV || 'development'})`)
-    } catch (err) {
-      console.error('[Session] clearAll error:', err.message)
-    }
-  }
-}
-
-const sessionStore = new SQLiteSessionStore()
-sessionStore.clearAll()
-
-app.use(session({
-  name: 'meridian.sid',
-  secret: SESSION_SECRET,
-  store: sessionStore,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  },
-}))
+app.use(cookieParser());
 
 // ─── Auth middleware ─────────────────────────────────────────
 
-function requireAuth(req, res, next) {
-  if (!req.session?.userId) {
-    return res.status(401).json({ error: 'Authentication required' })
-  }
-  next()
-}
+// JWT-based auth — verifyAuth is imported from auth.js
+// No server-side session state needed. /api/auth/me responds in <1ms.
 
 // Mount auth routes (public — no auth required)
 app.use('/api/auth', authRouter);
@@ -262,11 +137,8 @@ app.use('/api', (req, res, next) => {
   if (req.path === '/health' || req.path === '/sources' || req.path.startsWith('/auth')) {
     return next()
   }
-  // Check session
-  if (!req.session?.userId) {
-    return res.status(401).json({ error: 'Authentication required' })
-  }
-  next()
+  // JWT auth — verify token from cookie (sub-millisecond, no DB)
+  verifyAuth(req, res, next)
 });
 
 const limiter = rateLimit({
