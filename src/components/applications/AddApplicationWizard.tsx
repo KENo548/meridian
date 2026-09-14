@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
@@ -79,11 +80,15 @@ export function AddApplicationWizard() {
   const [newTagName, setNewTagName] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false)
+  const [duplicateTarget, setDuplicateTarget] = useState<{ companyName: string; jobTitle: string } | null>(null)
 
   const close = () => {
     setAddWizardOpen(false)
     setStep(0)
     setForm(emptyForm())
+    setShowDuplicateConfirm(false)
+    setDuplicateTarget(null)
     setReqMap(() => {
       const map = {} as Record<RequirementType, boolean>
       for (const key of Object.keys(REQUIREMENT_TYPE_LABELS) as RequirementType[]) {
@@ -203,10 +208,8 @@ export function AddApplicationWizard() {
 
       if (result.duplicate && !force) {
         pushToast('info', 'Possible duplicate — confirm to add anyway')
-        const ok = window.confirm(
-          `Looks similar to ${result.duplicate.companyName} — ${result.duplicate.jobTitle}. Add anyway?`,
-        )
-        if (ok) await submit(true)
+        setDuplicateTarget({ companyName: result.duplicate.companyName, jobTitle: result.duplicate.jobTitle })
+        setShowDuplicateConfirm(true)
         return
       }
       pushToast('success', `Added ${result.app.companyName}`)
@@ -244,6 +247,7 @@ export function AddApplicationWizard() {
   const progressWidth = `${((step + 1) / STEP_LABELS.length) * 100}%`
 
   return (
+    <>
     <Modal open={open} onClose={close} title="Add application" size="lg" footer={footer}>
       <div className="mb-5">
         <div className="flex justify-between items-center mb-1.5">
@@ -507,5 +511,16 @@ export function AddApplicationWizard() {
         </div>
       )}
     </Modal>
+
+      <ConfirmDialog
+        open={showDuplicateConfirm}
+        title="Possible Duplicate"
+        message={`Looks similar to ${duplicateTarget?.companyName} — ${duplicateTarget?.jobTitle}. Add anyway?`}
+        confirmLabel="Add anyway"
+        variant="warning"
+        onConfirm={() => { setShowDuplicateConfirm(false); void submit(true) }}
+        onCancel={() => { setShowDuplicateConfirm(false); setDuplicateTarget(null) }}
+      />
+    </>
   )
 }

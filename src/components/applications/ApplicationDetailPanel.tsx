@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { X, Trash2, Archive, Plus, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
@@ -80,6 +81,7 @@ export function ApplicationDetailPanel() {
     notes: '',
   })
   const [showContactForm, setShowContactForm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   useEffect(() => {
     setNotes(app?.notes ?? '')
@@ -639,17 +641,23 @@ export function ApplicationDetailPanel() {
             variant="danger"
             size="sm"
             className="ml-auto"
-            onClick={() => {
-              if (window.confirm('Delete this application?')) {
-                void deleteApplications([app.id])
-              }
-            }}
+            onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="size-3.5" />
             Delete
           </Button>
         </div>
       </aside>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete Application"
+        message={`Permanently delete ${app.companyName} — ${app.jobTitle}? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => { void deleteApplications([app.id]); setShowDeleteConfirm(false) }}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </>
   )
 }

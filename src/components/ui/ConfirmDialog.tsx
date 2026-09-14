@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -22,14 +22,19 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null)
+  const titleId = useId()
 
   useEffect(() => {
     if (open) cancelRef.current?.focus()
   }, [open])
 
   useEffect(() => {
+    if (!open) return
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open) onCancel()
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        onCancel()
+      }
     }
     document.addEventListener('keydown', handleEsc)
     return () => document.removeEventListener('keydown', handleEsc)
@@ -61,10 +66,13 @@ export function ConfirmDialog({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onCancel}>
       <div className="absolute inset-0 bg-black/60" />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={`relative ${c.bg} border rounded-xl p-6 max-w-sm w-full shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className={`text-lg font-semibold ${c.text} mb-2`}>{title}</h3>
+        <h3 id={titleId} className={`text-lg font-semibold ${c.text} mb-2`}>{title}</h3>
         <p className="text-sm text-slate-300 mb-6">{message}</p>
         <div className="flex gap-3 justify-end">
           <button
