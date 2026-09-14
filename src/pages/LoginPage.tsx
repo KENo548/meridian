@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signIn } from '@/lib/auth'
 import { useAuth } from '@/contexts/AuthContext'
-import { APP_NAME } from '@/constants'
+import { APP_NAME, APP_TAGLINE } from '@/constants'
 import { Loader2 } from 'lucide-react'
 
 export function LoginPage() {
@@ -42,6 +42,9 @@ export function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-display text-3xl font-bold text-[var(--color-accent)]">{APP_NAME}</h1>
+          <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-[var(--color-faint)]">
+            {APP_TAGLINE}
+          </p>
           <p className="mt-2 text-sm text-[var(--color-muted)]">Sign in to your tracker</p>
         </div>
 
