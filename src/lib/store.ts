@@ -123,22 +123,25 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
   toasts: [],
 
   hydrate: async () => {
-    // Phase 1: Load only tags (needed for forms) — ultra-fast
-    await refreshTagsOnly(set)
-
-    // Check if first launch
-    const d = getDb()
-    const meta = await d.meta.get('seeded')
-    if (!meta && get().applications.length === 0) {
-      // First launch — seed tags only; demo data is opt-in
-      const tags = DEFAULT_TAGS.map((name) => ({ id: uid('tag'), name }))
-      await d.tags.bulkPut(tags)
-      await d.meta.put({ key: 'seeded', value: '1' })
+    // Phase 1: Load only tags (needed for forms) — ultra-fast.
+    // Wrap in try/finally so the DashboardPage gate never hangs if
+    // IndexedDB or refreshTagsOnly throws (req #4: no global spinner).
+    try {
       await refreshTagsOnly(set)
-    }
 
-    // Mark as hydrated immediately after tags loaded
-    set({ hydrated: true })
+      // Check if first launch
+      const d = getDb()
+      const meta = await d.meta.get('seeded')
+      if (!meta && get().applications.length === 0) {
+        // First launch — seed tags only; demo data is opt-in
+        const tags = DEFAULT_TAGS.map((name) => ({ id: uid('tag'), name }))
+        await d.tags.bulkPut(tags)
+        await d.meta.put({ key: 'seeded', value: '1' })
+        await refreshTagsOnly(set)
+      }
+    } finally {
+      set({ hydrated: true })
+    }
 
     // Phase 2: Load remaining collections in background (non-blocking)
     refreshCollections(set).catch(() => {

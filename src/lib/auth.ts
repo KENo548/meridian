@@ -3,6 +3,8 @@ const API_BASE = import.meta.env.VITE_API_BASE
     ? 'http://localhost:3001'
     : `http://${window.location.hostname}:3001`)
 
+const AUTH_TIMEOUT_MS = 10000
+
 export interface AuthUser {
   id: string
   username: string
@@ -42,35 +44,25 @@ async function apiCall<T>(path: string, options: RequestInit = {}, timeoutMs = 1
 }
 
 export async function signUp(username: string, email: string, password: string): Promise<AuthResponse> {
-  return apiCallWithRetry<AuthResponse>('/api/auth/signup', {
+  return authAttempt<AuthResponse>('/api/auth/signup', {
     method: 'POST',
     body: JSON.stringify({ username, email, password }),
   })
 }
 
-async function apiCallWithRetry<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const MAX_RETRIES = 3
-  const BASE_TIMEOUT = 15000
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      return await apiCall<T>(path, options, BASE_TIMEOUT)
-    } catch (err: any) {
-      if (err?.message === '__COLD_START__' && attempt < MAX_RETRIES) {
-        // Server cold-starting — wait and retry with increasing timeout
-        await new Promise((r) => setTimeout(r, attempt * 5000))
-        continue
-      }
-      if (err?.message === '__COLD_START__') {
-        throw new Error('Server is waking up from sleep — this can take up to 30 seconds on first visit. Please wait a moment and try again.')
-      }
-      throw err
+async function authAttempt<T>(path: string, options: RequestInit = {}): Promise<T> {
+  try {
+    return await apiCall<T>(path, options, AUTH_TIMEOUT_MS)
+  } catch (err: any) {
+    if (err?.message === '__COLD_START__') {
+      throw new Error('The server is still starting up — please wait a few seconds, then try again.')
     }
+    throw err
   }
-  throw new Error('Unexpected error')
 }
 
 export async function signIn(identifier: string, password: string): Promise<AuthResponse> {
-  return apiCallWithRetry<AuthResponse>('/api/auth/login', {
+  return authAttempt<AuthResponse>('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ identifier, password }),
   })

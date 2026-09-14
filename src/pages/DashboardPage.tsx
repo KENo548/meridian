@@ -12,6 +12,7 @@ import { filterApplications, sortApplications, getDeadlineUrgency } from '@/lib/
 
 export function DashboardPage() {
   const applications = useMeridianStore((s) => s.applications)
+  const hydrated = useMeridianStore((s) => s.hydrated)
   const filters = useMeridianStore((s) => s.filters)
   const setAddWizardOpen = useMeridianStore((s) => s.setAddWizardOpen)
   const setActiveApplicationId = useMeridianStore((s) => s.setActiveApplicationId)
@@ -48,7 +49,11 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {applications.filter((a) => !a.archived).length === 0 ? (
+      {!hydrated ? (
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-8">
+          <p className="text-sm text-[var(--color-faint)]">Loading your data…</p>
+        </div>
+      ) : applications.filter((a) => !a.archived).length === 0 ? (
         <EmptyState
           icon={<Briefcase className="size-10" />}
           onAction={() => setAddWizardOpen(true)}

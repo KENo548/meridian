@@ -394,8 +394,13 @@ function startCronScan(intervalMs) {
 }
 
 async function runAdaptiveLoop() {
-  let lastDiscoveryRun = 0
+  let lastDiscoveryRun = Date.now()
   const DISCOVERY_INTERVAL = PRIORITY_INTERVALS.cold // 4 hours
+
+  // Defer the first pass so boot-time CPU/network is reserved for auth +
+  // API traffic on the shared instance (Render free tier). Scheduler runs
+  // on the same cadence as a cron scan: no heavy work at cold start.
+  await new Promise(resolve => setTimeout(resolve, PRIORITY_INTERVALS.normal))
 
   while (true) {
     try {

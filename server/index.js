@@ -281,19 +281,22 @@ app.get('/api/search', async (req, res) => {
 
 // ─── Registry routes ───────────────────────────────────────────
 
-app.get('/api/registry', (_req, res) => {
+app.get('/api/registry', async (_req, res) => {
+  const { getAllFirms, getSourceStats } = await lazy();
   const firms = getAllFirms();
   const stats = getSourceStats();
   res.json({ firms, stats });
 });
 
-app.get('/api/registry/:firmId', (req, res) => {
+app.get('/api/registry/:firmId', async (req, res) => {
+  const { getFirmById } = await lazy();
   const firm = getFirmById(req.params.firmId);
   if (!firm) return res.status(404).json({ error: 'Firm not found' });
   res.json({ firm });
 });
 
-app.post('/api/registry/:firmId/toggle', (req, res) => {
+app.post('/api/registry/:firmId/toggle', async (req, res) => {
+  const { toggleFirm } = await lazy();
   const { enabled } = req.body;
   const firm = toggleFirm(req.params.firmId, enabled);
   if (!firm) return res.status(404).json({ error: 'Firm not found' });
@@ -1131,6 +1134,7 @@ app.get('/api/discovery/stats', (_req, res) => {
 
 app.post('/api/discovery/company/:id', async (req, res) => {
   try {
+    const { getAllFirms } = await lazy();
     const firms = getAllFirms()
     const firm = firms.find(f => f.id === req.params.id)
     if (!firm) return res.status(404).json({ error: 'Company not found' })
@@ -1180,9 +1184,9 @@ app.listen(PORT, async () => {
 
   startCronScan();
 
-  // NOTE: Startup pipeline disabled — cron handles data ingestion.
-  // Running heavy network I/O on cold start starves auth endpoints
-  // on Render free tier (512MB RAM).
+  // NOTE: runStartupPipeline removed — its work is handled by startCronScan
+  // via runAdaptiveLoop, which now defers the first pass so cold-start CPU
+  // is reserved for auth/API traffic (see scan.js runAdaptiveLoop comment).
 });
 
 async function runStartupPipeline() {
