@@ -10,7 +10,7 @@ import { canonicalizeBatch } from '../ats/canonicalize.js'
 import {
   saveDirectJobs, getAllDirectJobs, clearDirectJobs,
   saveSourceDiscovery, getAllSourceDiscoveries, clearSourceDiscoveries
-} from '../../db.js'
+} from '../../db-adapter.js'
 
 const STALENESS_THRESHOLDS = {
   trackerDiscovery: 24 * 60 * 60 * 1000,  // 24 hours
@@ -21,14 +21,13 @@ const STALENESS_THRESHOLDS = {
 let sourceDiscoveryResults = new Map()
 let directJobsByFirm = new Map()
 
-// Load persisted pipeline state on module import
-function loadPipelineState() {
-  sourceDiscoveryResults = getAllSourceDiscoveries()
-  directJobsByFirm = getAllDirectJobs()
+// Pipeline state must be initialized explicitly — callers must await
+// initPipelineState() before using discoverFirmSources/enumerateDirectJobs/etc.
+async function initPipelineState() {
+  sourceDiscoveryResults = await getAllSourceDiscoveries()
+  directJobsByFirm = await getAllDirectJobs()
   console.log(`[Pipeline] Loaded ${sourceDiscoveryResults.size} source discoveries, ${directJobsByFirm.size} firm job caches from SQLite`)
 }
-
-loadPipelineState()
 
 async function discoverFirmSources(options = {}) {
   const { maxDepth = 2, concurrency = 3, force = false } = options
@@ -37,7 +36,7 @@ async function discoverFirmSources(options = {}) {
 
   // Skip if data is fresh and not forced
   if (!force) {
-    const existingDiscoveries = getAllSourceDiscoveries()
+    const existingDiscoveries = await getAllSourceDiscoveries()
     const firmsWithDiscoveries = new Set(existingDiscoveries.keys())
     const firmsNeedingDiscovery = firms.filter(f => !firmsWithDiscoveries.has(f.id))
 
@@ -58,7 +57,8 @@ async function discoverFirmSources(options = {}) {
     console.log(`[Pipeline] ${firmsNeedingDiscovery.length}/${firms.length} firms need source discovery`)
   }
 
-  const firmsToDiscover = force ? firms : firms.filter(f => !new Set(getAllSourceDiscoveries().keys()).has(f.id))
+  const existingForFilter = force ? null : await getAllSourceDiscoveries()
+  const firmsToDiscover = force ? firms : firms.filter(f => !new Set(existingForFilter.keys()).has(f.id))
   const results = []
   for (let i = 0; i < firmsToDiscover.length; i += concurrency) {
     const batch = firmsToDiscover.slice(i, i + concurrency)
@@ -70,12 +70,12 @@ async function discoverFirmSources(options = {}) {
         }
         const discovery = await discoverFirmSource(firmForDiscovery, { maxDepth })
         sourceDiscoveryResults.set(firm.id, discovery)
-        saveSourceDiscovery(firm.id, discovery)
+        await saveSourceDiscovery(firm.id, discovery)
 
         if (discovery.discovered.length > 0) {
           for (const d of discovery.discovered) {
             const careerSource = buildCareerSource(d, firm)
-            updateRegistryCareerSource(firm.id, careerSource)
+            await updateRegistryCareerSource(firm.id, careerSource)
           }
         }
 
@@ -102,8 +102,10 @@ async function discoverFirmSources(options = {}) {
   }
 }
 
-function updateRegistryCareerSource(firmId, careerSource) {
-  addCareerSourceToFirm(firmId, careerSource)
+async function updateRegistryCareerSource(firmId, careerSource) {
+  // Awaited: the KV read-modify-write must commit before the batch
+  // continues, otherwise the durable write is fire-and-forget.
+  await addCareerSourceToFirm(firmId, careerSource)
 }
 
 async function enumerateDirectJobs(firmIds = null, options = {}) {
@@ -116,11 +118,11 @@ async function enumerateDirectJobs(firmIds = null, options = {}) {
 
   if (force) {
     // Clear existing data when forced
-    clearDirectJobs()
+    await clearDirectJobs()
     directJobsByFirm.clear()
   }
 
-  const existingJobs = getAllDirectJobs()
+  const existingJobs = await getAllDirectJobs()
   const firmsWithJobs = new Set(existingJobs.keys())
   const firmsToFetch = force ? firms : firms.filter(f => !firmsWithJobs.has(f.id))
 
@@ -195,7 +197,7 @@ async function enumerateDirectJobs(firmIds = null, options = {}) {
     }
 
     directJobsByFirm.set(firm.id, firmJobs)
-    saveDirectJobs(firm.id, firmJobs)
+    await saveDirectJobs(firm.id, firmJobs)
     results.push({
       firmId: firm.id,
       firmName: firm.name,
@@ -231,8 +233,8 @@ async function fetchFirmJobsFromCareerSource(firm, careerSource) {
   return fetchFirmJobs(firm, source)
 }
 
-function matchTrackerToDirect() {
-  const trackerEntries = getUnmatchedEntries()
+async function matchTrackerToDirect() {
+  const trackerEntries = await getUnmatchedEntries()
   const startTime = Date.now()
 
   // Pre-enrich tracker entries for Matcher V3
@@ -262,10 +264,11 @@ function matchTrackerToDirect() {
   const { results, stats } = batchMatchV3(enrichedTrackers, directJobsByFirmObj)
 
   for (const result of results) {
-    updateMatchResult(result.trackerEntry.id, result)
+    await updateMatchResult(result.trackerEntry.id, result)
 
     if (result.hasAutoMatch && result.bestMatch) {
-      const entry = getAllDiscoveries().find(e => e.id === result.trackerEntry.id)
+      const allDiscoveries = await getAllDiscoveries()
+      const entry = allDiscoveries.find(e => e.id === result.trackerEntry.id)
       if (entry && (entry.status === STATES.DISCOVERED || entry.status === STATES.RESOLVED || entry.status === STATES.REACHABLE)) {
 
         // Determine target status: verified_open if all conditions met
@@ -275,13 +278,13 @@ function matchTrackerToDirect() {
         const noHardIncompatibility = !result.bestMatch.hasHardIncompatibility
 
         if (isAuto && hasResolvedFirm && hasDirectSource && noHardIncompatibility) {
-          transition(entry.id, STATES.VERIFIED_OPEN)
+          await transition(entry.id, STATES.VERIFIED_OPEN)
         } else {
-          transition(entry.id, STATES.REACHABLE)
+          await transition(entry.id, STATES.REACHABLE)
         }
 
-        updateField(entry.id, 'matchedDirectJob', result.bestMatch)
-        updateField(entry.id, 'matchConfidence', result.bestMatch.confidence)
+        await updateField(entry.id, 'matchedDirectJob', result.bestMatch)
+        await updateField(entry.id, 'matchConfidence', result.bestMatch.confidence)
       }
     }
   }
@@ -295,8 +298,8 @@ function matchTrackerToDirect() {
   }
 }
 
-function getPipelineStatus() {
-  const entries = getAllDiscoveries()
+async function getPipelineStatus() {
+  const entries = await getAllDiscoveries()
   const byStatus = {}
   const byMatchConfidence = { auto: 0, review: 0, unmatched: 0 }
 
@@ -317,14 +320,15 @@ function getPipelineStatus() {
   }
 }
 
-function clearPipelineState() {
+async function clearPipelineState() {
   sourceDiscoveryResults.clear()
   directJobsByFirm.clear()
-  clearDirectJobs()
-  clearSourceDiscoveries()
+  await clearDirectJobs()
+  await clearSourceDiscoveries()
 }
 
 export {
+  initPipelineState,
   discoverFirmSources,
   enumerateDirectJobs,
   matchTrackerToDirect,

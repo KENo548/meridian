@@ -158,12 +158,12 @@ describe('classifySourceTier', () => {
 })
 
 describe('resolveIdentity', () => {
-  it('returns tier=ats_reqid for ATS jobs with req ID (no DB)', () => {
-    // In test environment without DB, resolveIdentity returns 'new' for all jobs
-    // because findFuzzyMatchSync returns null when DB isn't loaded
+  it('returns tier=ats_reqid for ATS jobs with req ID (no DB)', async () => {
+    // In test environment without DB rows, resolveIdentity returns 'new' for all jobs
+    // because no canonical job matches the fingerprint in the (empty) database.
     const job = { atsReqId: '12345', company: 'GS', title: 'Analyst' }
-    const result = resolveIdentity(job, 'greenhouse')
-    // Without DB, no existing canonical jobs exist, so tier is 'new'
+    const result = await resolveIdentity(job, 'greenhouse')
+    // Without DB rows, no existing canonical jobs exist, so tier is 'new'
     assert.equal(result.tier, 'new')
   })
 })

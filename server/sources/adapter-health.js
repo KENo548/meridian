@@ -19,7 +19,7 @@ import {
   upsertAdapterHealth,
   getAdapterHealth,
   getAllAdapterHealth,
-} from '../db.js'
+} from '../db-adapter.js'
 
 // ─── Health Status Thresholds ───────────────────────────────────
 
@@ -62,7 +62,7 @@ export async function trackedScan(source, scanFn, options = {}) {
   }
 
   const durationMs = Date.now() - startTime
-  const previousHealth = getAdapterHealth(source)
+  const previousHealth = await getAdapterHealth(source)
   const jobsFound = jobs.length
   const previousJobsFound = previousHealth?.jobs_found ?? jobsFound
   const baselineAvgJobs = previousHealth?.baseline_avg_jobs ?? jobsFound
@@ -82,7 +82,7 @@ export async function trackedScan(source, scanFn, options = {}) {
   const lastNonZeroAt = jobsFound > 0 ? new Date().toISOString() : (previousHealth?.last_non_zero_at || null)
 
   // Persist health record
-  upsertAdapterHealth({
+  await upsertAdapterHealth({
     source,
     status,
     scanStartedAt: new Date().toISOString(),
@@ -141,8 +141,8 @@ function determineStatus(consecutiveZeroScans, baselineAvg, error) {
  * Get health summary for all adapters.
  * Returns array sorted by status (unhealthy first).
  */
-export function getHealthSummary() {
-  const adapters = getAllAdapterHealth()
+export async function getHealthSummary() {
+  const adapters = await getAllAdapterHealth()
   const statusOrder = { unhealthy: 0, degraded: 1, healthy: 2 }
   return adapters
     .map(a => ({
@@ -157,17 +157,17 @@ export function getHealthSummary() {
 /**
  * Get unhealthy adapters that need attention.
  */
-export function getUnhealthyAdapters() {
-  return getAllAdapterHealth()
-    .filter(a => a.status === STATUS.UNHEALTHY)
+export async function getUnhealthyAdapters() {
+  const adapters = await getAllAdapterHealth()
+  return adapters.filter(a => a.status === STATUS.UNHEALTHY)
 }
 
 /**
  * Get adapters with zero-result warnings.
  */
-export function getZeroResultWarnings() {
-  return getAllAdapterHealth()
-    .filter(a => a.consecutive_zero_scans > 0 && a.baseline_avg_jobs > BASELINE_SIGNIFICANCE)
+export async function getZeroResultWarnings() {
+  const adapters = await getAllAdapterHealth()
+  return adapters.filter(a => a.consecutive_zero_scans > 0 && a.baseline_avg_jobs > BASELINE_SIGNIFICANCE)
 }
 
 // ─── Helpers ────────────────────────────────────────────────────

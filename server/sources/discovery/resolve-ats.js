@@ -151,7 +151,7 @@ async function resolveOpportunities(options = {}) {
   const { verify = false, limit = 50 } = options
   const startTime = Date.now()
 
-  const entries = getAllDiscoveries()
+  const entries = await getAllDiscoveries()
   const toResolve = entries
     .filter(e => e.status !== STATES.REJECTED)
     .slice(0, limit)
@@ -175,7 +175,7 @@ async function resolveOpportunities(options = {}) {
 
       if (classification && classification.provider !== 'unknown') {
         stats.classified++
-        updateField(entry.id, 'classifiedProvider', classification.provider)
+        await updateField(entry.id, 'classifiedProvider', classification.provider)
       }
 
       let verification = { verified: false, reason: 'not_attempted' }
@@ -185,7 +185,7 @@ async function resolveOpportunities(options = {}) {
         if (verification.verified) {
           stats.reachable++
           if (entry.status === STATES.DISCOVERED || entry.status === STATES.RESOLVED) {
-            transition(entry.id, STATES.REACHABLE)
+            await transition(entry.id, STATES.REACHABLE)
             stats.newlyReachable++
           }
         } else {

@@ -53,7 +53,7 @@ function calculateStaleness(entry, now = Date.now()) {
   return { status: 'expired', reason: 'too_old', daysSinceLastObservation }
 }
 
-function applyStalenessTransitions(entries) {
+async function applyStalenessTransitions(entries) {
   const results = []
 
   for (const entry of entries) {
@@ -66,18 +66,18 @@ function applyStalenessTransitions(entries) {
     }
 
     if (staleness.status === 'expired' && entry.status !== STATES.REJECTED) {
-      transition(entry.id, STATES.REJECTED, `Expired: ${staleness.reason}`)
+      await transition(entry.id, STATES.REJECTED, `Expired: ${staleness.reason}`)
       transitioned = true
     } else if (staleness.status === 'missing' && entry.status === STATES.VERIFIED) {
-      updateField(entry.id, 'consecutiveMisses', (entry.consecutiveMisses || 0) + 1)
+      await updateField(entry.id, 'consecutiveMisses', (entry.consecutiveMisses || 0) + 1)
       if ((entry.consecutiveMisses || 0) + 1 >= STALENESS_THRESHOLDS.MAX_CONSECUTIVE_MISSES) {
-        transition(entry.id, STATES.NEEDS_REVIEW, `Missing for ${staleness.daysSinceLastObservation} days`)
+        await transition(entry.id, STATES.NEEDS_REVIEW, `Missing for ${staleness.daysSinceLastObservation} days`)
         transitioned = true
       }
     } else if (staleness.status === 'stale' && entry.status === STATES.VERIFIED) {
-      updateField(entry.id, 'consecutiveMisses', (entry.consecutiveMisses || 0) + 1)
+      await updateField(entry.id, 'consecutiveMisses', (entry.consecutiveMisses || 0) + 1)
     } else if (staleness.status === 'fresh' && entry.consecutiveMisses > 0) {
-      updateField(entry.id, 'consecutiveMisses', 0)
+      await updateField(entry.id, 'consecutiveMisses', 0)
     }
 
     if (entry.observations) {
@@ -86,7 +86,7 @@ function applyStalenessTransitions(entries) {
         return t > new Date(latest.lastSeenAt || 0).getTime() ? o : latest
       }, entry.observations[0])
       if (latestObs && latestObs.lastSeenAt) {
-        updateField(entry.id, 'lastObservationAt', latestObs.lastSeenAt)
+        await updateField(entry.id, 'lastObservationAt', latestObs.lastSeenAt)
       }
     }
 
@@ -103,9 +103,9 @@ function applyStalenessTransitions(entries) {
   return results
 }
 
-function getStalenessReport() {
-  const entries = getAll()
-  const results = applyStalenessTransitions(entries)
+async function getStalenessReport() {
+  const entries = await getAll()
+  const results = await applyStalenessTransitions(entries)
 
   const report = {
     timestamp: new Date().toISOString(),

@@ -6,26 +6,26 @@ import { normalizeTrackerEntry, deriveTrackerIntel, classifyProgramme } from '..
 import { classifyUrl } from '../ats/classifier.js'
 
 describe('Discovery Store', () => {
-  beforeEach(() => {
-    store.clear()
+  beforeEach(async () => {
+    await store.clear()
   })
 
   describe('createEntry', () => {
-    it('creates entry with default discovered status', () => {
-      const entry = store.createEntry({ companyName: 'JPMorgan' })
+    it('creates entry with default discovered status', async () => {
+      const entry = await store.createEntry({ companyName: 'JPMorgan' })
       assert.equal(entry.status, 'discovered')
       assert.equal(entry.companyName, 'JPMorgan')
       assert.ok(entry.id)
       assert.ok(entry.createdAt)
     })
 
-    it('rejects entry without companyName', () => {
-      const entry = store.createEntry({})
+    it('rejects entry without companyName', async () => {
+      const entry = await store.createEntry({})
       assert.equal(entry, null)
     })
 
-    it('includes observations', () => {
-      const entry = store.createEntry({
+    it('includes observations', async () => {
+      const entry = await store.createEntry({
         companyName: 'Goldman Sachs',
         observations: [{ source: 'fyntraq', programme: 'Summer Internship' }],
       })
@@ -35,40 +35,40 @@ describe('Discovery Store', () => {
   })
 
   describe('transition', () => {
-    it('allows valid transition', () => {
-      const entry = store.createEntry({ companyName: 'Test' })
-      const result = store.transition(entry.id, store.STATES.RESOLVED)
+    it('allows valid transition', async () => {
+      const entry = await store.createEntry({ companyName: 'Test' })
+      const result = await store.transition(entry.id, store.STATES.RESOLVED)
       assert.equal(result.status, 'resolved')
     })
 
-    it('rejects invalid transition', () => {
-      const entry = store.createEntry({ companyName: 'Test' })
-      const result = store.transition(entry.id, store.STATES.ENABLED)
+    it('rejects invalid transition', async () => {
+      const entry = await store.createEntry({ companyName: 'Test' })
+      const result = await store.transition(entry.id, store.STATES.ENABLED)
       assert.ok(result.error)
     })
 
-    it('returns null for unknown entry', () => {
-      const result = store.transition('nonexistent', store.STATES.RESOLVED)
+    it('returns null for unknown entry', async () => {
+      const result = await store.transition('nonexistent', store.STATES.RESOLVED)
       assert.equal(result, null)
     })
   })
 
   describe('findOrCreate', () => {
-    it('creates new entry', () => {
-      const result = store.findOrCreate({ companyName: 'New Firm' })
+    it('creates new entry', async () => {
+      const result = await store.findOrCreate({ companyName: 'New Firm' })
       assert.equal(result.created, true)
       assert.equal(result.companyName, 'New Firm')
     })
 
-    it('finds existing entry', () => {
-      store.findOrCreate({ companyName: 'Existing', programme: 'Summer' })
-      const result = store.findOrCreate({ companyName: 'Existing', programme: 'Summer' })
+    it('finds existing entry', async () => {
+      await store.findOrCreate({ companyName: 'Existing', programme: 'Summer' })
+      const result = await store.findOrCreate({ companyName: 'Existing', programme: 'Summer' })
       assert.equal(result.created, false)
     })
 
-    it('adds observations to existing entry', () => {
-      store.findOrCreate({ companyName: 'Test', programme: 'Spring' })
-      const result = store.findOrCreate({
+    it('adds observations to existing entry', async () => {
+      await store.findOrCreate({ companyName: 'Test', programme: 'Spring' })
+      const result = await store.findOrCreate({
         companyName: 'Test',
         programme: 'Spring',
         observations: [{ source: 'landtheoffer' }],
@@ -78,25 +78,25 @@ describe('Discovery Store', () => {
   })
 
   describe('getStats', () => {
-    it('returns empty stats', () => {
-      const stats = store.getStats()
+    it('returns empty stats', async () => {
+      const stats = await store.getStats()
       assert.equal(stats.total, 0)
     })
 
-    it('counts entries by status', () => {
-      store.findOrCreate({ companyName: 'Alpha Corp' })
-      store.findOrCreate({ companyName: 'Bravo Inc' })
-      const stats = store.getStats()
+    it('counts entries by status', async () => {
+      await store.findOrCreate({ companyName: 'Alpha Corp' })
+      await store.findOrCreate({ companyName: 'Bravo Inc' })
+      const stats = await store.getStats()
       assert.equal(stats.total, 2)
       assert.equal(stats.byStatus.discovered, 2)
     })
   })
 
   describe('event emitters', () => {
-    it('emits created event', () => {
+    it('emits created event', async () => {
       let received = false
       store.on('created', () => { received = true })
-      store.createEntry({ companyName: 'Event Test' })
+      await store.createEntry({ companyName: 'Event Test' })
       assert.equal(received, true)
     })
   })

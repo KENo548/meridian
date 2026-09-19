@@ -10,7 +10,10 @@ import { discoverCareersPages, fetchPage } from './crawler.js'
 import { classify, classifyUrl } from './classifier.js'
 import { verifySource, checkReachable } from './verifier.js'
 import { calculateConfidence, buildEvidenceFromDiscovery, shouldAutoVerify } from './confidence.js'
-import { createDiscoveryTarget, updateDiscoveryTarget, getDiscoveryTarget, getDiscoveryTargetsByStatus } from '../../db.js'
+import { createDiscoveryTarget, updateDiscoveryTarget, getDiscoveryTarget, getDiscoveryTargetsByStatus } from '../../db-adapter.js'
+
+// NOTE: db-adapter exports ONLY async functions — every DB call below is awaited.
+// getAllFirms (registry.js) is in-memory and stays synchronous.
 
 const DELAY_BETWEEN_COMPANIES_MS = 1500
 const DELAY_BETWEEN_REQUESTS_MS = 300
@@ -211,12 +214,12 @@ export async function runDiscovery(options = {}) {
     }
 
     // Create queue entry
-    createDiscoveryTarget(target.id, target.name, target.domain, target.careersUrl)
+    await createDiscoveryTarget(target.id, target.name, target.domain, target.careersUrl)
 
     const result = await discoverCompany(target)
 
     // Persist result
-    updateDiscoveryTarget(target.id, {
+    await updateDiscoveryTarget(target.id, {
       status: result.status,
       attemptCount: 1,
       lastAttemptAt: new Date().toISOString(),

@@ -3,7 +3,7 @@ import {
   saveEntry, getEntryById, getAllEntries, getEntriesByStatus,
   getEntriesByFirm as dbGetByFirm, deleteEntry as dbDeleteEntry, saveEntries,
   getEntryCount
-} from '../../db.js'
+} from '../../db-adapter.js'
 
 const STATES = {
   DISCOVERED: 'discovered',
@@ -33,7 +33,7 @@ function generateId() {
   return randomUUID()
 }
 
-function createEntry(data) {
+async function createEntry(data) {
   if (!data || !data.companyName) return null
 
   const name = data.companyName.trim()
@@ -70,13 +70,13 @@ function createEntry(data) {
     lastMatchAttemptAt: null,
   }
 
-  saveEntry(entry)
+  await saveEntry(entry)
   emit('created', entry)
   return { ...entry }
 }
 
-function transition(entryId, newState, reason) {
-  const entry = getEntryById(entryId)
+async function transition(entryId, newState, reason) {
+  const entry = await getEntryById(entryId)
   if (!entry) return null
 
   const allowed = VALID_TRANSITIONS[entry.status]
@@ -89,13 +89,13 @@ function transition(entryId, newState, reason) {
   entry.updatedAt = new Date().toISOString()
   if (reason) entry.rejectionReason = reason
 
-  saveEntry(entry)
+  await saveEntry(entry)
   emit('transition', { entry, from, to: newState })
   return { ...entry }
 }
 
-function addObservation(entryId, observation) {
-  const entry = getEntryById(entryId)
+async function addObservation(entryId, observation) {
+  const entry = await getEntryById(entryId)
   if (!entry) return null
 
   const now = new Date().toISOString()
@@ -124,17 +124,17 @@ function addObservation(entryId, observation) {
   }
 
   entry.updatedAt = now
-  saveEntry(entry)
+  await saveEntry(entry)
   emit('observation', { entry, observation })
   return { ...entry }
 }
 
-function findOrCreate(data) {
+async function findOrCreate(data) {
   if (!data || !data.companyName) return null
 
-  let existing = findByCompanyAndProgramme(data.companyName, data.programme)
+  let existing = await findByCompanyAndProgramme(data.companyName, data.programme)
   if (!existing && data.division && data.office) {
-    existing = findByCompanyDivisionOffice(data.companyName, data.division, data.office)
+    existing = await findByCompanyDivisionOffice(data.companyName, data.division, data.office)
   }
 
   if (existing) {
@@ -142,39 +142,39 @@ function findOrCreate(data) {
     // Handle applyUrl upgrade separately if no observations to add
     if (data.applyUrl && !existing.applyUrl) {
       if (hasObservations) {
-        addObservation(existing.id, { source: 'discovery', applyUrl: data.applyUrl })
+        await addObservation(existing.id, { source: 'discovery', applyUrl: data.applyUrl })
       } else {
         existing.applyUrl = data.applyUrl
         existing.updatedAt = new Date().toISOString()
-        saveEntry(existing)
+        await saveEntry(existing)
       }
     }
     // Add observations via addObservation (which handles its own save)
     if (hasObservations) {
       for (const obs of data.observations) {
-        addObservation(existing.id, obs)
+        await addObservation(existing.id, obs)
       }
     }
     // Re-read from DB to get fully up-to-date version
-    const fresh = getEntryById(existing.id)
+    const fresh = await getEntryById(existing.id)
     return { ...(fresh || existing), created: false }
   }
 
-  return { ...createEntry(data), created: true }
+  return { ...await createEntry(data), created: true }
 }
 
-function findByCompanyAndProgramme(companyName, programme) {
+async function findByCompanyAndProgramme(companyName, programme) {
   const norm = companyName.toLowerCase().trim()
-  const all = getAllEntries()
+  const all = await getAllEntries()
   return all.find(e =>
     e.companyName.toLowerCase().trim() === norm &&
     (!programme || e.programme === programme)
   ) || null
 }
 
-function findByCompanyDivisionOffice(companyName, division, office) {
+async function findByCompanyDivisionOffice(companyName, division, office) {
   const norm = companyName.toLowerCase().trim()
-  const all = getAllEntries()
+  const all = await getAllEntries()
   return all.find(e =>
     e.companyName.toLowerCase().trim() === norm &&
     (!division || e.division === division) &&
@@ -182,53 +182,53 @@ function findByCompanyDivisionOffice(companyName, division, office) {
   ) || null
 }
 
-function findByFirmId(firmId) {
-  return getEntriesByFirm(firmId)
+async function findByFirmId(firmId) {
+  return await getEntriesByFirmId(firmId)
 }
 
-function findByStatus(status) {
-  return getEntriesByStatus(status)
+async function findByStatus(status) {
+  return await getEntriesByStatus(status)
 }
 
-function getAll() {
-  return getAllEntries()
+async function getAll() {
+  return await getAllEntries()
 }
 
-function getById(id) {
-  return getEntryById(id)
+async function getById(id) {
+  return await getEntryById(id)
 }
 
-function updateField(entryId, field, value) {
-  const entry = getEntryById(entryId)
+async function updateField(entryId, field, value) {
+  const entry = await getEntryById(entryId)
   if (!entry) return null
   entry[field] = value
   entry.updatedAt = new Date().toISOString()
-  saveEntry(entry)
+  await saveEntry(entry)
   return { ...entry }
 }
 
-function updateSourceDiscovery(entryId, discoveryResult) {
-  const entry = getEntryById(entryId)
+async function updateSourceDiscovery(entryId, discoveryResult) {
+  const entry = await getEntryById(entryId)
   if (!entry) return null
   entry.sourceDiscovery = discoveryResult
   entry.updatedAt = new Date().toISOString()
-  saveEntry(entry)
+  await saveEntry(entry)
   return { ...entry }
 }
 
-function updateMatchResult(entryId, matchResult) {
-  const entry = getEntryById(entryId)
+async function updateMatchResult(entryId, matchResult) {
+  const entry = await getEntryById(entryId)
   if (!entry) return null
   entry.matchedDirectJob = matchResult?.bestMatch || null
   entry.matchConfidence = matchResult?.bestMatch?.confidence || null
   entry.lastMatchAttemptAt = new Date().toISOString()
   entry.updatedAt = new Date().toISOString()
-  saveEntry(entry)
+  await saveEntry(entry)
   return { ...entry }
 }
 
-function getUnmatchedEntries() {
-  const all = getAllEntries()
+async function getUnmatchedEntries() {
+  const all = await getAllEntries()
   return all.filter(e =>
     e.status !== STATES.REJECTED &&
     !e.matchedDirectJob &&
@@ -236,12 +236,12 @@ function getUnmatchedEntries() {
   )
 }
 
-function getEntriesByFirmId(firmId) {
-  return dbGetByFirm(firmId)
+async function getEntriesByFirmId(firmId) {
+  return await dbGetByFirm(firmId)
 }
 
-function getStats() {
-  const all = getAllEntries()
+async function getStats() {
+  const all = await getAllEntries()
   const stats = {
     total: all.length,
     byStatus: {},
@@ -270,10 +270,10 @@ function getStats() {
   return stats
 }
 
-function clear() {
-  const all = getAllEntries()
+async function clear() {
+  const all = await getAllEntries()
   for (const entry of all) {
-    dbDeleteEntry(entry.id)
+    await dbDeleteEntry(entry.id)
   }
   emit('cleared')
 }
@@ -293,15 +293,15 @@ function emit(event, data) {
   }
 }
 
-// Backward compat — called from startup but now a no-op (SQLite is always loaded)
-function loadFromDisk() {
-  const count = getEntryCount()
+// Backward compat — callers must await; reads are async against the DB driver.
+async function loadFromDisk() {
+  const count = await getEntryCount()
   console.log(`[DiscoveryStore] Loaded ${count} entries from SQLite`)
   return count
 }
 
-function getLastDiscoveryTimestamp() {
-  const all = getAllEntries()
+async function getLastDiscoveryTimestamp() {
+  const all = await getAllEntries()
   if (all.length === 0) return null
 
   let latest = null
@@ -346,7 +346,3 @@ export {
 }
 
 export { getEntriesByFirmId as getEntriesByFirm }
-
-// Log on module import
-const count = getEntryCount()
-console.log(`[DiscoveryStore] SQLite loaded — ${count} entries`)

@@ -22,7 +22,7 @@ import {
   getObservationsForJob,
   upsertSighting,
   upsertAdapterHealth,
-} from '../db.js'
+} from '../db-adapter.js'
 import crypto from 'node:crypto'
 
 // ─── State ──────────────────────────────────────────────────────
@@ -32,10 +32,12 @@ let lastScanResult = null
 let scanning = false
 
 // ─── Canonical Job Persistence (v2 — identity resolution) ──────
+// True-async: every db-adapter call is awaited so SUCCESS is only
+// reported after the durable commit resolves. Rejections propagate.
 
-function upsertCanonicalJob(job, source) {
+async function upsertCanonicalJob(job, source) {
   const now = new Date().toISOString()
-  const companyId = job.company ? upsertCompanyByName(job.company) : null
+  const companyId = job.company ? await upsertCompanyByName(job.company) : null
 
   // Compute fingerprint for this job
   const fingerprint = computeFingerprint(job)
@@ -44,7 +46,7 @@ function upsertCanonicalJob(job, source) {
   const tier = classifySourceTier(source)
 
   // Check if canonical job already exists
-  const existing = getCanonicalJobById(job.id)
+  const existing = await getCanonicalJobById(job.id)
 
   if (!existing) {
     // NEW canonical job
@@ -82,10 +84,10 @@ function upsertCanonicalJob(job, source) {
       consecutiveAbsences: 0,
       lastVerifiedOpenAt: now,
     }
-    saveCanonicalJob(newJob)
+    await saveCanonicalJob(newJob)
 
     // Record sighting
-    upsertSighting({
+    await upsertSighting({
       canonicalJobId: job.id,
       source,
       sourceTier: tier,
@@ -164,10 +166,10 @@ function upsertCanonicalJob(job, source) {
     consecutiveAbsences: existing.consecutive_absences || 0,
     lastVerifiedOpenAt: now,
   }
-  saveCanonicalJob(updatedJob)
+  await saveCanonicalJob(updatedJob)
 
   // Record sighting (always — proves the job was still live when this source saw it)
-  upsertSighting({
+  await upsertSighting({
     canonicalJobId: existing.id,
     source,
     sourceTier: tier,
@@ -185,7 +187,7 @@ function upsertCanonicalJob(job, source) {
 
   // Record version if fields changed
   if (changedFields.length > 0) {
-    saveJobVersion({
+    await saveJobVersion({
       id: `ver:${existing.id}:${Date.now()}`,
       canonicalJobId: existing.id,
       versionNumber: 1,
@@ -217,12 +219,24 @@ async function ingestFromSources() {
   }
 
   scanning = true
+  try {
+    return await doIngestFromSources()
+  } finally {
+    scanning = false
+  }
+}
+
+// Inner ingestion without the re-entrancy guard.
+// scanAll() holds the `scanning` flag across discovery + ingest;
+// calling the guarded ingestFromSources() from inside scanAll would
+// always early-return 'Scan already in progress' (deadlock).
+async function doIngestFromSources() {
   const startTime = Date.now()
   const newJobIds = []
   const healthReports = []
 
   try {
-    const firms = getEnabledFirms()
+    const firms = await getEnabledFirms()
     if (firms.length === 0) {
       return { error: 'No enabled firms in registry', status: 'empty' }
     }
@@ -237,22 +251,25 @@ async function ingestFromSources() {
     const canonicalJobs = canonicalizeBatch(normalizedJobs)
     const { jobs: dedupedJobs } = deduplicateJobs(canonicalJobs)
 
-    // Persist each job with identity resolution + sighting
+    // Persist each job with identity resolution + sighting.
+    // Sequential for...of ( NOT Promise.all / forEach ): each upsert writes
+    // company → canonical job → sighting → version in FK order, and the next
+    // iteration's getCanonicalJobById must observe this iteration's commit.
     const sourceCounters = {}
     for (const job of dedupedJobs) {
       const source = job.source || 'unknown'
       sourceCounters[source] = (sourceCounters[source] || 0) + 1
 
-      const result = upsertCanonicalJob(job, source)
+      const result = await upsertCanonicalJob(job, source)
       if (result.isNew) {
         newJobIds.push(job.id)
       }
     }
 
     // Run staleness evaluation
-    const stalenessReport = evaluateAllStaleness()
+    const stalenessReport = await evaluateAllStaleness()
 
-    const totalJobs = countCanonicalJobs({ status: 'active' })
+    const totalJobs = await countCanonicalJobs({ status: 'active' })
 
     const result = {
       status: 'completed',
@@ -282,8 +299,6 @@ async function ingestFromSources() {
       durationMs: Date.now() - startTime,
       error: err.message,
     }
-  } finally {
-    scanning = false
   }
 }
 
@@ -322,13 +337,14 @@ async function scanAll() {
       resolutionReport = { error: err.message }
     }
 
-    const ingestionResult = await ingestFromSources()
+    // scanAll holds `scanning`; call the guard-free inner ingest directly.
+    const ingestionResult = await doIngestFromSources()
 
     // Get adapter health summary
-    const adapterHealth = getHealthSummary()
-    const zeroWarnings = getZeroResultWarnings()
+    const adapterHealth = await getHealthSummary()
+    const zeroWarnings = await getZeroResultWarnings()
 
-    const withDeadlines = getCanonicalJobs({ status: 'active', sort: 'deadline', order: 'asc', limit: 20 })
+    const withDeadlines = (await getCanonicalJobs({ status: 'active', sort: 'deadline', order: 'asc', limit: 20 }))
       .filter(j => j.deadline)
       .map(j => ({
         title: j.title,
@@ -341,7 +357,7 @@ async function scanAll() {
       ...ingestionResult,
       upcomingDeadlines: withDeadlines,
       discovery: discoveryReport,
-      discoveryStats: getDiscoveryStats(),
+      discoveryStats: await getDiscoveryStats(),
       resolution: resolutionReport,
       adapterHealth: adapterHealth.map(a => ({
         source: a.source,
@@ -439,7 +455,7 @@ function stopCronScan() {
 }
 
 async function scanSingleFirm(firmId) {
-  const firms = getEnabledFirms()
+  const firms = await getEnabledFirms()
   const firm = firms.find(f => f.id === firmId)
   if (!firm) return { error: `Firm not found or not enabled: ${firmId}` }
 
@@ -461,11 +477,11 @@ async function scanSingleFirm(firmId) {
     for (const job of dedupedJobs) {
       const source = job.source || 'unknown'
       sourceCounters[source] = (sourceCounters[source] || 0) + 1
-      const result = upsertCanonicalJob(job, source)
+      const result = await upsertCanonicalJob(job, source)
       if (result.isNew) newJobIds.push(job.id)
     }
 
-    evaluateAllStaleness()
+    await evaluateAllStaleness()
 
     return {
       status: 'completed',
@@ -505,8 +521,8 @@ function getScanStatus() {
   }
 }
 
-function getPersistedJobs() {
-  return getCanonicalJobs({ status: 'active', limit: 10000 })
+async function getPersistedJobs() {
+  return await getCanonicalJobs({ status: 'active', limit: 10000 })
 }
 
 function clearPersistedJobs() {
@@ -515,13 +531,13 @@ function clearPersistedJobs() {
 
 // ─── Coverage & Health ─────────────────────────────────────────
 
-function getCoverageReport() {
-  const totalJobs = countCanonicalJobs({ status: 'active' })
+async function getCoverageReport() {
+  const totalJobs = await countCanonicalJobs({ status: 'active' })
   const byProgramme = {}
   const byFinance = {}
   const byCountry = {}
 
-  const jobs = getCanonicalJobs({ status: 'active', limit: 100000 })
+  const jobs = await getCanonicalJobs({ status: 'active', limit: 100000 })
   for (const job of jobs) {
     byProgramme[job.programme_type] = (byProgramme[job.programme_type] || 0) + 1
     byFinance[job.finance_category] = (byFinance[job.finance_category] || 0) + 1

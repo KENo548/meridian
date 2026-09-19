@@ -12,7 +12,7 @@ import {
   getPasswordReset,
   usePasswordReset,
   cleanupExpiredResets,
-} from './db.js'
+} from './auth-db-adapter.js'
 import { sendPasswordResetEmail } from './email.js'
 
 const router = Router()
@@ -76,6 +76,28 @@ function validatePassword(pw) {
   return null
 }
 
+// ─── DB error classification (HTTP semantics) ─────────────────
+// Uniqueness conflict (e.g. signup race between pre-check and INSERT)
+// → 409, never 500. Works for both drivers:
+//   pg: code '23505' · better-sqlite3: 'SQLITE_CONSTRAINT_UNIQUE'.
+// DB unreachable (Neon down, DNS, timeout) → 503, never 401
+// ("invalid credentials") — a DB outage must not look like a bad password.
+function isUniqueViolation(err) {
+  if (!err) return false
+  if (err.code === '23505') return true
+  if (typeof err.code === 'string' && err.code.startsWith('SQLITE_CONSTRAINT')) return true
+  return /unique constraint|duplicate key|UNIQUE constraint failed/i.test(err.message || '')
+}
+
+function isDbUnavailable(err) {
+  if (!err) return false
+  const connCodes = new Set(['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EHOSTUNREACH', 'EPIPE', '57P03'])
+  if (connCodes.has(err.code)) return true
+  // pg insufficient_resources class (53xxx: too many connections, disk full, …)
+  if (typeof err.code === 'string' && /^53/.test(err.code)) return true
+  return /could not connect|connection (refused|timed out|terminated|reset)|database .*unavailable|getaddrinfo|connect ETIMEDOUT/i.test(err.message || '')
+}
+
 // ─── Sign Up ──────────────────────────────────────────────────
 
 router.post('/signup', async (req, res) => {
@@ -97,16 +119,16 @@ router.post('/signup', async (req, res) => {
     const pwError = validatePassword(password)
     if (pwError) return res.status(400).json({ error: pwError })
 
-    if (getUserByUsername(username)) {
+    if (await getUserByUsername(username)) {
       return res.status(409).json({ error: 'Username already taken' })
     }
-    if (getUserByEmail(email)) {
+    if (await getUserByEmail(email)) {
       return res.status(409).json({ error: 'Email already registered' })
     }
 
     const id = `usr_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS)
-    const user = createUser(id, username, email, hash)
+    const user = await createUser(id, username, email, hash)
 
     const token = signToken(user.id)
     setAuthCookie(res, token)
@@ -117,6 +139,13 @@ router.post('/signup', async (req, res) => {
     })
   } catch (err) {
     console.error('[Auth] Signup error:', err.message)
+    // Signup token is only issued after the awaited createUser commit above.
+    if (isUniqueViolation(err)) {
+      return res.status(409).json({ error: 'Username or email already registered' })
+    }
+    if (isDbUnavailable(err)) {
+      return res.status(503).json({ error: 'Database unavailable, please try again later' })
+    }
     res.status(500).json({ error: 'Signup failed' })
   }
 })
@@ -131,8 +160,8 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username/email and password are required' })
     }
 
-    let user = getUserByUsername(identifier)
-    if (!user) user = getUserByEmail(identifier)
+    let user = await getUserByUsername(identifier)
+    if (!user) user = await getUserByEmail(identifier)
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' })
     }
@@ -151,6 +180,10 @@ router.post('/login', async (req, res) => {
     })
   } catch (err) {
     console.error('[Auth] Login error:', err.message)
+    // A DB outage must never read as "invalid credentials".
+    if (isDbUnavailable(err)) {
+      return res.status(503).json({ error: 'Database unavailable, please try again later' })
+    }
     res.status(500).json({ error: 'Login failed' })
   }
 })
@@ -164,13 +197,21 @@ router.post('/logout', (_req, res) => {
 
 // ─── Current User ─────────────────────────────────────────────
 
-router.get('/me', verifyAuth, (req, res) => {
-  const user = getUserById(req.userId)
-  if (!user) {
-    clearAuthCookie(res)
-    return res.status(401).json({ error: 'User not found' })
+router.get('/me', verifyAuth, async (req, res) => {
+  try {
+    const user = await getUserById(req.userId)
+    if (!user) {
+      clearAuthCookie(res)
+      return res.status(401).json({ error: 'User not found' })
+    }
+    res.json({ user: { id: user.id, username: user.username, email: user.email } })
+  } catch (err) {
+    console.error('[Auth] Me error:', err.message)
+    if (isDbUnavailable(err)) {
+      return res.status(503).json({ error: 'Database unavailable, please try again later' })
+    }
+    res.status(500).json({ error: 'Failed to fetch user' })
   }
-  res.json({ user: { id: user.id, username: user.username, email: user.email } })
 })
 
 // ─── Forgot Password (request reset) ─────────────────────────
@@ -180,7 +221,7 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body || {}
     if (!email) return res.status(400).json({ error: 'Email is required' })
 
-    const user = getUserByEmail(email)
+    const user = await getUserByEmail(email)
     if (!user) {
       return res.json({ message: 'If that email is registered, you will receive a reset link.' })
     }
@@ -190,8 +231,8 @@ router.post('/forgot-password', async (req, res) => {
     const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS).toISOString()
     const resetId = `rst_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`
 
-    cleanupExpiredResets()
-    createPasswordReset(resetId, user.id, tokenHash, expiresAt)
+    await cleanupExpiredResets()
+    await createPasswordReset(resetId, user.id, tokenHash, expiresAt)
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
     const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`
@@ -217,6 +258,9 @@ router.post('/forgot-password', async (req, res) => {
     res.json(response)
   } catch (err) {
     console.error('[Auth] Forgot password error:', err.message)
+    if (isDbUnavailable(err)) {
+      return res.status(503).json({ error: 'Database unavailable, please try again later' })
+    }
     res.status(500).json({ error: 'Password reset request failed' })
   }
 })
@@ -234,7 +278,7 @@ router.post('/reset-password', async (req, res) => {
     if (pwError) return res.status(400).json({ error: pwError })
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
-    const reset = getPasswordReset(tokenHash)
+    const reset = await getPasswordReset(tokenHash)
 
     if (!reset) {
       return res.status(400).json({ error: 'Invalid or expired reset token' })
@@ -245,12 +289,15 @@ router.post('/reset-password', async (req, res) => {
     }
 
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS)
-    updateUserPassword(reset.user_id, hash)
-    usePasswordReset(tokenHash)
+    await updateUserPassword(reset.user_id, hash)
+    await usePasswordReset(tokenHash)
 
     res.json({ message: 'Password has been reset. You can now sign in.' })
   } catch (err) {
     console.error('[Auth] Reset password error:', err.message)
+    if (isDbUnavailable(err)) {
+      return res.status(503).json({ error: 'Database unavailable, please try again later' })
+    }
     res.status(500).json({ error: 'Password reset failed' })
   }
 })

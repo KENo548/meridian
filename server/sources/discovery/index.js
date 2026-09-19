@@ -13,9 +13,11 @@ import {
   upsertCompanyByName,
   upsertSighting,
   findCanonicalByFingerprint,
-} from '../../db.js'
+} from '../../db-adapter.js'
 
-const findCanonicalByFingerprintSync = findCanonicalByFingerprint
+// NOTE: db-adapter exports ONLY async functions — every DB call below is awaited.
+// store.* helpers are owned by Cluster A/B (converting to async); await them here
+// for forward-compatibility (await on a sync return value is a harmless no-op).
 
 // Scheduling: AnalystClass = daily, Fyntraq = 6hr, Trackr = daily, LTO = daily
 const ADAPTERS = [
@@ -41,8 +43,8 @@ async function runDiscovery(options = {}) {
 
   // Per-adapter freshness check
   if (!force) {
-    const lastRun = store.getLastDiscoveryTimestamp()
-    const entryCount = store.getAll().length
+    const lastRun = await store.getLastDiscoveryTimestamp()
+    const entryCount = (await store.getAll()).length
     if (lastRun && entryCount > 0) {
       const age = Date.now() - new Date(lastRun).getTime()
       const maxStaleness = Math.max(...Object.values(STALENESS))
@@ -136,9 +138,10 @@ async function runDiscovery(options = {}) {
     }
 
     // Write sighting for each tracker entry (linked to canonical job)
+    // Sequential await preserves write ordering per opportunity group.
     for (const entry of entries) {
       try {
-        writeTrackerSighting(entry, firmMatch.firmId)
+        await writeTrackerSighting(entry, firmMatch.firmId)
         sightingsWritten++
       } catch (err) {
         console.error(`[Discovery] Failed to write sighting for ${entry.company}: ${err.message}`)
@@ -146,7 +149,7 @@ async function runDiscovery(options = {}) {
     }
 
     // Also write to legacy discovery store
-    const legacyEntry = store.findOrCreate({
+    const legacyEntry = await store.findOrCreate({
       companyName: first.company,
       programme: first.programme,
       category: first.category,
@@ -175,8 +178,8 @@ async function runDiscovery(options = {}) {
 
     if (legacyEntry) {
       if (firmMatch.firmId && firmMatch.confidence !== 'none') {
-        store.updateField(legacyEntry.id, 'resolvedFirmId', firmMatch.firmId)
-        store.transition(legacyEntry.id, store.STATES.RESOLVED)
+        await store.updateField(legacyEntry.id, 'resolvedFirmId', firmMatch.firmId)
+        await store.transition(legacyEntry.id, store.STATES.RESOLVED)
       }
 
       if (classified && classified.provider !== 'unknown') {
@@ -211,14 +214,14 @@ async function runDiscovery(options = {}) {
 
 // ─── Write Tracker Sighting to Canonical + Sightings ──────────
 
-function writeTrackerSighting(entry, resolvedFirmId) {
+async function writeTrackerSighting(entry, resolvedFirmId) {
   const now = new Date().toISOString()
 
   // Resolve company name
   const companyName = entry.company || ''
   if (!companyName) return
 
-  const companyId = upsertCompanyByName(companyName)
+  const companyId = await upsertCompanyByName(companyName)
 
   // Determine if we have a canonical job to link to
   let canonicalJobId = null
@@ -235,7 +238,7 @@ function writeTrackerSighting(entry, resolvedFirmId) {
 
     if (fingerprint) {
       // Look for canonical jobs with matching fingerprint
-      const existing = findCanonicalByFingerprintSync(fingerprint)
+      const existing = await findCanonicalByFingerprint(fingerprint)
       if (existing) {
         canonicalJobId = existing.id
       }
@@ -287,7 +290,7 @@ function writeTrackerSighting(entry, resolvedFirmId) {
       consecutiveAbsences: 0,
       lastVerifiedOpenAt: now,
     }
-    saveCanonicalJob(newJob)
+    await saveCanonicalJob(newJob)
     canonicalJobId = jobId
   }
 
@@ -297,7 +300,7 @@ function writeTrackerSighting(entry, resolvedFirmId) {
     url: entry.applyUrl || entry.sourceUrl,
   })
 
-  upsertSighting({
+  await upsertSighting({
     canonicalJobId,
     source: entry.source,
     sourceTier: 'tracker',
@@ -336,9 +339,9 @@ function getLastDiscoveryResult() {
   return lastDiscoveryResult
 }
 
-function getDiscoveryStats() {
+async function getDiscoveryStats() {
   return {
-    store: store.getStats(),
+    store: await store.getStats(),
     lastScan: lastDiscoveryResult ? {
       timestamp: lastDiscoveryResult.timestamp,
       totalEntries: lastDiscoveryResult.totalEntries,

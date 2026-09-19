@@ -1,4 +1,4 @@
-import { setKV, getKV } from '../db.js'
+import { setKV, getKV } from '../db-adapter.js'
 
 function makeSource(provider, config) {
   return {
@@ -1147,7 +1147,21 @@ function updateFirmCareerSources(firmId, careerSources) {
   return true
 }
 
-function addCareerSourceToFirm(firmId, careerSource) {
+// Serializes the KV read-modify-write across concurrent callers
+// (e.g. pipeline discovery batches run firms in parallel). The DB write
+// is awaited (async), so two interleaved getKV→setKV sequences would
+// lose one writer's firms (last-writer-wins). Chaining forces them
+// sequential. Rejections still propagate to their own caller; the chain
+// itself is kept alive via .catch so one failure cannot wedge later writes.
+let careerSourceWriteChain = Promise.resolve()
+
+async function addCareerSourceToFirm(firmId, careerSource) {
+  const run = careerSourceWriteChain.then(() => addCareerSourceInner(firmId, careerSource))
+  careerSourceWriteChain = run.catch(() => {})
+  return run
+}
+
+async function addCareerSourceInner(firmId, careerSource) {
   const firm = FIRMS.find(f => f.id === firmId)
   if (!firm) return false
   if (!firm.careerSources) firm.careerSources = []
@@ -1159,10 +1173,10 @@ function addCareerSourceToFirm(firmId, careerSource) {
   } else {
     firm.careerSources.push(careerSource)
   }
-  // Persist discovered career sources to SQLite
-  const allSources = getKV('discovered_career_sources') || {}
+  // Persist discovered career sources to DB
+  const allSources = (await getKV('discovered_career_sources')) || {}
   allSources[firmId] = firm.careerSources
-  setKV('discovered_career_sources', allSources)
+  await setKV('discovered_career_sources', allSources)
   return true
 }
 
@@ -1264,25 +1278,28 @@ export {
   makeSource,
   updateFirmCareerSources,
   addCareerSourceToFirm,
+  initRegistry,
   FIRMS,
 }
 
-// Restore discovered career sources from SQLite
-try {
-  const saved = getKV('discovered_career_sources')
-  if (saved && typeof saved === 'object') {
-    let restored = 0
-    for (const [firmId, sources] of Object.entries(saved)) {
-      const firm = FIRMS.find(f => f.id === firmId)
-      if (firm && Array.isArray(sources)) {
-        firm.careerSources = sources
-        restored++
+// Restore discovered career sources from DB
+async function initRegistry() {
+  try {
+    const saved = await getKV('discovered_career_sources')
+    if (saved && typeof saved === 'object') {
+      let restored = 0
+      for (const [firmId, sources] of Object.entries(saved)) {
+        const firm = FIRMS.find(f => f.id === firmId)
+        if (firm && Array.isArray(sources)) {
+          firm.careerSources = sources
+          restored++
+        }
+      }
+      if (restored > 0) {
+        console.log(`[Registry] Restored discovered career sources for ${restored} firms from DB`)
       }
     }
-    if (restored > 0) {
-      console.log(`[Registry] Restored discovered career sources for ${restored} firms from SQLite`)
-    }
+  } catch (err) {
+    console.error('[Registry] Failed to restore career sources:', err.message)
   }
-} catch (err) {
-  console.error('[Registry] Failed to restore career sources:', err.message)
 }

@@ -18,7 +18,7 @@
 
 import { runDiscovery, discoverCompany } from './sources/discovery/discover.js'
 import { getAllFirms } from './sources/registry.js'
-import { getAllDiscoveryTargets, getDiscoveryStats } from './db.js'
+import { getAllDiscoveryTargets, getDiscoveryStats } from './db-adapter.js'
 
 function parseArgs() {
   const args = process.argv.slice(2)
@@ -79,7 +79,8 @@ async function main() {
   console.log('=== Phase 2.1 — Source Discovery ===\n')
 
   // Show current queue stats
-  const stats = getDiscoveryStats()
+  // True-async: db-adapter resolves only after the durable read completes.
+  const stats = await getDiscoveryStats()
   console.log('Discovery Queue:')
   console.log(`  Pending:     ${stats.pending}`)
   console.log(`  Discovered:  ${stats.supported_source_found}`)

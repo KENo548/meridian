@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { findCanonicalByFingerprint, findCanonicalByExternalKey } from '../../db.js'
+import { findCanonicalByFingerprint, findCanonicalByExternalKey, getOpenCanonicalJobs } from '../../db-adapter.js'
 
 // ─── Source Classification ──────────────────────────────────────
 
@@ -129,13 +129,13 @@ export function buildExternalKey(source, job) {
  *   3. fingerprint — Deterministic hash of normalized fields (strong)
  *   4. fuzzy — Similarity scoring (weaker, requires confidence gate)
  */
-export function resolveIdentity(job, source) {
+export async function resolveIdentity(job, source) {
   const tier = classifySourceTier(source)
 
   // Tier 1: ATS requisition ID
   if (job.atsReqId && EMPLOYER_ATS_SOURCES.has(source)) {
     const externalKey = `${source}:${job.atsReqId}`
-    const existing = findCanonicalByExternalKey(externalKey)
+    const existing = await findCanonicalByExternalKey(externalKey)
     if (existing) {
       return {
         key: `ats:${externalKey}`,
@@ -153,7 +153,7 @@ export function resolveIdentity(job, source) {
     const urlKey = canonicalizeUrl(employerUrl)
     if (urlKey) {
       const externalKey = `url:${urlKey}`
-      const existing = findCanonicalByExternalKey(externalKey)
+      const existing = await findCanonicalByExternalKey(externalKey)
       if (existing) {
         return {
           key: externalKey,
@@ -169,7 +169,7 @@ export function resolveIdentity(job, source) {
   // Tier 3: Deterministic fingerprint
   const fingerprint = computeFingerprint(job)
   if (fingerprint) {
-    const existing = findCanonicalByFingerprint(fingerprint)
+    const existing = await findCanonicalByFingerprint(fingerprint)
     if (existing) {
       return {
         key: `fp:${fingerprint}`,
@@ -182,7 +182,7 @@ export function resolveIdentity(job, source) {
   }
 
   // Tier 4: Fuzzy matching (only against a limited candidate set)
-  const fuzzyMatch = findFuzzyMatchSync(job)
+  const fuzzyMatch = await findFuzzyMatch(job)
   if (fuzzyMatch) {
     return {
       key: `fuzzy:${fuzzyMatch.id}`,
@@ -234,20 +234,11 @@ function canonicalizeUrl(url) {
   }
 }
 
-let _getOpenCanonicalJobs = null
-
-async function loadGetOpenCanonicalJobs() {
-  if (!_getOpenCanonicalJobs) {
-    const db = await import('../../db.js')
-    _getOpenCanonicalJobs = db.getOpenCanonicalJobs
-  }
-  return _getOpenCanonicalJobs
-}
-
-function findFuzzyMatchSync(job) {
-  // Synchronous fallback — use empty candidates if DB not loaded
-  if (!_getOpenCanonicalJobs) return null
-  const candidates = _getOpenCanonicalJobs()
+export async function findFuzzyMatch(job) {
+  // True-async: candidates resolve only after the awaited DB call completes.
+  // Rejection propagates to the caller (resolveIdentity) — never silently empty.
+  const candidates = await getOpenCanonicalJobs()
+  if (!candidates) return null
 
   const jobCompany = normalizeCompany(job.company)
   const jobTitle = normalizeTitle(job.title)

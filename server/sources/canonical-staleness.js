@@ -15,7 +15,7 @@ import {
   updateCanonicalLifecycle,
   incrementAbsences,
   resetAbsences,
-} from '../db.js'
+} from '../db-adapter.js'
 import { classifySourceTier } from './ats/dedup.js'
 
 // ─── Source-Specific Disappearance Thresholds ───────────────────
@@ -49,8 +49,8 @@ const ABSENCES_BEFORE_CLOSE = 3 // Require 3 consecutive misses before closing
  *
  * Returns a report of what changed.
  */
-export function evaluateAllStaleness() {
-  const openJobs = getOpenCanonicalJobs()
+export async function evaluateAllStaleness() {
+  const openJobs = await getOpenCanonicalJobs()
   const report = {
     evaluated: 0,
     closed: 0,
@@ -61,7 +61,7 @@ export function evaluateAllStaleness() {
   }
 
   for (const job of openJobs) {
-    const result = evaluateJob(job)
+    const result = await evaluateJob(job)
     report.evaluated++
     report.details.push(result)
 
@@ -78,13 +78,13 @@ export function evaluateAllStaleness() {
  * Evaluate staleness for a SINGLE canonical job.
  * Examines each sighting independently.
  */
-export function evaluateJob(job) {
-  const sightings = getActiveSightingsForJob(job.id)
+export async function evaluateJob(job) {
+  const sightings = await getActiveSightingsForJob(job.id)
   const now = new Date()
 
   if (sightings.length === 0) {
     // No active sightings at all — close immediately
-    updateCanonicalLifecycle(job.id, LIFECYCLE_STATES.CLOSED, 'no_active_sightings')
+    await updateCanonicalLifecycle(job.id, LIFECYCLE_STATES.CLOSED, 'no_active_sightings')
     return { jobId: job.id, action: 'closed', reason: 'no_active_sightings', sightings: 0 }
   }
 
@@ -94,7 +94,7 @@ export function evaluateJob(job) {
   let hasAnyActiveSighting = false
 
   for (const sighting of sightings) {
-    const result = evaluateSighting(sighting)
+    const result = await evaluateSighting(sighting)
     sightingResults.push(result)
 
     if (result.status === 'active') {
@@ -106,16 +106,19 @@ export function evaluateJob(job) {
   }
 
   // Derive canonical lifecycle from sighting collection
-  const derivedLifecycle = deriveLifecycle(job, sightingResults, hasActiveEmployerSighting)
+  const derivedLifecycle = await deriveLifecycle(job, sightingResults, hasActiveEmployerSighting)
 
-  if (derivedLifecycle !== job.lifecycle) {
-    updateCanonicalLifecycle(job.id, derivedLifecycle.lifecycle, derivedLifecycle.reason)
+  // NOTE: derivedLifecycle is an object {lifecycle, reason}; comparing the
+  // object itself to the lifecycle string is always true and would issue an
+  // UPDATE for every job on every scan (write amplification on Neon CUs).
+  if (derivedLifecycle.lifecycle !== job.lifecycle) {
+    await updateCanonicalLifecycle(job.id, derivedLifecycle.lifecycle, derivedLifecycle.reason)
     if (derivedLifecycle.lifecycle === LIFECYCLE_STATES.OPEN) {
-      resetAbsences(job.id)
+      await resetAbsences(job.id)
     }
   } else if (hasAnyActiveSighting) {
     // Still open — reset absences
-    resetAbsences(job.id)
+    await resetAbsences(job.id)
   }
 
   return {
@@ -133,7 +136,7 @@ export function evaluateJob(job) {
 
 // ─── Sighting-Level Evaluation ──────────────────────────────────
 
-function evaluateSighting(sighting) {
+async function evaluateSighting(sighting) {
   // Null-safety: if last_seen_at is missing, treat as never seen
   if (!sighting.last_seen_at) {
     return { sightingId: sighting.id, status: 'inactive', daysSinceLastSeen: Infinity, reason: 'no_timestamp' }
@@ -158,13 +161,13 @@ function evaluateSighting(sighting) {
   }
 
   // Exceeded close threshold — deactivate this sighting
-  deactivateSighting(sighting.canonical_job_id, sighting.source)
+  await deactivateSighting(sighting.canonical_job_id, sighting.source)
   return { sightingId: sighting.id, status: 'inactive', daysSinceLastSeen: Math.floor(daysSinceLastSeen) }
 }
 
 // ─── Lifecycle Derivation ───────────────────────────────────────
 
-function deriveLifecycle(job, sightingResults, hasActiveEmployerSighting) {
+async function deriveLifecycle(job, sightingResults, hasActiveEmployerSighting) {
   const activeCount = sightingResults.filter(r => r.status === 'active').length
   const inactiveCount = sightingResults.filter(r => r.status === 'inactive').length
   const staleCount = sightingResults.filter(r => r.status === 'stale').length
@@ -183,7 +186,7 @@ function deriveLifecycle(job, sightingResults, hasActiveEmployerSighting) {
 
   // If any sighting went inactive, increment absences
   if (inactiveCount > 0) {
-    incrementAbsences(job.id)
+    await incrementAbsences(job.id)
   }
 
   // All sightings inactive — only close after enough consecutive absences

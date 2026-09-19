@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import authRouter, { verifyAuth } from './auth.js';
+import { extractLanguagesFromJob } from './sources/extractLanguages.js';
 
 process.on('unhandledRejection', (err) => {
   console.error('[UnhandledRejection]', err?.message || err);
@@ -36,6 +37,7 @@ async function lazy() {
     searchJSearch: jsearch.searchJSearch,
     getConfiguredFeeds: rss.getConfiguredFeeds,
     addFeed: rss.addFeed,
+    addFeedWithCheck: rss.addFeedWithCheck,
     removeFeed: rss.removeFeed,
     toggleFeed: rss.toggleFeed,
     fetchAllFeeds: rss.fetchAllFeeds,
@@ -70,6 +72,17 @@ async function lazy() {
     getStalenessReport: staleness.getStalenessReport,
     applyStalenessTransitions: staleness.applyStalenessTransitions,
   }
+  // Hydrate module state from the authoritative database before serving.
+  // All four are idempotent. initPipelineState/loadFromDisk propagate DB
+  // failures (DB unavailable → route 500, never silent success).
+  // initRssFeeds/initRegistry degrade to file/defaults on DB read failure
+  // (reads only); their durable WRITES always propagate rejections.
+  await Promise.all([
+    rss.initRssFeeds(),
+    registry.initRegistry(),
+    pipeline.initPipelineState(),
+    store.loadFromDisk(),
+  ])
   return _lazy
 }
 
@@ -84,7 +97,7 @@ import {
   getCanonicalJobById,
   getAllAdapterHealth,
   getDb,
-} from './db.js';
+} from './db-adapter.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -181,9 +194,9 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Adapter health
-app.get('/api/adapter-health', (_req, res) => {
+app.get('/api/adapter-health', async (_req, res) => {
   try {
-    const health = getAllAdapterHealth()
+    const health = await getAllAdapterHealth()
     res.json({ adapters: health })
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch adapter health', details: err.message })
@@ -283,99 +296,264 @@ app.get('/api/search', async (req, res) => {
 
 app.get('/api/registry', async (_req, res) => {
   const { getAllFirms, getSourceStats } = await lazy();
-  const firms = getAllFirms();
-  const stats = getSourceStats();
-  res.json({ firms, stats });
+  try {
+    // Awaited: registry reads resolve only after the DB commit/read completes.
+    // try/catch is required — Express 4 does not forward async rejections.
+    const firms = await getAllFirms();
+    const stats = await getSourceStats();
+    res.json({ firms, stats });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch registry', details: err.message });
+  }
 });
 
 app.get('/api/registry/:firmId', async (req, res) => {
   const { getFirmById } = await lazy();
-  const firm = getFirmById(req.params.firmId);
-  if (!firm) return res.status(404).json({ error: 'Firm not found' });
-  res.json({ firm });
+  try {
+    const firm = await getFirmById(req.params.firmId);
+    if (!firm) return res.status(404).json({ error: 'Firm not found' });
+    res.json({ firm });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch firm', details: err.message });
+  }
 });
 
 app.post('/api/registry/:firmId/toggle', async (req, res) => {
   const { toggleFirm } = await lazy();
-  const { enabled } = req.body;
-  const firm = toggleFirm(req.params.firmId, enabled);
-  if (!firm) return res.status(404).json({ error: 'Firm not found' });
-  res.json({ firm });
-});
-
-// ─── Scan routes ───────────────────────────────────────────────
-
-app.get('/api/scan/status', async (_req, res) => {
-  const { getScanStatus } = await lazy();
-  res.json(getScanStatus());
-});
-
-app.get('/api/scan/last', (_req, res) => {
-  const result = getLastScanResult();
-  if (!result) return res.status(404).json({ error: 'No scan results yet' });
-  res.json(result);
-});
-
-app.post('/api/scan', async (_req, res) => {
   try {
-    const { scanAll } = await lazy();
+    // toggleFirm(id, enabled) defaults Boolean(undefined) to false, so a
+    // missing `enabled` would always disable. Require it explicitly.
+    const { enabled } = req.body || {};
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: '`enabled` (boolean) is required' });
+    }
+    const firm = await toggleFirm(req.params.firmId, enabled);
+    if (!firm) return res.status(404).json({ error: 'Firm not found' });
+    res.json({ firm });
+  } catch (err) {
+    res.status(500).json({ error: 'Toggle failed', details: err.message });
+  }
+});
+
+// ─── Jobs routes ────────────────────────────────────────────────
+
+app.get('/api/jobs', async (req, res) => {
+  try {
+    const jobs = await getCanonicalJobs({
+      status: req.query.status,
+      programmeType: req.query.programmeType,
+      financeCategory: req.query.financeCategory,
+      country: req.query.country,
+      limit: parseInt(req.query.limit) || 50,
+      offset: parseInt(req.query.offset) || 0,
+      sort: req.query.sort,
+      order: req.query.order,
+    });
+    
+    const total = await countCanonicalJobs({
+      status: req.query.status,
+      programmeType: req.query.programmeType,
+      financeCategory: req.query.financeCategory,
+      country: req.query.country,
+    });
+    
+    res.json({ jobs, total });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch jobs', details: err.message });
+  }
+});
+
+app.get('/api/jobs/:jobId', async (req, res) => {
+  try {
+    const job = await getCanonicalJobById(req.params.jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    
+    const sightings = await getAllSightingsForJob(req.params.jobId);
+    res.json({ job, sightings });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch job', details: err.message });
+  }
+});
+
+app.get('/api/jobs/:jobId/observations', async (req, res) => {
+  try {
+    const observations = await getActiveSightingsForJob(req.params.jobId);
+    res.json({ observations });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch observations', details: err.message });
+  }
+});
+
+app.post('/api/jobs/batch', async (req, res) => {
+  try {
+    const { jobIds } = req.body;
+    if (!Array.isArray(jobIds)) {
+      return res.status(400).json({ error: 'jobIds must be an array' });
+    }
+    
+    const jobs = await getActiveSightingsForJobs(jobIds);
+    res.json({ jobs });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch batch', details: err.message });
+  }
+});
+
+// ─── Scan routes ────────────────────────────────────────────────
+
+app.post('/api/scan', async (req, res) => {
+  const { scanAll, startCronScan } = await lazy();
+  try {
     const result = await scanAll();
-    res.json(result);
+    res.json({ result });
   } catch (err) {
     res.status(500).json({ error: 'Scan failed', details: err.message });
   }
 });
 
 app.post('/api/scan/:firmId', async (req, res) => {
+  const { scanSingleFirm } = await lazy();
   try {
-    const { scanSingleFirm } = await lazy();
     const result = await scanSingleFirm(req.params.firmId);
-    res.json(result);
+    res.json({ result });
   } catch (err) {
-    res.status(500).json({ error: 'Firm scan failed', details: err.message });
+    res.status(500).json({ error: 'Scan failed', details: err.message });
   }
 });
 
-// ─── Firm scan routes ──────────────────────────────────────────
+app.get('/api/scan/status', async (_req, res) => {
+  const { getScanStatus } = await lazy();
+  const status = await getScanStatus();
+  res.json({ status });
+});
 
-app.get('/api/firms/:firmId/jobs', async (req, res) => {
+app.get('/api/scan/last', async (_req, res) => {
+  const { getLastScanResult } = await lazy();
+  const result = await getLastScanResult();
+  res.json({ result });
+});
+
+// ─── Cron routes ────────────────────────────────────────────────
+
+app.post('/api/cron/start', async (_req, res) => {
+  const { startCronScan } = await lazy();
   try {
-    const { getFirmById, fetchFirmJobs } = await lazy();
-    const firm = getFirmById(req.params.firmId);
-    if (!firm) return res.status(404).json({ error: 'Firm not found' });
-    const result = await fetchFirmJobs(firm);
-    res.json(result);
+    startCronScan(CRON_INTERVAL_HOURS);
+    res.json({ message: `Cron started (every ${CRON_INTERVAL_HOURS}h)` });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch firm jobs', details: err.message });
+    res.status(500).json({ error: 'Failed to start cron', details: err.message });
   }
 });
 
-// ─── RSS routes (legacy) ───────────────────────────────────────
+// ─── Coverage routes ────────────────────────────────────────────
+
+app.get('/api/coverage', async (_req, res) => {
+  const { getCoverageReport } = await lazy();
+  try {
+    const report = await getCoverageReport();
+    res.json({ report });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get coverage', details: err.message });
+  }
+});
+
+// ─── Discovery routes ───────────────────────────────────────────
+
+app.get('/api/discovery', async (_req, res) => {
+  const { getAllDiscoveries, getDiscoveryStats } = await lazy();
+  try {
+    const discoveries = await getAllDiscoveries();
+    const stats = await getDiscoveryStats();
+    res.json({ discoveries, stats });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get discoveries', details: err.message });
+  }
+});
+
+app.post('/api/discovery/run', async (_req, res) => {
+  const { runDiscovery } = await lazy();
+  try {
+    const result = await runDiscovery();
+    res.json({ result });
+  } catch (err) {
+    res.status(500).json({ error: 'Discovery failed', details: err.message });
+  }
+});
+
+// ─── Pipeline routes ────────────────────────────────────────────
+
+app.get('/api/pipeline/status', async (_req, res) => {
+  const { getPipelineStatus } = await lazy();
+  try {
+    const status = await getPipelineStatus();
+    res.json({ status });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get pipeline status', details: err.message });
+  }
+});
+
+app.post('/api/pipeline/clear', async (_req, res) => {
+  const { clearPipelineState } = await lazy();
+  try {
+    await clearPipelineState();
+    res.json({ message: 'Pipeline state cleared' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to clear pipeline', details: err.message });
+  }
+});
+
+// ─── Staleness routes ──────────────────────────────────────────
+
+app.get('/api/staleness', async (_req, res) => {
+  const { getStalenessReport } = await lazy();
+  try {
+    const report = await getStalenessReport();
+    res.json({ report });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get staleness report', details: err.message });
+  }
+});
+
+app.post('/api/staleness/apply', async (_req, res) => {
+  const { applyStalenessTransitions, getAllDiscoveries } = await lazy();
+  try {
+    // applyStalenessTransitions requires the entry list; calling it with
+    // no arguments throws (for...of undefined). Fetch first, then apply.
+    const entries = await getAllDiscoveries();
+    const result = await applyStalenessTransitions(entries);
+    res.json({ result });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to apply staleness', details: err.message });
+  }
+});
+
+// ─── RSS routes ─────────────────────────────────────────────────
 
 app.get('/api/rss/feeds', async (_req, res) => {
+  const { getConfiguredFeeds } = await lazy();
   try {
-    const { getConfiguredFeeds } = await lazy();
-    const feeds = getConfiguredFeeds();
-    res.json({ feeds, total: feeds.length });
+    const feeds = await getConfiguredFeeds();
+    res.json({ feeds });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to list feeds', details: err.message });
+    res.status(500).json({ error: 'Failed to get feeds', details: err.message });
   }
 });
 
 app.post('/api/rss/feeds', async (req, res) => {
+  // Frontend contract (src/lib/jobSources.ts): { action: 'add'|'remove'|'toggle', url, name?, enabled? }
+  // Restored from committed HEAD semantics, ported to async rss.js.
   try {
     const { addFeed, removeFeed, toggleFeed } = await lazy();
-    const { action, name, url } = req.body;
+    const { action, name, url } = req.body || {};
 
     if (action === 'add') {
       if (!url) return res.status(400).json({ error: 'URL is required' });
-      const feed = addFeed(name, url);
+      const feed = await addFeed(name, url);
       return res.json({ feed, message: 'Feed added' });
     }
 
     if (action === 'remove') {
       if (!url) return res.status(400).json({ error: 'URL is required' });
-      const removed = removeFeed(url);
+      const removed = await removeFeed(url);
       if (!removed) return res.status(404).json({ error: 'Feed not found' });
       return res.json({ message: 'Feed removed' });
     }
@@ -383,7 +561,7 @@ app.post('/api/rss/feeds', async (req, res) => {
     if (action === 'toggle') {
       if (!url) return res.status(400).json({ error: 'URL is required' });
       const enabled = req.body.enabled !== false;
-      const feed = toggleFeed(url, enabled);
+      const feed = await toggleFeed(url, enabled);
       if (!feed) return res.status(404).json({ error: 'Feed not found' });
       return res.json({ feed, message: `Feed ${enabled ? 'enabled' : 'disabled'}` });
     }
@@ -409,9 +587,38 @@ app.get('/api/rss/check', async (_req, res) => {
   }
 });
 
-// ─── Opportunities routes ─────────────────────────────────────
+app.delete('/api/rss/feeds/:feedId', async (req, res) => {
+  const { removeFeed } = await lazy();
+  try {
+    const removed = await removeFeed(req.params.feedId);
+    if (!removed) return res.status(404).json({ error: 'Feed not found' });
+    res.json({ message: 'Feed removed' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove feed', details: err.message });
+  }
+});
 
-import { extractLanguagesFromJob } from './sources/extractLanguages.js';
+app.post('/api/rss/feeds/:feedId/toggle', async (req, res) => {
+  const { toggleFeed } = await lazy();
+  try {
+    // toggleFeed(url, enabled) forces Boolean(undefined) to false, so a
+    // missing `enabled` would always disable. Require it explicitly.
+    const { enabled } = req.body || {};
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: '`enabled` (boolean) is required' });
+    }
+    const feed = await toggleFeed(req.params.feedId, enabled);
+    if (!feed) return res.status(404).json({ error: 'Feed not found' });
+    res.json({ feed });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to toggle feed', details: err.message });
+  }
+});
+
+// ─── Opportunities routes ─────────────────────────────────────
+// Restored committed HEAD API (frontend src/lib/jobSources.ts depends on
+// these paths shapes), ported to the async db-adapter: every DB call is
+// awaited, so responses are only sent after durable commits/reads resolve.
 
 function classifyOpportunityStatus(entry) {
   if (entry.status === 'verified' || entry.status === 'enabled') return 'verified_open';
@@ -438,48 +645,44 @@ function deriveDivisionFromText(text) {
   return null;
 }
 
-function deriveOpportunityFromCanonical(job, sightingsMap) {
+async function deriveOpportunityFromCanonical(job, sightingsMap) {
+  // Batch-loaded map preferred (avoids N+1); per-job fallback when missing.
   const sightings = sightingsMap
-    ? (sightingsMap.get(job.id) || getActiveSightingsForJob(job.id))
-    : getActiveSightingsForJob(job.id)
-  const sources = [...new Set(sightings.map(s => s.source).filter(Boolean))]
-  const hasEmployerSource = sightings.some(s => s.source_tier === 'employer_ats' || s.source_tier === 'employer_url')
-  const hasTrackerSource = sightings.some(s => s.source_tier === 'tracker')
+    ? (sightingsMap.get(job.id) || await getActiveSightingsForJob(job.id))
+    : await getActiveSightingsForJob(job.id);
+  const sources = [...new Set(sightings.map(s => s.source).filter(Boolean))];
+  const hasEmployerSource = sightings.some(s => s.source_tier === 'employer_ats' || s.source_tier === 'employer_url');
+  const hasTrackerSource = sightings.some(s => s.source_tier === 'tracker');
 
-  // Derive deadline from the earliest closing date across sightings
   const deadlines = sightings.map(s => {
-    try { return JSON.parse(s.raw_payload || '{}').closingDate } catch { return null }
-  }).filter(Boolean).sort()
+    try { return JSON.parse(s.raw_payload || '{}').closingDate; } catch { return null; }
+  }).filter(Boolean).sort();
 
-  const deadline = job.deadline || (deadlines.length > 0 ? deadlines[deadlines.length - 1] : null)
+  const deadline = job.deadline || (deadlines.length > 0 ? deadlines[deadlines.length - 1] : null);
 
-  // Derive opening date
   const openings = sightings.map(s => {
-    try { return JSON.parse(s.raw_payload || '{}').openingDate } catch { return null }
-  }).filter(Boolean).sort()
-  const opening = job.opening_date || (openings.length > 0 ? openings[0] : null)
+    try { return JSON.parse(s.raw_payload || '{}').openingDate; } catch { return null; }
+  }).filter(Boolean).sort();
+  const opening = job.opening_date || (openings.length > 0 ? openings[0] : null);
 
-  // Derive status
-  let status = 'unknown'
-  if (job.lifecycle === 'closed') status = 'closed'
-  else if (hasEmployerSource) status = 'verified_open'
-  else if (hasTrackerSource) status = 'tracker_open'
-  else status = 'unknown'
+  let status = 'unknown';
+  if (job.lifecycle === 'closed') status = 'closed';
+  else if (hasEmployerSource) status = 'verified_open';
+  else if (hasTrackerSource) status = 'tracker_open';
+  else status = 'unknown';
 
-  // Days until close
-  let daysUntilClose = null
+  let daysUntilClose = null;
   if (deadline) {
-    const closeTime = new Date(deadline).getTime()
-    const now = Date.now()
-    daysUntilClose = Math.ceil((closeTime - now) / (1000 * 60 * 60 * 24))
-    if (daysUntilClose < 0) status = 'closed'
+    const closeTime = new Date(deadline).getTime();
+    const now = Date.now();
+    daysUntilClose = Math.ceil((closeTime - now) / (1000 * 60 * 60 * 24));
+    if (daysUntilClose < 0) status = 'closed';
   }
 
-  // Languages
   const languages = extractLanguagesFromJob({
     title: job.title || '',
     description: job.description || '',
-  })
+  });
 
   return {
     id: job.id,
@@ -520,7 +723,7 @@ function deriveOpportunityFromCanonical(job, sightingsMap) {
     identityTier: job.identity_tier,
     fingerprint: job.fingerprint,
     specialties: JSON.parse(job.specialties || '[]'),
-  }
+  };
 }
 
 function deriveOpportunityFromEntry(entry) {
@@ -596,36 +799,24 @@ function deriveOpportunityFromEntry(entry) {
   };
 }
 
-app.get('/api/opportunities', (req, res) => {
+app.get('/api/opportunities', async (req, res) => {
   try {
     const {
-      q,
-      category,
-      division,
-      country,
-      status,
-      source,
-      firm,
-      deadline,
-      programme,
-      language,
-      lifecycle,
-      sort,
-      order,
-      page,
-      limit,
+      q, category, division, country, status, source, firm, deadline,
+      programme, language, lifecycle, sort, order, page, limit,
     } = req.query;
 
-    // Read from canonical jobs — use pagination to avoid loading all into memory
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = Math.min(parseInt(limit, 10) || 50, 100);
-    const canonicalJobs = getCanonicalJobs({ status: 'active', limit: 5000 });
+    const canonicalJobs = await getCanonicalJobs({ status: 'active', limit: 5000 });
 
     // Batch-load all sightings to avoid N+1 queries
-    const sightingsMap = getActiveSightingsForJobs(canonicalJobs.map(j => j.id))
+    const sightingsMap = await getActiveSightingsForJobs(canonicalJobs.map(j => j.id));
 
-    // Derive opportunities from canonical jobs + sightings
-    let opportunities = canonicalJobs.map(job => deriveOpportunityFromCanonical(job, sightingsMap));
+    // Independent derivations — safe to parallelize (map pre-fetched).
+    let opportunities = await Promise.all(
+      canonicalJobs.map(job => deriveOpportunityFromCanonical(job, sightingsMap))
+    );
 
     if (q) {
       const query = q.toLowerCase();
@@ -681,7 +872,7 @@ app.get('/api/opportunities', (req, res) => {
           o.deadline && new Date(o.deadline).getTime() <= weekFromNow && new Date(o.deadline).getTime() >= now
         );
       } else if (deadline === 'this_month') {
-        const monthFromNow = now + 30 * 24 * 60 * 60 * 1000;
+        const monthFromNow = now + 30 * 60 * 60 * 1000 * 24;
         opportunities = opportunities.filter(o =>
           o.deadline && new Date(o.deadline).getTime() <= monthFromNow && new Date(o.deadline).getTime() >= now
         );
@@ -762,7 +953,7 @@ app.get('/api/opportunities', (req, res) => {
 app.get('/api/opportunities/metrics', async (_req, res) => {
   try {
     const { getAllDiscoveries } = await lazy();
-    const entries = getAllDiscoveries();
+    const entries = await getAllDiscoveries();
     const opportunities = entries.map(deriveOpportunityFromEntry);
 
     const metrics = {
@@ -810,7 +1001,7 @@ app.post('/api/opportunities/resolve', async (req, res) => {
 app.get('/api/opportunities/coverage', async (_req, res) => {
   try {
     const { getAllDiscoveries, generateCoverageGapReport } = await lazy();
-    const entries = getAllDiscoveries();
+    const entries = await getAllDiscoveries();
     const report = generateCoverageGapReport(entries);
     res.json(report);
   } catch (err) {
@@ -821,7 +1012,7 @@ app.get('/api/opportunities/coverage', async (_req, res) => {
 app.get('/api/opportunities/staleness', async (_req, res) => {
   try {
     const { getStalenessReport } = await lazy();
-    const report = getStalenessReport();
+    const report = await getStalenessReport();
     res.json(report);
   } catch (err) {
     res.status(500).json({ error: 'Staleness report failed', details: err.message });
@@ -830,440 +1021,59 @@ app.get('/api/opportunities/staleness', async (_req, res) => {
 
 app.post('/api/opportunities/staleness/apply', async (_req, res) => {
   try {
-    const { applyStalenessTransitions } = await lazy();
-    const result = applyStalenessTransitions();
+    const { applyStalenessTransitions, getAllDiscoveries } = await lazy();
+    // applyStalenessTransitions requires the entry list (for...of undefined
+    // crashes without it) — fetch first, then apply.
+    const entries = await getAllDiscoveries();
+    const result = await applyStalenessTransitions(entries);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Apply staleness failed', details: err.message });
   }
 });
 
-app.get('/api/opportunities/:id', (req, res) => {
+app.get('/api/opportunities/:id', async (req, res) => {
   try {
     // Try canonical jobs first (primary store)
-    const canonicalJob = getCanonicalJobById(req.params.id)
+    const canonicalJob = await getCanonicalJobById(req.params.id);
     if (canonicalJob) {
-      return res.json(deriveOpportunityFromCanonical(canonicalJob))
+      return res.json(await deriveOpportunityFromCanonical(canonicalJob));
     }
 
     // Fallback to legacy discovery store
-    const entries = getAllDiscoveries()
-    const entry = entries.find(e => e.id === req.params.id)
-    if (!entry) return res.status(404).json({ error: 'Opportunity not found' })
-    res.json(deriveOpportunityFromEntry(entry))
+    const { getAllDiscoveries } = await lazy();
+    const entries = await getAllDiscoveries();
+    const entry = entries.find(e => e.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: 'Opportunity not found' });
+    res.json(deriveOpportunityFromEntry(entry));
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch opportunity', details: err.message });
   }
 });
 
-// ─── Pipeline routes ──────────────────────────────────────────
+// ─── Health check with DB stats ─────────────────────────────────
 
-app.get('/api/pipeline/status', async (_req, res) => {
+app.get('/api/health/stats', async (_req, res) => {
   try {
-    const { getPipelineStatus } = await lazy();
-    const status = getPipelineStatus();
-    res.json(status);
+    const { getDbStats } = await import('./db-adapter.js');
+    const stats = await getDbStats();
+    res.json({ stats });
   } catch (err) {
-    res.status(500).json({ error: 'Pipeline status failed', details: err.message });
+    res.status(500).json({ error: 'Failed to get stats', details: err.message });
   }
 });
 
-app.post('/api/pipeline/discover-sources', async (req, res) => {
-  try {
-    const { discoverFirmSources } = await lazy();
-    const { maxDepth = 2, concurrency = 3 } = req.body || {};
-    const result = await discoverFirmSources({ maxDepth, concurrency });
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: 'Source discovery failed', details: err.message });
-  }
-});
+// ─── Start server ───────────────────────────────────────────────
 
-app.post('/api/pipeline/enumerate-jobs', async (req, res) => {
-  try {
-    const { enumerateDirectJobs } = await lazy();
-    const { firmIds = null } = req.body || {};
-    const result = await enumerateDirectJobs(firmIds);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: 'Job enumeration failed', details: err.message });
-  }
-});
-
-app.post('/api/pipeline/match', async (_req, res) => {
-  try {
-    const { matchTrackerToDirect } = await lazy();
-    const result = matchTrackerToDirect();
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: 'Matching failed', details: err.message });
-  }
-});
-
-app.post('/api/pipeline/run-all', async (req, res) => {
-  try {
-    const { discoverFirmSources, enumerateDirectJobs, matchTrackerToDirect, getPipelineStatus } = await lazy();
-    const startTime = Date.now();
-    const force = req.body?.force === true;
-    const sourceDiscovery = await discoverFirmSources({ maxDepth: 2, concurrency: 3, force });
-    const jobEnumeration = await enumerateDirectJobs(null, { force });
-    const matching = matchTrackerToDirect();
-    const status = getPipelineStatus();
-
-    res.json({
-      timestamp: new Date().toISOString(),
-      durationMs: Date.now() - startTime,
-      sourceDiscovery,
-      jobEnumeration,
-      matching,
-      status,
+app.listen(PORT, () => {
+  console.log(`[Server] Running on http://localhost:${PORT}`);
+  console.log(`[Server] Environment: ${isProduction ? 'production' : 'development'}`);
+  
+  // Start cron if configured
+  if (process.env.CRON_ENABLED === 'true') {
+    lazy().then(({ startCronScan }) => {
+      startCronScan(CRON_INTERVAL_HOURS);
+      console.log(`[Server] Cron started (every ${CRON_INTERVAL_HOURS}h)`);
     });
-  } catch (err) {
-    res.status(500).json({ error: 'Pipeline run failed', details: err.message });
   }
 });
-
-app.post('/api/pipeline/clear', async (_req, res) => {
-  try {
-    const { clearPipelineState } = await lazy();
-    clearPipelineState();
-    res.json({ cleared: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Clear pipeline failed', details: err.message });
-  }
-});
-
-// ─── Gold Set & Matcher V3 Evaluation ────────────────────────────────
-
-app.get('/api/gold-set', async (_req, res) => {
-  try {
-    const { getGoldSet } = await import('./sources/discovery/gold-set.js');
-    const goldSet = getGoldSet();
-    res.json({ count: goldSet.length, entries: goldSet });
-  } catch (err) {
-    res.status(500).json({ error: 'Gold set failed', details: err.message });
-  }
-});
-
-app.post('/api/gold-set/evaluate', async (_req, res) => {
-  try {
-    const { evaluateMatcher } = await import('./sources/discovery/gold-set.js');
-    const { matchOpportunityV3 } = await import('./sources/discovery/matcher-v3.js');
-    const evaluation = evaluateMatcher((tracker, direct) => {
-      if (!direct) return null
-      return matchOpportunityV3(tracker, direct)
-    });
-    res.json(evaluation);
-  } catch (err) {
-    res.status(500).json({ error: 'Gold set evaluation failed', details: err.message });
-  }
-});
-
-app.post('/api/matcher/test', async (req, res) => {
-  try {
-    const { matchOpportunityV3 } = await import('./sources/discovery/matcher-v3.js');
-    const { tracker, direct } = req.body || {};
-    if (!tracker || !direct) {
-      return res.status(400).json({ error: 'Both tracker and direct job required' });
-    }
-    const result = matchOpportunityV3(tracker, direct);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: 'Matcher test failed', details: err.message });
-  }
-});
-
-// ─── Canonical Jobs API (Phase 1) ──────────────────────────────
-
-import {
-  getNewCanonicalJobs,
-  getObservationsForJob,
-  getVersionsForJob,
-  getAllEnabledSources,
-  getSourceHealth,
-  getAllCompanies,
-  getEnabledCompanies,
-  saveCompany,
-  saveCompanySource,
-  getSourcesByCompanyId,
-  getAllDiscoveryTargets as getAllDiscoveryQueueTargets,
-  getDiscoveryStats as getDiscoveryQueueStats,
-} from './db.js'
-// getCoverageReport, getCapability, CAPABILITY, getSupportedProviders are lazy-loaded via lazy()
-
-app.get('/api/jobs', (req, res) => {
-  try {
-    const { company, status, programmeType, financeCategory, country, sort, order, limit, offset, q } = req.query
-    const jobs = getCanonicalJobs({
-      companyId: company || undefined,
-      status: status || undefined,
-      programmeType: programmeType || undefined,
-      financeCategory: financeCategory || undefined,
-      country: country || undefined,
-      sort: sort || 'last_seen_at',
-      order: order || 'desc',
-      limit: Math.min(parseInt(limit) || 50, 500),
-      offset: parseInt(offset) || 0,
-    })
-    const total = countCanonicalJobs({
-      companyId: company || undefined,
-      status: status || undefined,
-      programmeType: programmeType || undefined,
-      financeCategory: financeCategory || undefined,
-      country: country || undefined,
-    })
-    res.json({ jobs, total, limit: parseInt(limit) || 50, offset: parseInt(offset) || 0 })
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch jobs', details: err.message })
-  }
-})
-
-app.get('/api/jobs/new', (req, res) => {
-  try {
-    const since = req.query.since || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    const jobs = getNewCanonicalJobs(since)
-    res.json({ jobs, since, count: jobs.length })
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch new jobs', details: err.message })
-  }
-})
-
-app.get('/api/jobs/:id', (req, res) => {
-  try {
-    const job = getCanonicalJobById(req.params.id)
-    if (!job) return res.status(404).json({ error: 'Job not found' })
-    const observations = getObservationsForJob(req.params.id)
-    const versions = getVersionsForJob(req.params.id)
-    res.json({ ...job, observations, versions })
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch job', details: err.message })
-  }
-})
-
-app.get('/api/jobs/:id/history', (req, res) => {
-  try {
-    const versions = getVersionsForJob(req.params.id)
-    const observations = getObservationsForJob(req.params.id)
-    res.json({ versions, observations })
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch job history', details: err.message })
-  }
-})
-
-app.get('/api/sources/health', async (_req, res) => {
-  try {
-    const { getAllEnabledSources, getCapability, CAPABILITY } = await lazy();
-    const sources = getAllEnabledSources()
-    const healthData = sources.map(s => ({
-      ...s,
-      health: getSourceHealth(s.id),
-      capability: getCapability(s.provider),
-    }))
-    res.json({ sources: healthData, capabilities: CAPABILITY })
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch source health', details: err.message })
-  }
-})
-
-app.get('/api/coverage/stats', async (_req, res) => {
-  try {
-    const { getCoverageReport, getSupportedProviders } = await lazy();
-    const report = getCoverageReport()
-    const companies = getAllCompanies()
-    const enabledCompanies = getEnabledCompanies()
-    const sources = getAllEnabledSources()
-    const supportedProviders = getSupportedProviders()
-
-    res.json({
-      ...report,
-      companies: {
-        total: companies.length,
-        enabled: enabledCompanies.length,
-      },
-      sources: {
-        total: sources.length,
-        byProvider: sources.reduce((acc, s) => {
-          acc[s.provider] = (acc[s.provider] || 0) + 1
-          return acc
-        }, {}),
-      },
-      supportedProviders,
-    })
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch coverage stats', details: err.message })
-  }
-})
-
-app.get('/api/companies', (_req, res) => {
-  try {
-    const companies = getAllCompanies()
-    res.json({ companies, total: companies.length })
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch companies', details: err.message })
-  }
-})
-
-app.get('/api/companies/:id/sources', (req, res) => {
-  try {
-    const sources = getSourcesByCompanyId(req.params.id)
-    res.json({ sources })
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch company sources', details: err.message })
-  }
-})
-
-// ─── Phase 2.1: Source Discovery Endpoints ────────────────────
-
-app.get('/api/discovery/queue', (_req, res) => {
-  try {
-    const targets = getAllDiscoveryQueueTargets()
-    const stats = getDiscoveryQueueStats()
-    res.json({ targets, stats })
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch discovery queue', details: err.message })
-  }
-})
-
-app.get('/api/discovery/stats', (_req, res) => {
-  try {
-    res.json(getDiscoveryQueueStats())
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch discovery stats', details: err.message })
-  }
-})
-
-app.post('/api/discovery/company/:id', async (req, res) => {
-  try {
-    const { getAllFirms } = await lazy();
-    const firms = getAllFirms()
-    const firm = firms.find(f => f.id === req.params.id)
-    if (!firm) return res.status(404).json({ error: 'Company not found' })
-
-    const { discoverCompany: discoverSingleCompany } = await import('./sources/discovery/discover.js')
-    const result = await discoverSingleCompany(firm)
-    res.json(result)
-  } catch (err) {
-    res.status(500).json({ error: 'Discovery failed', details: err.message })
-  }
-})
-
-app.post('/api/discovery/run', async (req, res) => {
-  try {
-    const { unknownOnly = true, limit = 10, dryRun = false } = req.body || {}
-    const { runDiscovery: runFullDiscovery } = await import('./sources/discovery/discover.js')
-    const results = await runFullDiscovery({ unknownOnly, limit, dryRun })
-    res.json({ results, count: results.length })
-  } catch (err) {
-    res.status(500).json({ error: 'Discovery run failed', details: err.message })
-  }
-})
-
-// ─── 404 handler ───────────────────────────────────────────────
-
-app.use((_req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
-
-app.use((err, _req, res, _next) => {
-  res.status(500).json({ error: 'Internal server error', details: err.message });
-});
-
-// ─── Start server ──────────────────────────────────────────────
-
-app.listen(PORT, async () => {
-  const env = process.env.NODE_ENV || 'development'
-  console.log(`Meridian server running on http://localhost:${PORT} [${env}]`);
-  console.log(`Health: http://localhost:${PORT}/api/health`);
-  console.log(`Registry: http://localhost:${PORT}/api/registry`);
-  console.log(`Scan: http://localhost:${PORT}/api/scan`);
-
-  const { getSourceStats, startCronScan } = await lazy();
-  const stats = getSourceStats();
-  console.log(`Firms: ${stats.enabledFirms} enabled / ${stats.totalFirms} total`);
-  console.log(`Sources: ${Object.entries(SOURCES).filter(([, s]) => s.configured).map(([k]) => k).join(', ')}`);
-
-  startCronScan();
-
-  // NOTE: runStartupPipeline removed — its work is handled by startCronScan
-  // via runAdaptiveLoop, which now defers the first pass so cold-start CPU
-  // is reserved for auth/API traffic (see scan.js runAdaptiveLoop comment).
-});
-
-async function runStartupPipeline() {
-  const startTime = Date.now();
-  console.log('[Startup] Running discovery pipeline...');
-
-  // Load all heavy modules for the pipeline
-  const { getLastScanResult, runDiscovery, discoverFirmSources, enumerateDirectJobs, matchTrackerToDirect } = await lazy();
-
-  // Skip if data is fresh (last scan < 2 hours ago) to save memory
-  const lastScan = getLastScanResult();
-  if (lastScan && lastScan.timestamp) {
-    const age = Date.now() - new Date(lastScan.timestamp).getTime();
-    const TWO_HOURS = 2 * 60 * 60 * 1000;
-    if (age < TWO_HOURS) {
-      console.log(`[Startup] Skipping pipeline — last scan was ${(age / 60000).toFixed(0)} min ago`);
-      return;
-    }
-  }
-
-  // Skip if memory is already high (Render free tier = 512MB)
-  const mem = process.memoryUsage();
-  if (mem.heapUsed > 300 * 1024 * 1024) {
-    console.log(`[Startup] Skipping pipeline — heap already at ${(mem.heapUsed / 1024 / 1024).toFixed(0)}MB`);
-    return;
-  }
-
-  try {
-    console.log('[Startup] Phase 1: Tracker discovery...');
-    try { await runDiscovery(); } catch (e) { console.error('[Startup] Phase 1 error:', e.message); }
-    console.log('[Startup] Phase 1 done');
-
-    console.log('[Startup] Phase 2: Firm source discovery...');
-    try {
-      const sourceResult = await discoverFirmSources({ maxDepth: 1, concurrency: 2 });
-      console.log(`[Startup] Phase 2 done: ${sourceResult.discovered} sources discovered${sourceResult.skipped ? ' (skipped)' : ''}`);
-    } catch (e) { console.error('[Startup] Phase 2 error:', e.message); }
-
-    console.log('[Startup] Phase 3: Direct job enumeration...');
-    try {
-      const jobsResult = await enumerateDirectJobs();
-      console.log(`[Startup] Phase 3 done: ${jobsResult.totalJobs || 0} direct jobs${jobsResult.skipped ? ' (skipped)' : ''}`);
-    } catch (e) { console.error('[Startup] Phase 3 error:', e.message); }
-
-    console.log('[Startup] Phase 4: Tracker-to-direct matching...');
-    try {
-      const matchResult = await matchTrackerToDirect();
-      console.log(`[Startup] Phase 4 done: ${matchResult.stats?.autoMatched || 0} auto-matched`);
-    } catch (e) { console.error('[Startup] Phase 4 error:', e.message); }
-
-    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[Startup] Pipeline complete in ${duration}s`);
-  } catch (err) {
-    console.error('[Startup] Pipeline failed:', err.message);
-  }
-}
-
-// Prevent unhandled errors from crashing the server
-process.on('uncaughtException', (err) => {
-  console.error('[UncaughtException]', err.message, err.stack);
-  // After uncaught exception, process is in undefined state — must exit
-  process.exit(1);
-});
-
-// Memory monitoring — log every 5 minutes in production
-if (isProduction) {
-  setInterval(() => {
-    const mem = process.memoryUsage();
-    const mb = (bytes) => (bytes / 1024 / 1024).toFixed(1);
-    console.log(`[Memory] RSS: ${mb(mem.rss)}MB | Heap: ${mb(mem.heapUsed)}/${mb(mem.heapTotal)}MB | External: ${mb(mem.external)}MB`);
-    // Force GC if heap > 400MB (Render free tier is 512MB)
-    if (mem.heapUsed > 400 * 1024 * 1024 && global.gc) {
-      console.log('[Memory] Forcing GC — heap exceeded 400MB');
-      global.gc();
-    }
-  }, 5 * 60 * 1000);
-}
-
-process.on('SIGTERM', () => process.exit(0));
-process.on('SIGINT', () => process.exit(0));

@@ -1,7 +1,7 @@
 import Parser from 'rss-parser';
 import NodeCache from 'node-cache';
 import { normalize } from './normalize.js';
-import { setKV, getKV } from '../db.js';
+import { setKV, getKV } from '../db-adapter.js';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -100,7 +100,9 @@ const DEFAULT_FEEDS = [
   },
 ];
 
-let configuredFeeds = loadFeedsFromStorage();
+// In-memory feeds. Import-safe sync defaults; callers must `await initRssFeeds()`
+// at startup to hydrate from the DB. Do NOT block import on DB I/O.
+let configuredFeeds = [...DEFAULT_FEEDS];
 
 function loadFeedsFromFile() {
   try {
@@ -119,10 +121,10 @@ function saveFeedsToFile(feeds) {
   } catch { /* ignore */ }
 }
 
-function loadFeedsFromStorage() {
-  // Try SQLite KV store first
+async function loadFeedsFromStorage() {
+  // Try async KV store first (awaited — callers only proceed after resolve)
   try {
-    const saved = getKV(KV_KEY);
+    const saved = await getKV(KV_KEY);
     if (Array.isArray(saved) && saved.length > 0) {
       const savedMap = new Map(saved.map(f => [f.url, f]));
       const merged = DEFAULT_FEEDS.map(f => savedMap.get(f.url) || { ...f });
@@ -149,30 +151,32 @@ function loadFeedsFromStorage() {
         merged.push(f);
       }
     }
-    // Sync back to KV store if possible
-    try { setKV(KV_KEY, merged); } catch { /* ignore */ }
+    // Sync back to KV store if possible (best-effort; failure falls through to defaults)
+    try { await setKV(KV_KEY, merged); } catch { /* ignore */ }
     return merged;
   }
 
   return [...DEFAULT_FEEDS];
 }
 
-function persistFeeds() {
-  // Write to SQLite KV store
-  try {
-    setKV(KV_KEY, configuredFeeds);
-  } catch {
-    // KV store not available
-  }
-  // Also write to file as backup (survives DB resets)
+// Lazy async init: hydrate in-memory feeds from DB. Must be awaited at startup.
+async function initRssFeeds() {
+  configuredFeeds = await loadFeedsFromStorage();
+  return [...configuredFeeds];
+}
+
+async function persistFeeds() {
+  // File backup first (sync, never throws), then the awaited durable DB write.
+  // The DB rejection propagates — SUCCESS is only acknowledged after commit.
   saveFeedsToFile(configuredFeeds);
+  await setKV(KV_KEY, configuredFeeds);
 }
 
 function getConfiguredFeeds() {
   return [...configuredFeeds];
 }
 
-function addFeed(name, url) {
+async function addFeed(name, url) {
   if (!url) throw new Error('Feed URL is required');
   const feedUrl = String(url).trim();
   const feedName = String(name || feedUrl).trim();
@@ -181,32 +185,47 @@ function addFeed(name, url) {
   if (existing) {
     existing.enabled = true;
     existing.name = feedName;
-    persistFeeds();
+    await persistFeeds();
     return existing;
   }
 
   const feed = { name: feedName, url: feedUrl, enabled: true };
   configuredFeeds.push(feed);
-  persistFeeds();
+  await persistFeeds();
   return feed;
 }
 
-function removeFeed(url) {
+async function addFeedWithCheck(url, name) {
+  const feedUrl = String(url || '').trim();
+  if (!feedUrl) throw new Error('Feed URL is required');
+  let parsed;
+  try {
+    parsed = new URL(feedUrl);
+  } catch {
+    throw new Error('Invalid feed URL');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Feed URL must use http(s)');
+  }
+  return addFeed(name, feedUrl);
+}
+
+async function removeFeed(url) {
   const feedUrl = String(url).trim();
   const index = configuredFeeds.findIndex(f => f.url === feedUrl);
   if (index === -1) return false;
   configuredFeeds.splice(index, 1);
   cache.flushAll();
-  persistFeeds();
+  await persistFeeds();
   return true;
 }
 
-function toggleFeed(url, enabled) {
+async function toggleFeed(url, enabled) {
   const feedUrl = String(url).trim();
   const feed = configuredFeeds.find(f => f.url === feedUrl);
   if (!feed) return null;
   feed.enabled = Boolean(enabled);
-  persistFeeds();
+  await persistFeeds();
   return feed;
 }
 
@@ -297,7 +316,10 @@ function invalidateCache() {
 
 export {
   getConfiguredFeeds,
+  initRssFeeds,
+  loadFeedsFromStorage,
   addFeed,
+  addFeedWithCheck,
   removeFeed,
   toggleFeed,
   fetchFeed,
