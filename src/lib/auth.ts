@@ -3,6 +3,13 @@ const API_BASE = import.meta.env.VITE_API_BASE
     ? 'http://localhost:3001'
     : `http://${window.location.hostname}:3001`)
 
+import {
+  AuthRetryExhaustedError,
+  LOGIN_MAX_ATTEMPTS,
+  LOGIN_RETRY_DELAYS_MS,
+  runWithAuthRetry,
+} from './authRetry'
+
 const AUTH_TIMEOUT_MS = 10000
 
 export interface AuthUser {
@@ -61,11 +68,32 @@ async function authAttempt<T>(path: string, options: RequestInit = {}): Promise<
   }
 }
 
-export async function signIn(identifier: string, password: string): Promise<AuthResponse> {
-  return authAttempt<AuthResponse>('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ identifier, password }),
-  })
+export async function signIn(
+  identifier: string,
+  password: string,
+  onRetry?: (attempt: number, maxAttempts: number) => void,
+): Promise<AuthResponse> {
+  try {
+    const { value } = await runWithAuthRetry(
+      () => apiCall<AuthResponse>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ identifier, password }),
+      }, AUTH_TIMEOUT_MS),
+      {
+        maxAttempts: LOGIN_MAX_ATTEMPTS,
+        delaysMs: LOGIN_RETRY_DELAYS_MS,
+        onRetry: onRetry
+          ? (info) => { onRetry(info.attempt, info.maxAttempts) }
+          : undefined,
+      },
+    )
+    return value
+  } catch (err: any) {
+    if (err instanceof AuthRetryExhaustedError) {
+      throw new Error('Meridian is temporarily unavailable after several attempts. Please wait a minute, then try again.')
+    }
+    throw err
+  }
 }
 
 export async function signOut(): Promise<AuthResponse> {

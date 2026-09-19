@@ -11,6 +11,7 @@ export function LoginPage() {
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [loading, setLoading] = useState(false)
 
   // If user is already logged in (cached), redirect via effect
@@ -24,7 +25,13 @@ export function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const { user: newUser } = await signIn(identifier, password)
+      const { user: newUser } = await signIn(
+        identifier,
+        password,
+        (attempt, maxAttempts) => {
+          setNotice(`Waking Meridian — retrying… (attempt ${attempt} of ${maxAttempts})`)
+        },
+      )
       if (newUser) {
         setUser(newUser)
         try { sessionStorage.setItem('meridian_auth_user', JSON.stringify(newUser)) } catch { /* ignore */ }
@@ -34,6 +41,7 @@ export function LoginPage() {
       setError(err.message || 'Sign in failed')
     } finally {
       setLoading(false)
+      setNotice('')
     }
   }
 
@@ -49,6 +57,13 @@ export function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6">
+          {notice && !error && (
+            <div className="text-sm rounded-lg px-4 py-3 bg-amber-500/10 border border-amber-500/30 text-amber-400">
+              <Loader2 className="size-3.5 animate-spin inline-block mr-2" />
+              {notice}
+            </div>
+          )}
+
           {error && (
             <div className={`text-sm rounded-lg px-4 py-3 ${
               error.includes('waking up') || error.includes('try again')
