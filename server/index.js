@@ -96,8 +96,15 @@ import {
   getAllSightingsForJob,
   getCanonicalJobById,
   getAllAdapterHealth,
+  getWorkspaceDump,
+  upsertWorkspaceRecord,
+  deleteWorkspaceRecord,
   getDb,
 } from './db-adapter.js';
+import {
+  WORKSPACE_COLLECTIONS,
+  sanitizeWorkspaceRecord,
+} from './workspace.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -1063,9 +1070,107 @@ app.get('/api/health/stats', async (_req, res) => {
   }
 });
 
+// ─── User workspace (Neon-authoritative tracker data) ──────────
+// Owner is always req.userId from the verified JWT. Client-supplied
+// owner fields are stripped by sanitizeWorkspaceRecord, never trusted.
+
+function workspaceError(res, err, fallback) {
+  if (err && err.statusCode === 400) {
+    return res.status(400).json({ error: err.message });
+  }
+  return res.status(500).json({ error: fallback });
+}
+
+app.get('/api/workspace', verifyAuth, async (req, res) => {
+  try {
+    res.json(await getWorkspaceDump(req.userId));
+  } catch (err) {
+    workspaceError(res, err, 'Failed to load workspace');
+  }
+});
+
+app.put('/api/workspace/:collection/:id', verifyAuth, async (req, res) => {
+  try {
+    const clean = sanitizeWorkspaceRecord(
+      req.params.collection,
+      req.params.id,
+      req.body,
+      req.userId,
+    );
+    const record = await upsertWorkspaceRecord(
+      req.userId,
+      req.params.collection,
+      clean,
+    );
+    if (!record) {
+      return res.status(404).json({ error: 'Record not found' });
+    }
+    res.json({ record });
+  } catch (err) {
+    workspaceError(res, err, 'Failed to save workspace record');
+  }
+});
+
+app.delete('/api/workspace/:collection/:id', verifyAuth, async (req, res) => {
+  try {
+    const deleted = await deleteWorkspaceRecord(
+      req.userId,
+      req.params.collection,
+      req.params.id,
+    );
+    if (!deleted) {
+      return res.status(404).json({ error: 'Record not found' });
+    }
+    res.json({ deleted: true });
+  } catch (err) {
+    workspaceError(res, err, 'Failed to delete workspace record');
+  }
+});
+
+app.post('/api/workspace/import', verifyAuth, async (req, res) => {
+  try {
+    const records = req.body?.records;
+    if (!records || typeof records !== 'object' || Array.isArray(records)) {
+      return res.status(400).json({ error: 'Request body must contain a records object' });
+    }
+    const counts = {};
+    for (const collection of Object.keys(records)) {
+      if (!WORKSPACE_COLLECTIONS.includes(collection)) {
+        return res.status(400).json({ error: `Unknown workspace collection: ${collection}` });
+      }
+      const items = records[collection];
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: `Records for ${collection} must be an array` });
+      }
+      let upserted = 0;
+      for (const item of items) {
+        const clean = sanitizeWorkspaceRecord(
+          collection,
+          item?.id,
+          item,
+          req.userId,
+        );
+        const saved = await upsertWorkspaceRecord(
+          req.userId,
+          collection,
+          clean,
+        );
+        if (!saved) {
+          return res.status(400).json({ error: 'Record id is already owned by another account' });
+        }
+        upserted += 1;
+      }
+      counts[collection] = upserted;
+    }
+    res.json({ counts });
+  } catch (err) {
+    workspaceError(res, err, 'Workspace import failed');
+  }
+});
+
 // ─── Start server ───────────────────────────────────────────────
 
-app.listen(PORT, () => {
+export const server = app.listen(PORT, () => {
   console.log(`[Server] Running on http://localhost:${PORT}`);
   console.log(`[Server] Environment: ${isProduction ? 'production' : 'development'}`);
   

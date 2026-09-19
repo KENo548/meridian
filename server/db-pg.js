@@ -9,6 +9,11 @@
 
 import pg from 'pg'
 import { fileURLToPath } from 'node:url'
+import {
+  WORKSPACE_COLLECTIONS,
+  toWorkspaceApiRecord,
+  workspaceTable,
+} from './workspace.js'
 
 const { Pool } = pg
 
@@ -1294,6 +1299,94 @@ export async function usePasswordReset(tokenHash) {
 
 export async function cleanupExpiredResets() {
   await query(`DELETE FROM password_resets WHERE expires_at < $1 OR used = 1`, [new Date().toISOString()])
+}
+
+// ─── User workspace (Neon-authoritative tracker data) ─────────
+// Uniform shape per collection: id (globally unique client-generated),
+// user_id (session owner only), data JSONB, timestamps as TEXT.
+// Tables are ensured per call: production builds schema from the
+// backup-SQL path and never invokes initSchema at runtime.
+
+let _workspaceEnsured = false
+
+async function ensureWorkspaceSchema() {
+  if (_workspaceEnsured) return
+
+  const statements = []
+
+  for (const collection of WORKSPACE_COLLECTIONS) {
+    const table = workspaceTable(collection)
+    statements.push(`
+      CREATE TABLE IF NOT EXISTS ${table} (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        data JSONB NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_${table}_user ON ${table}(user_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_${table}_user_id ON ${table}(user_id, id);
+    `)
+  }
+
+  await query(statements.join('\n'))
+  _workspaceEnsured = true
+}
+
+export async function getWorkspaceRecords(userId, collection) {
+  const table = workspaceTable(collection)
+  await ensureWorkspaceSchema()
+  const { rows } = await query(
+    `SELECT id, data FROM "${table}" WHERE user_id = $1 ORDER BY updated_at DESC`,
+    [userId],
+  )
+  return rows.map(toWorkspaceApiRecord)
+}
+
+export async function getWorkspaceRecord(userId, collection, id) {
+  const table = workspaceTable(collection)
+  await ensureWorkspaceSchema()
+  const { rows } = await query(
+    `SELECT id, data FROM "${table}" WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  )
+  return toWorkspaceApiRecord(rows[0] || null)
+}
+
+export async function upsertWorkspaceRecord(userId, collection, record) {
+  const table = workspaceTable(collection)
+  await ensureWorkspaceSchema()
+  const ts = new Date().toISOString()
+  const { rows } = await query(
+    `INSERT INTO "${table}" (id, user_id, data, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $4)
+     ON CONFLICT (id) DO UPDATE SET
+       data = EXCLUDED.data,
+       updated_at = EXCLUDED.updated_at
+     WHERE "${table}".user_id = EXCLUDED.user_id
+     RETURNING id, data`,
+    [record.id, userId, JSON.stringify(record.data), ts],
+  )
+  if (rows.length === 0) return null
+  return toWorkspaceApiRecord(rows[0])
+}
+
+export async function deleteWorkspaceRecord(userId, collection, id) {
+  const table = workspaceTable(collection)
+  await ensureWorkspaceSchema()
+  const { rowCount } = await query(
+    `DELETE FROM "${table}" WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  )
+  return rowCount > 0
+}
+
+export async function getWorkspaceDump(userId) {
+  const dump = {}
+  for (const collection of WORKSPACE_COLLECTIONS) {
+    dump[collection] = await getWorkspaceRecords(userId, collection)
+  }
+  return dump
 }
 
 // ─── Maintenance ────────────────────────────────────────────────

@@ -173,6 +173,13 @@ export async function getPasswordReset(...args) { return await driver.getPasswor
 export async function usePasswordReset(...args) { return await driver.usePasswordReset(...args) }
 export async function cleanupExpiredResets(...args) { return await driver.cleanupExpiredResets(...args) }
 
+// User workspace (Neon-authoritative tracker data)
+export async function getWorkspaceRecords(...args) { return await driver.getWorkspaceRecords(...args) }
+export async function getWorkspaceRecord(...args) { return await driver.getWorkspaceRecord(...args) }
+export async function upsertWorkspaceRecord(...args) { return await driver.upsertWorkspaceRecord(...args) }
+export async function deleteWorkspaceRecord(...args) { return await driver.deleteWorkspaceRecord(...args) }
+export async function getWorkspaceDump(...args) { return await driver.getWorkspaceDump(...args) }
+
 // Maintenance
 export async function getDbStats(...args) { return await driver.getDbStats(...args) }
 export async function closeDb(...args) { return await driver.closeDb(...args) }

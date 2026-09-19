@@ -2,6 +2,11 @@ import Database from 'better-sqlite3'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkdirSync, existsSync } from 'node:fs'
+import {
+  WORKSPACE_COLLECTIONS,
+  toWorkspaceApiRecord,
+  workspaceTable,
+} from './workspace.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const DATA_DIR = join(dirname(__filename), 'data')
@@ -1183,6 +1188,82 @@ export function usePasswordReset(tokenHash) {
 
 export function cleanupExpiredResets() {
   getDb().prepare(`DELETE FROM password_resets WHERE expires_at < ? OR used = 1`).run(new Date().toISOString())
+}
+
+// ─── User workspace (local-dev mirror of the Neon contract) ───
+// Same uniform shape and owner scoping as db-pg.js. Tables are ensured
+// per call because initSchema fast-paths on existing databases.
+
+function ensureWorkspaceSchema() {
+  const db = getDb()
+  for (const collection of WORKSPACE_COLLECTIONS) {
+    const table = workspaceTable(collection)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ${table} (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        data TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_${table}_user ON ${table}(user_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_${table}_user_id ON ${table}(user_id, id);
+    `)
+  }
+}
+
+function toWorkspaceRow(row) {
+  if (!row) return null
+  return toWorkspaceApiRecord(row)
+}
+
+export function getWorkspaceRecords(userId, collection) {
+  const table = workspaceTable(collection)
+  ensureWorkspaceSchema()
+  return getDb().prepare(
+    `SELECT id, data FROM ${table} WHERE user_id = ? ORDER BY updated_at DESC`,
+  ).all(userId).map(toWorkspaceRow)
+}
+
+export function getWorkspaceRecord(userId, collection, id) {
+  const table = workspaceTable(collection)
+  ensureWorkspaceSchema()
+  return toWorkspaceRow(getDb().prepare(
+    `SELECT id, data FROM ${table} WHERE id = ? AND user_id = ?`,
+  ).get(id, userId) || null)
+}
+
+export function upsertWorkspaceRecord(userId, collection, record) {
+  const table = workspaceTable(collection)
+  ensureWorkspaceSchema()
+  const ts = new Date().toISOString()
+  const row = getDb().prepare(
+    `INSERT INTO ${table} (id, user_id, data, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       data = excluded.data,
+       updated_at = excluded.updated_at
+     WHERE ${table}.user_id = excluded.user_id
+     RETURNING id, data`,
+  ).get(record.id, userId, JSON.stringify(record.data), ts, ts)
+  return toWorkspaceRow(row || null)
+}
+
+export function deleteWorkspaceRecord(userId, collection, id) {
+  const table = workspaceTable(collection)
+  ensureWorkspaceSchema()
+  const result = getDb().prepare(
+    `DELETE FROM ${table} WHERE id = ? AND user_id = ?`,
+  ).run(id, userId)
+  return result.changes > 0
+}
+
+export function getWorkspaceDump(userId) {
+  const dump = {}
+  for (const collection of WORKSPACE_COLLECTIONS) {
+    dump[collection] = getWorkspaceRecords(userId, collection)
+  }
+  return dump
 }
 
 // ─── Maintenance ────────────────────────────────────────────────
