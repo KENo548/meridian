@@ -28,7 +28,10 @@ export function workspaceTable(collection) {
       `Unknown workspace collection: ${String(collection)}`,
     )
   }
-  return `user_${collection}`
+  // Lowercase: PostgreSQL folds unquoted DDL identifiers, so the mapped
+  // table name must already be lowercase to match quoted queries
+  // (SQLite is case-insensitive and masked this; Neon is not).
+  return `user_${collection.toLowerCase()}`
 }
 
 export class WorkspaceValidationError extends Error {

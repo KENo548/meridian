@@ -26,6 +26,7 @@ delete process.env.CRON_ENABLED
 
 const { server } = await import('../index.js')
 const { getDb } = await import('../db.js')
+const { WORKSPACE_COLLECTIONS, workspaceTable } = await import('../workspace.js')
 
 const base = `http://127.0.0.1:${server.address().port}`
 const stamp = Date.now()
@@ -253,5 +254,22 @@ describe('workspace P0 contract', () => {
     await api('DELETE', '/api/workspace/documents/doc1', {
       cookie: users.alpha.cookie,
     })
+  })
+})
+
+describe('workspace table mapping', () => {
+  it('maps every collection to a lowercase user_ table', () => {
+    for (const collection of WORKSPACE_COLLECTIONS) {
+      const table = workspaceTable(collection)
+      assert.ok(table.startsWith('user_'), table)
+      assert.equal(table, table.toLowerCase(), table)
+    }
+    // Regression: camelCase savedViews broke quoted PostgreSQL lookups
+    // while SQLite stayed silent (case-insensitive identifiers).
+    assert.equal(workspaceTable('savedViews'), 'user_savedviews')
+  })
+
+  it('rejects unknown collections before any database access', () => {
+    assert.throws(() => workspaceTable('nope'), /Unknown workspace collection/)
   })
 })
