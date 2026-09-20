@@ -26,16 +26,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(cached) as AuthUser
         setUser(parsed)
         setLoading(false)
-        // Still verify in background, but don't block UI
+        // Still verify in background, but don't block UI.
+        // getCurrentUser never rejects — a null user must clear the
+        // stale cache here, not in a .catch that can never fire.
         getCurrentUser()
           .then(({ user: fresh }) => {
-            if (mountedRef.current && fresh) {
+            if (!mountedRef.current) return
+            if (fresh) {
               setUser(fresh)
               sessionStorage.setItem('meridian_auth_user', JSON.stringify(fresh))
+            } else {
+              setUser(null)
+              sessionStorage.removeItem('meridian_auth_user')
             }
           })
           .catch(() => {
-            // Session expired — clear cached user
+            // Defense in depth — getCurrentUser swallows its own errors.
             if (mountedRef.current) {
               setUser(null)
               sessionStorage.removeItem('meridian_auth_user')
@@ -48,12 +54,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // No cached user — show login form immediately (don't block on server)
     setLoading(false)
 
-    // Try to restore session in background (server may already be warm)
+    // Try to restore session in background (server may already be warm).
+    // A null user clears any stale identity; the login form stays.
     getCurrentUser()
       .then(({ user: fresh }) => {
-        if (mountedRef.current && fresh) {
+        if (!mountedRef.current) return
+        if (fresh) {
           setUser(fresh)
           sessionStorage.setItem('meridian_auth_user', JSON.stringify(fresh))
+        } else {
+          setUser(null)
+          try { sessionStorage.removeItem('meridian_auth_user') } catch { /* ignore */ }
         }
       })
       .catch(() => {

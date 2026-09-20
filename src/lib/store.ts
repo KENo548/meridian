@@ -2,6 +2,12 @@ import { create } from 'zustand'
 import { DEFAULT_TAGS } from '@/constants'
 import { getDb, nowIso, uid } from '@/lib/db'
 import { emptyFilters, findDuplicate } from '@/lib/utils'
+import {
+  deleteWorkspaceRecord,
+  fetchWorkspace,
+  importWorkspace,
+  putWorkspaceRecord,
+} from '@/lib/workspaceApi'
 import type {
   Application,
   ApplicationFilters,
@@ -81,27 +87,25 @@ interface MeridianState {
   importApplications: (apps: Application[], requirements?: Requirement[]) => Promise<number>
 }
 
-async function refreshCollections(set: (partial: Partial<MeridianState>) => void) {
-  const d = getDb()
-  const [applications, companies, requirements, documents, contacts, tasks, tags, savedViews] =
-    await Promise.all([
-      d.applications.toArray(),
-      d.companies.toArray(),
-      d.requirements.toArray(),
-      d.documents.toArray(),
-      d.contacts.toArray(),
-      d.tasks.toArray(),
-      d.tags.toArray(),
-      d.savedViews.toArray(),
-    ])
-  set({ applications, companies, requirements, documents, contacts, tasks, tags, savedViews })
-}
-
-/** Load only tags (needed for add/edit forms immediately) — ultra-fast */
-async function refreshTagsOnly(set: (partial: Partial<MeridianState>) => void) {
-  const d = getDb()
-  const tags = await d.tags.toArray()
-  set({ tags })
+/**
+ * Run a cloud workspace write. Server first, local state only after
+ * success — a failed server mutation must never fabricate local state.
+ * Failures toast visibly and propagate with existing throw semantics.
+ */
+async function cloud<T>(
+  get: () => MeridianState,
+  action: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await fn()
+  } catch (err) {
+    get().pushToast(
+      'error',
+      err instanceof Error ? err.message : `${action} failed`,
+    )
+    throw err
+  }
 }
 
 export const useMeridianStore = create<MeridianState>((set, get) => ({
@@ -123,30 +127,67 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
   toasts: [],
 
   hydrate: async () => {
-    // Phase 1: Load only tags (needed for forms) — ultra-fast.
-    // Wrap in try/finally so the DashboardPage gate never hangs if
-    // IndexedDB or refreshTagsOnly throws (req #4: no global spinner).
+    // Server-authoritative hydration. IndexedDB is no longer read for
+    // workspace state, except for the frozen local fileData bytes merged
+    // below (read-only — the rollback copy is never written).
     try {
-      await refreshTagsOnly(set)
+      const remote = await cloud(get, 'Workspace load', () => fetchWorkspace())
 
-      // Check if first launch
-      const d = getDb()
-      const meta = await d.meta.get('seeded')
-      if (!meta && get().applications.length === 0) {
-        // First launch — seed tags only; demo data is opt-in
-        const tags = DEFAULT_TAGS.map((name) => ({ id: uid('tag'), name }))
-        await d.tags.bulkPut(tags)
-        await d.meta.put({ key: 'seeded', value: '1' })
-        await refreshTagsOnly(set)
+      let tags = (remote.tags ?? []) as unknown as Tag[]
+      const remoteApplications = (remote.applications ?? []) as unknown as Application[]
+
+      if (remoteApplications.length === 0 && tags.length === 0) {
+        // First launch for this account — seed default tags server-side.
+        const fresh: Tag[] = DEFAULT_TAGS.map((name) => ({ id: uid('tag'), name }))
+        await cloud(get, 'Workspace setup', () => importWorkspace({ tags: fresh }))
+        tags = fresh
       }
-    } finally {
+
+      set({
+        applications: remoteApplications,
+        companies: (remote.companies ?? []) as unknown as Company[],
+        requirements: (remote.requirements ?? []) as unknown as Requirement[],
+        documents: (remote.documents ?? []) as unknown as DocumentRecord[],
+        contacts: (remote.contacts ?? []) as unknown as Contact[],
+        tasks: (remote.tasks ?? []) as unknown as Task[],
+        tags,
+        savedViews: (remote.savedViews ?? []) as unknown as SavedView[],
+        hydrated: true,
+      })
+
+      // Attach local file bytes (frozen rollback copy, read-only) so
+      // previously uploaded documents keep rendering while their bytes
+      // stay off the server by explicit decision.
+      try {
+        const localDocs = await getDb().documents.toArray()
+        const bytes = new Map<string, DocumentRecord>()
+        for (const doc of localDocs) {
+          if (typeof doc.fileData === 'string' && doc.fileData.length > 0) {
+            bytes.set(doc.id, doc)
+          }
+        }
+        if (bytes.size > 0) {
+          set({
+            documents: get().documents.map((doc) => {
+              const local = bytes.get(doc.id)
+              return local
+                ? {
+                    ...doc,
+                    fileData: local.fileData,
+                    fileType: local.fileType ?? doc.fileType,
+                    fileName: local.fileName ?? doc.fileName,
+                  }
+                : doc
+            }),
+          })
+        }
+      } catch {
+        // Frozen copy unreadable — server metadata still stands.
+      }
+    } catch {
+      // cloud() already toasted the failure; never hang the gate.
       set({ hydrated: true })
     }
-
-    // Phase 2: Load remaining collections in background (non-blocking)
-    refreshCollections(set).catch(() => {
-      // Background refresh failed — will retry on next interaction
-    })
   },
 
   setFilters: (patch) => set({ filters: { ...get().filters, ...patch } }),
@@ -185,14 +226,15 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
         : ts,
       updatedAt: ts,
     }
-    // Optimistic
+    await cloud(get, 'Save company', () =>
+      putWorkspaceRecord('companies', company),
+    )
     set({
       companies: [
         ...get().companies.filter((c) => c.id !== company.id),
         company,
       ].sort((a, b) => a.name.localeCompare(b.name)),
     })
-    await getDb().companies.put(company)
     return company
   },
 
@@ -260,14 +302,13 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
       updatedAt: ts,
     }))
 
+    await cloud(get, 'Create application', () =>
+      importWorkspace({ applications: [app], requirements: reqs }),
+    )
+
     set({
       applications: [...get().applications, app],
       requirements: [...get().requirements, ...reqs],
-    })
-
-    await getDb().transaction('rw', getDb().applications, getDb().requirements, async () => {
-      await getDb().applications.put(app)
-      if (reqs.length) await getDb().requirements.bulkPut(reqs)
     })
 
     return { app }
@@ -288,14 +329,33 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
       next.applicationDate = nowIso().slice(0, 10)
     }
 
+    await cloud(get, 'Update application', () =>
+      putWorkspaceRecord('applications', next),
+    )
     set({
       applications: get().applications.map((a) => (a.id === id ? next : a)),
     })
-    await getDb().applications.put(next)
   },
 
   deleteApplications: async (ids) => {
     const idSet = new Set(ids)
+    const state = get()
+    const removals: Array<Promise<unknown>> = [
+      ...ids.map((appId) => deleteWorkspaceRecord('applications', appId)),
+      ...state.requirements
+        .filter((r) => idSet.has(r.applicationId))
+        .map((r) => deleteWorkspaceRecord('requirements', r.id)),
+      ...state.contacts
+        .filter((c) => c.applicationId && idSet.has(c.applicationId))
+        .map((c) => deleteWorkspaceRecord('contacts', c.id)),
+      ...state.tasks
+        .filter((t) => t.applicationId && idSet.has(t.applicationId))
+        .map((t) => deleteWorkspaceRecord('tasks', t.id)),
+      ...state.documents
+        .filter((d) => d.applicationId && idSet.has(d.applicationId))
+        .map((d) => deleteWorkspaceRecord('documents', d.id)),
+    ]
+    await cloud(get, 'Delete applications', () => Promise.all(removals))
     set({
       applications: get().applications.filter((a) => !idSet.has(a.id)),
       requirements: get().requirements.filter((r) => !idSet.has(r.applicationId)),
@@ -305,38 +365,26 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
       selectedIds: get().selectedIds.filter((id) => !idSet.has(id)),
       activeApplicationId: idSet.has(get().activeApplicationId ?? '') ? null : get().activeApplicationId,
     })
-    await getDb().transaction(
-      'rw',
-      getDb().applications,
-      getDb().requirements,
-      getDb().contacts,
-      getDb().tasks,
-      getDb().documents,
-      async () => {
-        await getDb().applications.bulkDelete(ids)
-        await getDb().requirements.where('applicationId').anyOf(ids).delete()
-        await getDb().contacts.where('applicationId').anyOf(ids).delete()
-        await getDb().tasks.where('applicationId').anyOf(ids).delete()
-        await getDb().documents.where('applicationId').anyOf(ids).delete()
-      },
-    )
     get().pushToast('success', ids.length === 1 ? 'Application deleted' : `${ids.length} applications deleted`)
   },
 
   archiveApplications: async (ids, archived = true) => {
     const ts = nowIso()
+    await cloud(get, archived ? 'Archive' : 'Restore', () =>
+      Promise.all(
+        ids.map((id) => {
+          const current = get().applications.find((a) => a.id === id)
+          if (!current) return Promise.resolve()
+          return putWorkspaceRecord('applications', { ...current, archived, updatedAt: ts })
+        }),
+      ),
+    )
     set({
       applications: get().applications.map((a) =>
         ids.includes(a.id) ? { ...a, archived, updatedAt: ts } : a,
       ),
       selectedIds: [],
     })
-    await Promise.all(
-      ids.map(async (id) => {
-        const a = await getDb().applications.get(id)
-        if (a) await getDb().applications.put({ ...a, archived, updatedAt: ts })
-      }),
-    )
     get().pushToast('success', archived ? 'Archived' : 'Restored')
   },
 
@@ -347,35 +395,36 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
 
   bulkPatch: async (ids, patch) => {
     const ts = nowIso()
-    set({
-      applications: get().applications.map((a) => {
-        if (!ids.includes(a.id)) return a
-        const next = { ...a, ...patch, updatedAt: ts }
-        if (patch.status === 'applied' && !next.applicationDate) {
-          next.applicationDate = ts.slice(0, 10)
-        }
-        return next
-      }),
-    })
-    await Promise.all(
-      ids.map(async (id) => {
-        const a = await getDb().applications.get(id)
-        if (!a) return
-        const next = { ...a, ...patch, updatedAt: ts }
-        if (patch.status === 'applied' && !next.applicationDate) {
-          next.applicationDate = ts.slice(0, 10)
-        }
-        await getDb().applications.put(next)
-      }),
+    const applyPatch = (a: Application) => {
+      if (!ids.includes(a.id)) return a
+      const next = { ...a, ...patch, updatedAt: ts }
+      if (patch.status === 'applied' && !next.applicationDate) {
+        next.applicationDate = ts.slice(0, 10)
+      }
+      return next
+    }
+    await cloud(get, 'Bulk update', () =>
+      Promise.all(
+        ids.map((id) => {
+          const current = get().applications.find((a) => a.id === id)
+          if (!current) return Promise.resolve()
+          return putWorkspaceRecord('applications', applyPatch(current))
+        }),
+      ),
     )
+    set({
+      applications: get().applications.map(applyPatch),
+    })
   },
 
   setRequirementStatus: async (id, status) => {
     const existing = get().requirements.find((r) => r.id === id)
     if (!existing) return
     const next = { ...existing, status, updatedAt: nowIso() }
+    await cloud(get, 'Update requirement', () =>
+      putWorkspaceRecord('requirements', next),
+    )
     set({ requirements: get().requirements.map((r) => (r.id === id ? next : r)) })
-    await getDb().requirements.put(next)
     if (status === 'completed' || status === 'submitted') {
       get().pushToast('success', `${existing.name} marked ${status}`)
     }
@@ -396,15 +445,19 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
         : ts,
       updatedAt: ts,
     }
+    await cloud(get, 'Save requirement', () =>
+      putWorkspaceRecord('requirements', next),
+    )
     set({
       requirements: [...get().requirements.filter((r) => r.id !== next.id), next],
     })
-    await getDb().requirements.put(next)
   },
 
   deleteRequirement: async (id) => {
+    await cloud(get, 'Delete requirement', () =>
+      deleteWorkspaceRecord('requirements', id),
+    )
     set({ requirements: get().requirements.filter((r) => r.id !== id) })
-    await getDb().requirements.delete(id)
   },
 
   upsertDocument: async (doc) => {
@@ -425,13 +478,17 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
       dateCreated: existing?.dateCreated ?? ts,
       lastUpdated: ts,
     }
+    await cloud(get, 'Save document', () =>
+      putWorkspaceRecord('documents', next),
+    )
     set({ documents: [...get().documents.filter((d) => d.id !== next.id), next] })
-    await getDb().documents.put(next)
   },
 
   deleteDocument: async (id) => {
+    await cloud(get, 'Delete document', () =>
+      deleteWorkspaceRecord('documents', id),
+    )
     set({ documents: get().documents.filter((d) => d.id !== id) })
-    await getDb().documents.delete(id)
   },
 
   upsertContact: async (contact) => {
@@ -449,13 +506,17 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
       lastContact: contact.lastContact,
       notes: contact.notes,
     }
+    await cloud(get, 'Save contact', () =>
+      putWorkspaceRecord('contacts', next),
+    )
     set({ contacts: [...get().contacts.filter((c) => c.id !== next.id), next] })
-    await getDb().contacts.put(next)
   },
 
   deleteContact: async (id) => {
+    await cloud(get, 'Delete contact', () =>
+      deleteWorkspaceRecord('contacts', id),
+    )
     set({ contacts: get().contacts.filter((c) => c.id !== id) })
-    await getDb().contacts.delete(id)
   },
 
   upsertTask: async (task) => {
@@ -471,21 +532,27 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
       createdAt: existing?.createdAt ?? ts,
       updatedAt: ts,
     }
+    await cloud(get, 'Save task', () =>
+      putWorkspaceRecord('tasks', next),
+    )
     set({ tasks: [...get().tasks.filter((t) => t.id !== next.id), next] })
-    await getDb().tasks.put(next)
   },
 
   toggleTask: async (id) => {
     const existing = get().tasks.find((t) => t.id === id)
     if (!existing) return
     const next = { ...existing, completed: !existing.completed, updatedAt: nowIso() }
+    await cloud(get, 'Update task', () =>
+      putWorkspaceRecord('tasks', next),
+    )
     set({ tasks: get().tasks.map((t) => (t.id === id ? next : t)) })
-    await getDb().tasks.put(next)
   },
 
   deleteTask: async (id) => {
+    await cloud(get, 'Delete task', () =>
+      deleteWorkspaceRecord('tasks', id),
+    )
     set({ tasks: get().tasks.filter((t) => t.id !== id) })
-    await getDb().tasks.delete(id)
   },
 
   ensureTag: async (name) => {
@@ -493,28 +560,36 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
     const existing = get().tags.find((t) => t.name.toLowerCase() === trimmed.toLowerCase())
     if (existing) return existing
     const tag: Tag = { id: uid('tag'), name: trimmed }
+    await cloud(get, 'Create tag', () =>
+      putWorkspaceRecord('tags', tag),
+    )
     set({ tags: [...get().tags, tag] })
-    await getDb().tags.put(tag)
     return tag
   },
 
   deleteTag: async (id) => {
-    set({ tags: get().tags.filter((t) => t.id !== id) })
-    await getDb().tags.delete(id)
+    const ts = nowIso()
     // Remove tag from all applications that reference it
     const apps = get().applications.filter((a) => a.tagIds.includes(id))
+    await cloud(get, 'Delete tag', async () => {
+      await deleteWorkspaceRecord('tags', id)
+      await Promise.all(
+        apps.map((a) =>
+          putWorkspaceRecord('applications', {
+            ...a,
+            tagIds: a.tagIds.filter((t) => t !== id),
+            updatedAt: ts,
+          }),
+        ),
+      )
+    })
+    set({ tags: get().tags.filter((t) => t.id !== id) })
     if (apps.length) {
-      const ts = nowIso()
       set({
         applications: get().applications.map((a) =>
           a.tagIds.includes(id) ? { ...a, tagIds: a.tagIds.filter((t) => t !== id), updatedAt: ts } : a,
         ),
       })
-      await Promise.all(
-        apps.map(async (a) => {
-          await getDb().applications.put({ ...a, tagIds: a.tagIds.filter((t) => t !== id), updatedAt: ts })
-        }),
-      )
     }
   },
 
@@ -525,14 +600,18 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
       filters: { ...get().filters },
       createdAt: nowIso(),
     }
+    await cloud(get, 'Save view', () =>
+      putWorkspaceRecord('savedViews', view),
+    )
     set({ savedViews: [...get().savedViews, view] })
-    await getDb().savedViews.put(view)
     get().pushToast('success', `Saved view “${name}”`)
   },
 
   deleteSavedView: async (id) => {
+    await cloud(get, 'Delete view', () =>
+      deleteWorkspaceRecord('savedViews', id),
+    )
     set({ savedViews: get().savedViews.filter((v) => v.id !== id) })
-    await getDb().savedViews.delete(id)
   },
 
   applySavedView: (id) => {
@@ -542,44 +621,52 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
 
   loadDemoData: async () => {
     const seed = createDemoSeed()
-    await getDb().transaction(
-      'rw',
-      [getDb().applications, getDb().companies, getDb().requirements, getDb().tasks, getDb().contacts, getDb().documents, getDb().tags],
-      async () => {
-        await getDb().companies.bulkPut(seed.companies)
-        await getDb().applications.bulkPut(seed.applications)
-        await getDb().requirements.bulkPut(seed.requirements)
-        await getDb().tasks.bulkPut(seed.tasks)
-        await getDb().contacts.bulkPut(seed.contacts)
-        await getDb().documents.bulkPut(seed.documents)
-        await getDb().tags.bulkPut(seed.tags)
-      },
+    await cloud(get, 'Load demo data', () =>
+      importWorkspace({
+        companies: seed.companies,
+        applications: seed.applications,
+        requirements: seed.requirements,
+        tasks: seed.tasks,
+        contacts: seed.contacts,
+        documents: seed.documents,
+        tags: seed.tags,
+      }),
     )
-    await refreshCollections(set)
+    await get().hydrate()
     get().pushToast('info', 'Demo sample data loaded (clearly marked)')
   },
 
   clearAllData: async () => {
-    await Promise.all([
-      getDb().applications.clear(),
-      getDb().companies.clear(),
-      getDb().requirements.clear(),
-      getDb().documents.clear(),
-      getDb().contacts.clear(),
-      getDb().tasks.clear(),
-      getDb().savedViews.clear(),
-    ])
+    const state = get()
+    await cloud(get, 'Clear workspace', () =>
+      Promise.all([
+        ...state.applications.map((a) => deleteWorkspaceRecord('applications', a.id)),
+        ...state.companies.map((c) => deleteWorkspaceRecord('companies', c.id)),
+        ...state.requirements.map((r) => deleteWorkspaceRecord('requirements', r.id)),
+        ...state.documents.map((d) => deleteWorkspaceRecord('documents', d.id)),
+        ...state.contacts.map((c) => deleteWorkspaceRecord('contacts', c.id)),
+        ...state.tasks.map((t) => deleteWorkspaceRecord('tasks', t.id)),
+        ...state.savedViews.map((v) => deleteWorkspaceRecord('savedViews', v.id)),
+      ]),
+    )
     // Keep tags
-    await refreshCollections(set)
+    set({
+      applications: [],
+      companies: [],
+      requirements: [],
+      documents: [],
+      contacts: [],
+      tasks: [],
+      savedViews: [],
+    })
     get().pushToast('success', 'All applications cleared')
   },
 
   importApplications: async (apps, requirements = []) => {
-    await getDb().transaction('rw', getDb().applications, getDb().requirements, async () => {
-      await getDb().applications.bulkPut(apps)
-      if (requirements.length) await getDb().requirements.bulkPut(requirements)
-    })
-    await refreshCollections(set)
+    await cloud(get, 'Import applications', () =>
+      importWorkspace({ applications: apps, requirements }),
+    )
+    await get().hydrate()
     get().pushToast('success', `Imported ${apps.length} applications`)
     return apps.length
   },

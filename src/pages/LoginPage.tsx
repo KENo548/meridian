@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { signIn } from '@/lib/auth'
+import { getCurrentUser, signIn } from '@/lib/auth'
 import { useAuth } from '@/contexts/AuthContext'
 import { APP_NAME, APP_TAGLINE } from '@/constants'
 import { Loader2 } from 'lucide-react'
@@ -32,10 +32,20 @@ export function LoginPage() {
           setNotice(`Waking Meridian — retrying… (attempt ${attempt} of ${maxAttempts})`)
         },
       )
-      if (newUser) {
-        setUser(newUser)
-        try { sessionStorage.setItem('meridian_auth_user', JSON.stringify(newUser)) } catch { /* ignore */ }
+      if (!newUser) {
+        setError('Sign in failed')
+        return
       }
+      // Verify the session cookie was accepted before entering the app.
+      // A 200 login response alone does not prove the browser will send
+      // the cookie back (e.g. third-party-cookie blocking).
+      const session = await getCurrentUser()
+      if (!session.user) {
+        setError('Sign-in could not be verified just now. Please check cookie settings, then try again.')
+        return
+      }
+      setUser(session.user)
+      try { sessionStorage.setItem('meridian_auth_user', JSON.stringify(session.user)) } catch { /* ignore */ }
       navigate('/')
     } catch (err: any) {
       setError(err.message || 'Sign in failed')

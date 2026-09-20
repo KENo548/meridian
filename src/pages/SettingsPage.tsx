@@ -6,6 +6,13 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { APP_NAME } from '@/constants'
 import { useMeridianStore } from '@/lib/store'
 import { exportApplicationsCsv, exportJsonBackup, parseApplicationsCsv } from '@/lib/csv'
+import { useAuth } from '@/contexts/AuthContext'
+import {
+  WORKSPACE_EXPORT_COLLECTIONS,
+  buildWorkspaceExport,
+  validateWorkspaceExport,
+} from '@/lib/workspaceExport'
+import { importWorkspace } from '@/lib/workspaceApi'
 
 export function SettingsPage() {
   const applications = useMeridianStore((s) => s.applications)
@@ -22,10 +29,12 @@ export function SettingsPage() {
   const ensureTag = useMeridianStore((s) => s.ensureTag)
   const deleteTag = useMeridianStore((s) => s.deleteTag)
   const pushToast = useMeridianStore((s) => s.pushToast)
+  const { user } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [newTagName, setNewTagName] = useState('')
   const [deleteTagId, setDeleteTagId] = useState<string | null>(null)
+  const [migrating, setMigrating] = useState(false)
 
   const downloadText = (filename: string, content: string, mime: string) => {
     const blob = new Blob([content], { type: mime })
@@ -47,24 +56,88 @@ export function SettingsPage() {
   }
 
   const onExportJson = () => {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      app: APP_NAME,
-      applications,
-      companies,
-      requirements,
-      documents,
-      contacts,
-      tasks,
-      tags,
-      savedViews,
+    if (!user) {
+      pushToast('error', 'Sign in to export a workspace backup')
+      return
+    }
+    let payload
+    try {
+      payload = buildWorkspaceExport({
+        userId: user.id,
+        exportedAt: new Date().toISOString(),
+        records: {
+          applications,
+          companies,
+          requirements,
+          documents,
+          contacts,
+          tasks,
+          tags,
+          savedViews,
+        },
+      })
+    } catch {
+      pushToast('error', 'Workspace backup could not be assembled')
+      return
+    }
+    const check = validateWorkspaceExport(payload)
+    if (!check.ok || !check.summary) {
+      pushToast('error', `Backup validation failed: ${check.errors[0] ?? 'unknown error'}`)
+      return
     }
     downloadText(
-      `meridian-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      `meridian-workspace-backup-${new Date().toISOString().slice(0, 10)}.json`,
       exportJsonBackup(payload),
       'application/json',
     )
-    pushToast('success', 'JSON backup exported')
+    pushToast('success', `Workspace backup exported (${check.summary.totalRecords} records)`)
+  }
+
+  const onMigrateWorkspace = async () => {
+    if (!user) {
+      pushToast('error', 'Sign in to migrate a workspace')
+      return
+    }
+    setMigrating(true)
+    try {
+      const payload = buildWorkspaceExport({
+        userId: user.id,
+        exportedAt: new Date().toISOString(),
+        records: {
+          applications,
+          companies,
+          requirements,
+          documents,
+          contacts,
+          tasks,
+          tags,
+          savedViews,
+        },
+      })
+      const check = validateWorkspaceExport(payload)
+      if (!check.ok || !check.summary) {
+        throw new Error(`Backup invalid: ${check.errors[0] ?? 'unknown error'}`)
+      }
+      downloadText(
+        `meridian-workspace-backup-${new Date().toISOString().slice(0, 10)}.json`,
+        exportJsonBackup(payload),
+        'application/json',
+      )
+      const result = await importWorkspace(payload.records)
+      for (const collection of WORKSPACE_EXPORT_COLLECTIONS) {
+        if (result.counts[collection] !== payload.counts[collection]) {
+          throw new Error(`Server count mismatch for ${collection}`)
+        }
+      }
+      pushToast(
+        'success',
+        `Workspace moved to cloud (${check.summary.totalRecords} records) — local copy kept as rollback`,
+      )
+    } catch (err) {
+      pushToast('error', err instanceof Error ? err.message : 'Cloud migration failed')
+    } finally {
+      setMigrating(false)
+    }
   }
 
   const onImportCsv = async (file: File) => {
@@ -194,6 +267,25 @@ export function SettingsPage() {
             }}
           />
         </div>
+      </section>
+
+      <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
+        <h2 className="font-display font-semibold">Cloud workspace</h2>
+        <p className="text-sm text-[var(--color-muted)]">
+          Downloads a validated backup first, then moves eligible records to
+          your cloud account and verifies server counts. Document file
+          attachments stay on this device. Local data is kept as a rollback copy.
+        </p>
+        <Button
+          variant="primary"
+          onClick={() => {
+            void onMigrateWorkspace()
+          }}
+          disabled={migrating}
+        >
+          <Upload className="size-4" />
+          {migrating ? 'Moving workspace…' : 'Back up & move this workspace to cloud'}
+        </Button>
       </section>
 
       <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
