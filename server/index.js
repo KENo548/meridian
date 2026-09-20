@@ -1074,7 +1074,12 @@ app.get('/api/health/stats', async (_req, res) => {
 // Owner is always req.userId from the verified JWT. Client-supplied
 // owner fields are stripped by sanitizeWorkspaceRecord, never trusted.
 
-function workspaceError(res, err, fallback) {
+function workspaceError(req, res, err, fallback) {
+  // P0a canary diagnostic: a workspace 500 must never be blind.
+  // Logs method/path/stack only — never bodies, cookies, or tokens.
+  if (!err || err.statusCode !== 400) {
+    console.error(`[Workspace] ${req.method} ${req.path} failed:`, err);
+  }
   if (err && err.statusCode === 400) {
     return res.status(400).json({ error: err.message });
   }
@@ -1085,7 +1090,7 @@ app.get('/api/workspace', verifyAuth, async (req, res) => {
   try {
     res.json(await getWorkspaceDump(req.userId));
   } catch (err) {
-    workspaceError(res, err, 'Failed to load workspace');
+    workspaceError(req, res, err, 'Failed to load workspace');
   }
 });
 
@@ -1107,7 +1112,7 @@ app.put('/api/workspace/:collection/:id', verifyAuth, async (req, res) => {
     }
     res.json({ record });
   } catch (err) {
-    workspaceError(res, err, 'Failed to save workspace record');
+    workspaceError(req, res, err, 'Failed to save workspace record');
   }
 });
 
@@ -1123,7 +1128,7 @@ app.delete('/api/workspace/:collection/:id', verifyAuth, async (req, res) => {
     }
     res.json({ deleted: true });
   } catch (err) {
-    workspaceError(res, err, 'Failed to delete workspace record');
+    workspaceError(req, res, err, 'Failed to delete workspace record');
   }
 });
 
@@ -1164,7 +1169,7 @@ app.post('/api/workspace/import', verifyAuth, async (req, res) => {
     }
     res.json({ counts });
   } catch (err) {
-    workspaceError(res, err, 'Workspace import failed');
+    workspaceError(req, res, err, 'Workspace import failed');
   }
 });
 
