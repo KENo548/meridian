@@ -12,6 +12,7 @@ import {
   deleteWorkspaceRecord,
   fetchWorkspace,
   importWorkspace,
+  parseRetryAfterMs,
   putWorkspaceRecord,
   setWorkspaceApiBase,
   withoutFileData,
@@ -126,5 +127,61 @@ describe('workspaceApi', () => {
       fetchWorkspace(),
       /Workspace request failed \(503\)/,
     )
+  })
+
+  it('parses Retry-After with bounds and fallbacks', () => {
+    const headers = (value: string | null) => ({
+      get: (_name: string) => value,
+    })
+    assert.equal(parseRetryAfterMs(headers('5')), 5000)
+    assert.equal(parseRetryAfterMs(headers('0')), 0)
+    assert.equal(parseRetryAfterMs(headers(null)), 2000)
+    assert.equal(parseRetryAfterMs(headers('garbage')), 2000)
+    assert.equal(parseRetryAfterMs(headers('-3')), 2000)
+    assert.equal(parseRetryAfterMs(headers('3600')), 30000)
+  })
+
+  it('retries once after a 429 then succeeds (idempotent retry)', async () => {
+    let calls = 0
+    globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+      calls += 1
+      seen.push({ url: String(url), init: init ?? {} })
+      if (calls === 1) {
+        return {
+          ok: false,
+          status: 429,
+          headers: { get: () => '0' },
+          json: async () => ({ error: 'Too many requests' }),
+        }
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        json: async () => ({ record: { id: 't1' } }),
+      }
+    }) as unknown as typeof fetch
+    const result = await putWorkspaceRecord('tasks', { id: 't1' })
+    assert.equal(calls, 2)
+    assert.deepEqual(result, { record: { id: 't1' } })
+  })
+
+  it('stops after one retry with a friendly busy error', async () => {
+    let calls = 0
+    globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+      calls += 1
+      seen.push({ url: String(url), init: init ?? {} })
+      return {
+        ok: false,
+        status: 429,
+        headers: { get: () => '0' },
+        json: async () => ({ error: 'Too many requests' }),
+      }
+    }) as unknown as typeof fetch
+    await assert.rejects(
+      fetchWorkspace(),
+      /server is busy.*nothing was saved or lost/i,
+    )
+    assert.equal(calls, 2)
   })
 })

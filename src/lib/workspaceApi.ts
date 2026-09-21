@@ -54,9 +54,32 @@ export function withoutFileData<T>(collection: string, record: T): T {
   return rest as T
 }
 
+/**
+ * Honor the server's Retry-After hint (GitHub pattern): one idempotent
+ * retry after the indicated wait, then a friendly error. Every workspace
+ * operation is an idempotent upsert/delete scoped by record ID (Stripe
+ * pattern), so a single retry can neither duplicate nor lose data.
+ */
+export function parseRetryAfterMs(
+  headers: { get: (name: string) => string | null },
+  fallbackMs = 2000,
+): number {
+  const seconds = headers.get('retry-after')
+  const parsed = seconds === null ? NaN : Number(seconds)
+  if (!Number.isFinite(parsed) || parsed < 0) return fallbackMs
+  return Math.min(parsed * 1000, 30000)
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
 async function request<T>(
   path: string,
   init?: RequestInit,
+  retried = false,
 ): Promise<T> {
   const res = await fetch(`${resolveApiBase()}${path}`, {
     ...init,
@@ -66,6 +89,10 @@ async function request<T>(
       ...init?.headers,
     },
   })
+  if (res.status === 429 && !retried) {
+    await sleep(parseRetryAfterMs(res.headers))
+    return request<T>(path, init, true)
+  }
   let data: unknown = null
   try {
     data = await res.json()
@@ -73,6 +100,11 @@ async function request<T>(
     data = null
   }
   if (!res.ok) {
+    if (res.status === 429) {
+      throw new Error(
+        'The server is busy. Please wait a few seconds and retry — nothing was saved or lost.',
+      )
+    }
     const message =
       (isRecord(data) && typeof data['error'] === 'string' && data['error']) ||
       `Workspace request failed (${res.status})`

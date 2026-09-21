@@ -148,7 +148,43 @@ app.use(cookieParser());
 // JWT-based auth — verifyAuth is imported from auth.js
 // No server-side session state needed. /api/auth/me responds in <1ms.
 
-// Mount auth routes (public — no auth required)
+// ─── Scoped rate limits (GitHub/Stripe pattern: per-endpoint budgets) ─
+// One global bucket let cheap reads starve writes and turned normal use
+// into 429s. Budgets are partitioned by risk instead:
+//   auth    — credential endpoints stay strict (bcrypt is the real cost)
+//   writes  — mutations get their own bucket so reads can't starve saves
+//   reads   — generous; the UI is read-heavy by design
+// standardHeaders emits RateLimit-* + Retry-After, which the frontend
+// honors with a single idempotent retry before surfacing an error.
+// Declared here, before first use, so booting never hits TDZ ordering.
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many sign-in attempts, please try again later.' },
+});
+
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many changes at once, please wait a few seconds and retry.' },
+});
+
+const readLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
+// Mount auth routes (public — no auth required).
+// The auth limiter runs first so credential endpoints are counted.
+app.use('/api/auth', authLimiter);
 app.use('/api/auth', authRouter);
 
 // Protect all /api routes except health, sources, and auth
@@ -161,14 +197,10 @@ app.use('/api', (req, res, next) => {
   verifyAuth(req, res, next)
 });
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth')) return next();
+  return (req.method === 'GET' ? readLimiter : writeLimiter)(req, res, next);
 });
-app.use('/api', limiter);
 
 const ADZUNA_ENABLED = process.env.ADZUNA_ENABLED === 'true';
 const JSEARCH_ENABLED = process.env.JSEARCH_ENABLED === 'true';
