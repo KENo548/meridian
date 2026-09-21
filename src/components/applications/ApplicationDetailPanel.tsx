@@ -3,26 +3,53 @@ import { X, Trash2, Archive, Plus, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Input'
+import { MultiSelect } from '@/components/ui/MultiSelect'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { ExternalLink } from '@/components/ui/ExternalLink'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { DeadlineBadge } from '@/components/ui/DeadlineBadge'
+import { LanguageEditor } from '@/components/applications/AddApplicationWizard'
 import {
+  ASSESSMENT_TYPE_LABELS,
   STATUS_LABELS,
   STATUS_ORDER,
   DEADLINE_TYPE_LABELS,
+  DIVISION_LABELS,
+  DOC_REQUIREMENT_LABELS,
+  ELIGIBLE_YEAR_LABELS,
   REQUIREMENT_STATUS_LABELS,
   COMPANY_TYPE_LABELS,
+  PRIORITY_LABELS,
+  RECOMMENDED_TIMING_LABELS,
+  ROLE_TYPE_LABELS,
   SOURCE_LABELS,
   SPECIALIZATION_LABELS,
+  WORK_AUTH_LABELS,
 } from '@/constants'
 import { useMeridianStore } from '@/lib/store'
-import { toDateInput, formatDisplayDate, clsx } from '@/lib/utils'
+import {
+  toDateInput,
+  formatDisplayDate,
+  clsx,
+  getDivisions,
+  getLanguages,
+  getSpecializations,
+  resolveDocRequirement,
+} from '@/lib/utils'
 import type {
   ApplicationStatus,
+  AssessmentType,
   DeadlineType,
+  Division,
+  DocumentRequirement,
+  EligibleUniversityYear,
+  Priority,
+  RecommendedTiming,
   RequirementStatus,
+  RoleType,
+  Specialization,
+  WorkAuthorization,
 } from '@/types'
 
 const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
@@ -98,6 +125,20 @@ export function ApplicationDetailPanel() {
     void updateApplication(app.id, patch)
   }
 
+  const toggleList = <T extends string>(key: 'divisions' | 'specializations' | 'eligibleUniversityYears' | 'assessments', value: T) => {
+    // Divisions/specializations normalize legacy single values first so
+    // the first toggle never silently drops existing data.
+    const base: T[] =
+      key === 'divisions'
+        ? (getDivisions(app) as unknown as T[])
+        : key === 'specializations'
+          ? (getSpecializations(app) as unknown as T[])
+          : ((app[key] ?? []) as unknown as T[])
+    saveField({ [key]: base.includes(value) ? base.filter((x) => x !== value) : [...base, value] } as Parameters<
+      typeof updateApplication
+    >[1])
+  }
+
   return (
     <>
       <button
@@ -140,6 +181,44 @@ export function ApplicationDetailPanel() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input label="Company" value={app.companyName} onChange={(e) => saveField({ companyName: e.target.value })} />
               <Input label="Role" value={app.jobTitle} onChange={(e) => saveField({ jobTitle: e.target.value })} />
+              <Select
+                label="Role type"
+                value={app.roleType}
+                options={(Object.keys(ROLE_TYPE_LABELS) as RoleType[]).map((k) => ({
+                  value: k,
+                  label: ROLE_TYPE_LABELS[k],
+                }))}
+                onChange={(e) => saveField({ roleType: e.target.value as RoleType })}
+              />
+              <Input
+                label="Specific team"
+                value={app.specificTeam ?? app.team ?? ''}
+                placeholder="Free text — never forced into a list"
+                onChange={(e) => saveField({ specificTeam: e.target.value || undefined })}
+              />
+              <div className="sm:col-span-2">
+                <MultiSelect
+                  label="Divisions"
+                  options={(Object.keys(DIVISION_LABELS) as Division[]).map((k) => ({
+                    value: k,
+                    label: DIVISION_LABELS[k],
+                  }))}
+                  selected={getDivisions(app)}
+                  onToggle={(v) => toggleList('divisions', v)}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <MultiSelect
+                  label="Specializations"
+                  searchable
+                  options={(Object.keys(SPECIALIZATION_LABELS) as Specialization[]).map((k) => ({
+                    value: k,
+                    label: SPECIALIZATION_LABELS[k],
+                  }))}
+                  selected={getSpecializations(app)}
+                  onToggle={(v) => toggleList('specializations', v)}
+                />
+              </div>
               <Input
                 label="Location"
                 value={app.location ?? ''}
@@ -261,6 +340,76 @@ export function ApplicationDetailPanel() {
 
           <Divider />
 
+          {/* ── Eligibility ─────────────────────────────── */}
+          <section className="space-y-3">
+            <SectionHeader>Eligibility</SectionHeader>
+            <MultiSelect
+              label="Eligible university years"
+              options={(Object.keys(ELIGIBLE_YEAR_LABELS) as EligibleUniversityYear[]).map((k) => ({
+                value: k,
+                label: ELIGIBLE_YEAR_LABELS[k],
+              }))}
+              selected={app.eligibleUniversityYears ?? []}
+              onToggle={(v) => toggleList('eligibleUniversityYears', v)}
+            />
+            <Input
+              label="Target graduation years"
+              placeholder="e.g. 2027, 2028"
+              value={(app.targetGraduationYears ?? []).join(', ')}
+              onChange={(e) => {
+                const years: number[] = []
+                for (const part of e.target.value.split(/[,|\s]+/)) {
+                  const year = Number.parseInt(part, 10)
+                  if (Number.isFinite(year) && year >= 1900 && year <= 2200 && !years.includes(year)) {
+                    years.push(year)
+                  }
+                }
+                saveField({ targetGraduationYears: years.length ? years.sort((a, b) => a - b) : undefined })
+              }}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Work authorization"
+                value={app.workAuthorization ?? ''}
+                placeholder="Unknown"
+                options={(Object.keys(WORK_AUTH_LABELS) as WorkAuthorization[]).map((k) => ({
+                  value: k,
+                  label: WORK_AUTH_LABELS[k],
+                }))}
+                onChange={(e) => saveField({ workAuthorization: (e.target.value || undefined) as WorkAuthorization | undefined })}
+              />
+            </div>
+            <LanguageEditor
+              rows={getLanguages(app).map((l) => ({
+                language: l.language,
+                requirement: l.requirement,
+                proficiency: l.proficiency ?? '',
+              }))}
+              onChange={(rows) => {
+                const cleaned = rows
+                  .filter((r) => r.language.trim())
+                  .map((r) => ({
+                    language: r.language.trim(),
+                    requirement: r.requirement,
+                    ...(r.proficiency.trim() ? { proficiency: r.proficiency.trim() } : {}),
+                  }))
+                saveField({ languageRequirements: cleaned.length ? cleaned : undefined })
+              }}
+            />
+            <Textarea
+              label="Eligibility requirements"
+              value={app.eligibilityRequirements ?? ''}
+              onChange={(e) => saveField({ eligibilityRequirements: e.target.value || undefined })}
+            />
+            <Textarea
+              label="Visa notes"
+              value={app.visaNotes ?? ''}
+              onChange={(e) => saveField({ visaNotes: e.target.value || undefined })}
+            />
+          </section>
+
+          <Divider />
+
           {/* ── Dates ─────────────────────────────────── */}
           <section className="space-y-3">
             <SectionHeader>Dates</SectionHeader>
@@ -313,6 +462,179 @@ export function ApplicationDetailPanel() {
                 placeholder="e.g. 3 months"
                 onChange={(e) => saveField({ duration: e.target.value || undefined })}
               />
+              <div className="sm:col-span-2">
+                <Textarea
+                  label="Timing notes"
+                  placeholder="Approximate timing when no exact date is known"
+                  value={app.timingNotes ?? ''}
+                  onChange={(e) => saveField({ timingNotes: e.target.value || undefined })}
+                />
+              </div>
+            </div>
+          </section>
+
+          <Divider />
+
+          {/* ── Application requirements ────────────────── */}
+          <section className="space-y-3">
+            <SectionHeader>Application Requirements</SectionHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(
+                [
+                  ['cvRequired', 'CV'],
+                  ['coverLetterRequired', 'Cover letter'],
+                  ['transcriptRequired', 'Transcript'],
+                  ['referencesRequired', 'References'],
+                ] as const
+              ).map(([key, label]) => (
+                <Select
+                  key={key}
+                  label={`${label} — ${resolveDocRequirement(app[key]) === 'unknown' ? 'unknown' : DOC_REQUIREMENT_LABELS[resolveDocRequirement(app[key])]}`}
+                  value={app[key] ?? ''}
+                  placeholder="Unknown"
+                  options={(Object.keys(DOC_REQUIREMENT_LABELS) as DocumentRequirement[]).map((k) => ({
+                    value: k,
+                    label: DOC_REQUIREMENT_LABELS[k],
+                  }))}
+                  onChange={(e) =>
+                    saveField({ [key]: (e.target.value || undefined) as DocumentRequirement | undefined })
+                  }
+                />
+              ))}
+              <Select
+                label="Application questions"
+                value={app.applicationQuestions ?? ''}
+                placeholder="Unknown"
+                options={[
+                  { value: 'yes', label: 'Yes' },
+                  { value: 'no', label: 'No' },
+                  { value: 'unknown', label: 'Unknown' },
+                ]}
+                onChange={(e) =>
+                  saveField({
+                    applicationQuestions: (e.target.value || undefined) as
+                      | 'yes'
+                      | 'no'
+                      | 'unknown'
+                      | undefined,
+                  })
+                }
+              />
+            </div>
+            <Textarea
+              label="Requirements notes"
+              value={app.requirementsNotes ?? ''}
+              onChange={(e) => saveField({ requirementsNotes: e.target.value || undefined })}
+            />
+          </section>
+
+          <Divider />
+
+          {/* ── Assessments ─────────────────────────────── */}
+          <section className="space-y-3">
+            <SectionHeader>Assessments</SectionHeader>
+            {(app.assessments ?? []).length > 0 ? (
+              <ul className="space-y-1.5">
+                {(app.assessments ?? []).map((a) => (
+                  <li key={a} className="flex items-center gap-2 text-sm">
+                    <span className="text-[var(--color-success)]">✓</span>
+                    {ASSESSMENT_TYPE_LABELS[a] ?? a}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-[var(--color-faint)]">No assessments recorded</p>
+            )}
+            <MultiSelect
+              label="Edit assessments"
+              searchable
+              options={(Object.keys(ASSESSMENT_TYPE_LABELS) as AssessmentType[]).map((k) => ({
+                value: k,
+                label: ASSESSMENT_TYPE_LABELS[k],
+              }))}
+              selected={app.assessments ?? []}
+              onToggle={(v) => toggleList('assessments', v)}
+            />
+            <Textarea
+              label="Assessment notes"
+              value={app.assessmentNotes ?? ''}
+              onChange={(e) => saveField({ assessmentNotes: e.target.value || undefined })}
+            />
+          </section>
+
+          <Divider />
+
+          {/* ── Recruitment process ─────────────────────── */}
+          <section className="space-y-3">
+            <SectionHeader>Recruitment Process</SectionHeader>
+            <Textarea
+              label="Application process"
+              value={app.applicationProcess ?? ''}
+              onChange={(e) => saveField({ applicationProcess: e.target.value || undefined })}
+            />
+            <Textarea
+              label="Interview process"
+              value={app.interviewProcess ?? ''}
+              onChange={(e) => saveField({ interviewProcess: e.target.value || undefined })}
+            />
+            <Textarea
+              label="Expected interview timeline"
+              value={app.expectedInterviewTimeline ?? ''}
+              onChange={(e) => saveField({ expectedInterviewTimeline: e.target.value || undefined })}
+            />
+          </section>
+
+          <Divider />
+
+          {/* ── My tracking ─────────────────────────────── */}
+          <section className="space-y-3">
+            <SectionHeader>My Tracking</SectionHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Priority"
+                value={app.priority ?? ''}
+                placeholder="Select…"
+                options={(Object.keys(PRIORITY_LABELS) as Priority[]).map((k) => ({
+                  value: k,
+                  label: PRIORITY_LABELS[k],
+                }))}
+                onChange={(e) => saveField({ priority: (e.target.value || undefined) as Priority | undefined })}
+              />
+              <Select
+                label="Recommended timing"
+                value={app.recommendedTiming ?? ''}
+                placeholder="Unknown"
+                options={(Object.keys(RECOMMENDED_TIMING_LABELS) as RecommendedTiming[]).map((k) => ({
+                  value: k,
+                  label: RECOMMENDED_TIMING_LABELS[k],
+                }))}
+                onChange={(e) =>
+                  saveField({ recommendedTiming: (e.target.value || undefined) as RecommendedTiming | undefined })
+                }
+              />
+              <Input
+                label="Next action"
+                value={app.nextAction ?? ''}
+                onChange={(e) => saveField({ nextAction: e.target.value || undefined })}
+              />
+              <Input
+                label="Next action date"
+                type="date"
+                value={toDateInput(app.nextActionDate)}
+                onChange={(e) => saveField({ nextActionDate: e.target.value || undefined })}
+              />
+              <Input
+                label="Last checked"
+                type="date"
+                value={toDateInput(app.lastChecked)}
+                onChange={(e) => saveField({ lastChecked: e.target.value || undefined })}
+              />
+              <Input
+                label="Information verified"
+                type="date"
+                value={toDateInput(app.dateInformationVerified)}
+                onChange={(e) => saveField({ dateInformationVerified: e.target.value || undefined })}
+              />
             </div>
           </section>
 
@@ -331,6 +653,18 @@ export function ApplicationDetailPanel() {
               </div>
             </div>
             <div className="space-y-3">
+              <Select
+                label="Source"
+                value={app.source ?? ''}
+                options={[
+                  { value: '', label: '—' },
+                  ...(Object.keys(SOURCE_LABELS) as (keyof typeof SOURCE_LABELS)[]).map((k) => ({
+                    value: k,
+                    label: SOURCE_LABELS[k],
+                  })),
+                ]}
+                onChange={(e) => saveField({ source: (e.target.value || undefined) as typeof app.source })}
+              />
               <Input
                 label="Application URL"
                 value={app.applicationUrl ?? ''}
