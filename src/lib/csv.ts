@@ -25,6 +25,7 @@ import {
   COMPANY_TYPE_LABELS,
   DIVISION_LABELS,
   ELIGIBLE_YEAR_LABELS,
+  ROLE_TYPE_LABELS,
   SPECIALIZATION_LABELS,
 } from '@/constants'
 
@@ -126,6 +127,10 @@ function mapStatus(raw: string): ApplicationStatus {
 
 function mapRole(raw: string): RoleType {
   const k = raw.trim().toLowerCase()
+  // Exact canonical values first — the fuzzy substring scan below would
+  // otherwise map e.g. `spring_insight` to `spring_week` via `spring`.
+  const exact = (Object.keys(ROLE_TYPE_LABELS) as RoleType[]).find((v) => v === k)
+  if (exact) return exact
   for (const [needle, value] of Object.entries(ROLE_MAP)) {
     if (k.includes(needle)) return value
   }
@@ -353,8 +358,9 @@ export function parseApplicationsCsv(csvText: string): { apps: Application[]; er
       location: pick(row, ['Location', 'location']) || undefined,
       division: legacyDivision || undefined,
       divisions: mapDivisions(pick(row, ['Divisions', 'divisions']), legacyDivision),
-      team: pick(row, ['Team', 'team']) || undefined,
-      specificTeam: pick(row, ['Specific Team', 'specific_team']) || undefined,
+      team: pick(row, ['Team', 'team']) || pick(row, ['Specific Team', 'specific_team']) || undefined,
+      specificTeam:
+        pick(row, ['Specific Team', 'specific_team']) || pick(row, ['Team', 'team']) || undefined,
       specialization: undefined,
       specializations: mapSpecializations(pick(row, ['Specializations', 'specializations']), legacySpecialization),
       languageRequirements: parseLanguageCell(pick(row, ['Languages', 'languages'])),
@@ -393,7 +399,7 @@ export function parseApplicationsCsv(csvText: string): { apps: Application[]; er
       sourceUrl: pick(row, ['Source URL', 'source_url']) || undefined,
       applicationUrl: pick(row, ['Application Link', 'Apply URL', 'application_url', 'URL']) || undefined,
       jobUrl: pick(row, ['Job Posting', 'Job URL', 'job_url']) || undefined,
-      companyUrl: pick(row, ['Company Website', 'Website', 'company_url']) || undefined,
+      companyUrl: pick(row, ['Company Website', 'Company URL', 'Website', 'website', 'company_url']) || undefined,
       notes: pick(row, ['Notes', 'notes']) || undefined,
       recruitmentCycle: pick(row, ['Cycle', 'Year', 'recruitment_cycle']) || undefined,
       archived: false,
@@ -416,6 +422,7 @@ export function exportApplicationsCsv(apps: Application[]): string {
     Divisions: (a.divisions ?? []).join('|'),
     Specialization: a.specialization ?? '',
     Specializations: (a.specializations ?? []).join('|'),
+    Team: a.team ?? a.specificTeam ?? '',
     'Specific Team': a.specificTeam ?? a.team ?? '',
     Location: a.location ?? '',
     City: a.city ?? '',
@@ -440,11 +447,14 @@ export function exportApplicationsCsv(apps: Application[]): string {
     'Recommended Timing': a.recommendedTiming ?? '',
     'Next Action': a.nextAction ?? '',
     'Next Action Date': a.nextActionDate ?? '',
-    'CV Required': a.cvRequired ?? '',
-    'Cover Letter Required': a.coverLetterRequired ?? '',
-    'Transcript Required': a.transcriptRequired ?? '',
-    'References Required': a.referencesRequired ?? '',
-    'Application Questions': a.applicationQuestions ?? '',
+    'CV Required': a.cvRequired && a.cvRequired !== 'unknown' ? a.cvRequired : '',
+    'Cover Letter Required': a.coverLetterRequired && a.coverLetterRequired !== 'unknown' ? a.coverLetterRequired : '',
+    'Transcript Required':
+      a.transcriptRequired && a.transcriptRequired !== 'unknown' ? a.transcriptRequired : '',
+    'References Required':
+      a.referencesRequired && a.referencesRequired !== 'unknown' ? a.referencesRequired : '',
+    'Application Questions':
+      a.applicationQuestions && a.applicationQuestions !== 'unknown' ? a.applicationQuestions : '',
     'Requirements Notes': a.requirementsNotes ?? '',
     Assessments: (a.assessments ?? []).join('|'),
     'Assessment Notes': a.assessmentNotes ?? '',
