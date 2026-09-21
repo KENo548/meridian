@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { DEFAULT_TAGS } from '@/constants'
+import { DEFAULT_SAVED_VIEWS, DEFAULT_TAGS } from '@/constants'
 import { getDb, nowIso, uid } from '@/lib/db'
 import { emptyFilters, findDuplicate } from '@/lib/utils'
 import {
@@ -135,12 +135,27 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
 
       let tags = (remote.tags ?? []) as unknown as Tag[]
       const remoteApplications = (remote.applications ?? []) as unknown as Application[]
+      let savedViews = (remote.savedViews ?? []) as unknown as SavedView[]
 
       if (remoteApplications.length === 0 && tags.length === 0) {
         // First launch for this account — seed default tags server-side.
         const fresh: Tag[] = DEFAULT_TAGS.map((name) => ({ id: uid('tag'), name }))
         await cloud(get, 'Workspace setup', () => importWorkspace({ tags: fresh }))
         tags = fresh
+      }
+
+      if (savedViews.length === 0) {
+        // Seed the default quick views once. They are ordinary saved
+        // views — same filter model, no special logic — and the user
+        // can delete or extend them freely.
+        const fresh: SavedView[] = DEFAULT_SAVED_VIEWS.map((view) => ({
+          id: uid('view'),
+          name: view.name,
+          filters: { ...emptyFilters(), ...view.filters },
+          createdAt: nowIso(),
+        }))
+        await cloud(get, 'Workspace setup', () => importWorkspace({ savedViews: fresh }))
+        savedViews = fresh
       }
 
       set({
@@ -151,7 +166,7 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
         contacts: (remote.contacts ?? []) as unknown as Contact[],
         tasks: (remote.tasks ?? []) as unknown as Task[],
         tags,
-        savedViews: (remote.savedViews ?? []) as unknown as SavedView[],
+        savedViews,
         hydrated: true,
       })
 

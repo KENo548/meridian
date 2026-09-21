@@ -1,4 +1,5 @@
 import type {
+  ApplicationFilters,
   ApplicationStatus,
   AssessmentType,
   CompanyType,
@@ -457,12 +458,31 @@ export const DEFAULT_TAGS = [
   'Summer 2027',
 ]
 
-export const DEFAULT_SAVED_VIEWS = [
-  { name: 'Due This Week', filters: { deadlinePreset: 'this_week' as const } },
-  { name: 'Investment Banking', filters: { specializations: ['investment_banking' as const] } },
+/**
+ * Default saved views. Every entry is a plain partial filter
+ * configuration — the same model user-created views serialize.
+ * No view has special filtering logic.
+ */
+export const DEFAULT_SAVED_VIEWS: Array<{ name: string; filters: Partial<ApplicationFilters> }> = [
+  {
+    name: 'Apply Now',
+    filters: { statuses: ['to_apply', 'application_started'] as ApplicationStatus[] },
+  },
+  {
+    name: 'Spring Weeks / Insights',
+    filters: { roleTypes: ['spring_week', 'spring_insight', 'insight_programme'] },
+  },
+  {
+    name: 'First-Year Eligible',
+    filters: { eligibleUniversityYears: ['first_year'] },
+  },
+  { name: 'Summer Internships', filters: { roleTypes: ['summer_internship'] } },
+  { name: 'Rolling Applications', filters: { deadlineTypes: ['rolling'] } },
+  { name: 'Upcoming Deadlines', filters: { deadlineWithinDays: 14 } },
+  { name: 'High Priority', filters: { priorities: ['high'] } },
+  { name: 'No Cover Letter', filters: { coverLetterRequired: ['no'] } },
   { name: 'London', filters: { cities: ['London'] } },
-  { name: 'Frankfurt', filters: { cities: ['Frankfurt'] } },
-  { name: 'Private Equity', filters: { specializations: ['private_equity' as const] } },
+  { name: 'Investment Banking', filters: { specializations: ['investment_banking'] } },
   {
     name: 'Not Yet Submitted',
     filters: { statuses: ['interested', 'to_apply', 'preparing'] as ApplicationStatus[] },
@@ -471,14 +491,17 @@ export const DEFAULT_SAVED_VIEWS = [
     name: 'Interviews',
     filters: {
       statuses: [
+        'hirevue',
+        'phone_interview',
         'first_interview',
+        'first_round',
         'second_interview',
+        'second_round',
         'final_interview',
         'assessment_centre',
         'superday',
       ] as ApplicationStatus[],
     },
   },
-  { name: 'Rejected', filters: { statuses: ['rejected'] as ApplicationStatus[] } },
   { name: 'Offers', filters: { statuses: ['offer', 'accepted'] as ApplicationStatus[] } },
 ]

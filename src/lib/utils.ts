@@ -333,6 +333,66 @@ export function filterApplications(
     if (filters.tags.length && !filters.tags.some((t) => app.tagIds.includes(t))) return false
     if (filters.languages.length && !getLanguages(app).some((l) => filters.languages.includes(l.language))) return false
 
+    // Multi-value taxonomy filters: a record matches on intersection,
+    // never exact array equality. Missing data never matches an active
+    // filter — unknown is not a value.
+    if (filters.assessments.length && !(app.assessments ?? []).some((a) => filters.assessments.includes(a))) {
+      return false
+    }
+    if (
+      filters.eligibleUniversityYears.length &&
+      !(app.eligibleUniversityYears ?? []).some((y) => filters.eligibleUniversityYears.includes(y))
+    ) {
+      return false
+    }
+    if (
+      filters.targetGraduationYears.length &&
+      !(app.targetGraduationYears ?? []).some((y) => filters.targetGraduationYears.includes(y))
+    ) {
+      return false
+    }
+    if (
+      filters.workAuthorizations.length &&
+      (!app.workAuthorization || !filters.workAuthorizations.includes(app.workAuthorization))
+    ) {
+      return false
+    }
+    if (
+      filters.workModes.length &&
+      (!app.workArrangement || !filters.workModes.includes(app.workArrangement))
+    ) {
+      return false
+    }
+    if (filters.priorities.length && (!app.priority || !filters.priorities.includes(app.priority))) {
+      return false
+    }
+    // Document filters match the resolved value, so `unknown` is an
+    // explicit selectable state and old records surface under it —
+    // never under `no`.
+    if (filters.cvRequired.length && !filters.cvRequired.includes(resolveDocRequirement(app.cvRequired))) {
+      return false
+    }
+    if (
+      filters.coverLetterRequired.length &&
+      !filters.coverLetterRequired.includes(resolveDocRequirement(app.coverLetterRequired))
+    ) {
+      return false
+    }
+    if (
+      filters.transcriptRequired.length &&
+      !filters.transcriptRequired.includes(resolveDocRequirement(app.transcriptRequired))
+    ) {
+      return false
+    }
+    if (filters.deadlineTypes.length && !filters.deadlineTypes.includes(app.deadlineType)) return false
+    if (filters.cycles.length && (!app.recruitmentCycle || !filters.cycles.includes(app.recruitmentCycle))) {
+      return false
+    }
+    if (filters.deadlineWithinDays !== null && filters.deadlineWithinDays !== undefined) {
+      const days = daysUntilDeadline(app)
+      if (days === null || days < 0 || days > filters.deadlineWithinDays) return false
+    }
+
     if (filters.hasInterview === true && !INTERVIEW_STATUSES.includes(app.status) && !app.interviewDate) {
       return false
     }
