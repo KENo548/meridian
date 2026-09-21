@@ -143,6 +143,22 @@ export function buildWorkspaceExport(input: {
   }
 }
 
+/**
+ * Remove incoming tags whose name (case-insensitive) already exists
+ * server-side — e.g. first-launch seeded defaults colliding with the
+ * user's real tags. Returns the survivors; inputs untouched.
+ */
+export function excludeExistingTags(
+  incoming: unknown[],
+  existingNames: string[],
+): unknown[] {
+  const known = new Set(existingNames.map((name) => name.toLowerCase()))
+  return incoming.filter((item) => {
+    if (!isRecord(item) || typeof item['name'] !== 'string') return true
+    return !known.has(item['name'].toLowerCase())
+  })
+}
+
 export function validateWorkspaceExport(
   payload: unknown,
 ): WorkspaceExportValidation {

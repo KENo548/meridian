@@ -11,6 +11,7 @@ import {
   WORKSPACE_EXPORT_FORMAT,
   WORKSPACE_EXPORT_SCHEMA_VERSION,
   buildWorkspaceExport,
+  excludeExistingTags,
   summarizeFileData,
   validateWorkspaceExport,
 } from './workspaceExport.ts'
@@ -127,6 +128,22 @@ describe('workspace export', () => {
     assert.deepEqual(check.errors, [])
     assert.equal(check.summary?.totalRecords, 10)
     assert.equal(check.summary?.userId, 'usr_test')
+  })
+
+  it('skips tags that already exist server-side, case-insensitively', () => {
+    const survivors = excludeExistingTags(
+      [
+        { id: 'tag_a', name: 'London' },
+        { id: 'tag_b', name: 'My Custom' },
+        { id: 'tag_c', name: 'ib' },
+        { id: 'tag_d' },
+      ],
+      ['london', 'IB', 'Priority'],
+    )
+    assert.deepEqual(survivors, [
+      { id: 'tag_b', name: 'My Custom' },
+      { id: 'tag_d' },
+    ])
   })
 
   it('rejects tampered or malformed exports', () => {

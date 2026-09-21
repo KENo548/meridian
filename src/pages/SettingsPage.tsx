@@ -10,9 +10,10 @@ import { useAuth } from '@/contexts/AuthContext'
 import {
   WORKSPACE_EXPORT_COLLECTIONS,
   buildWorkspaceExport,
+  excludeExistingTags,
   validateWorkspaceExport,
 } from '@/lib/workspaceExport'
-import { importWorkspace } from '@/lib/workspaceApi'
+import { fetchWorkspace, importWorkspace } from '@/lib/workspaceApi'
 
 export function SettingsPage() {
   const applications = useMeridianStore((s) => s.applications)
@@ -123,15 +124,28 @@ export function SettingsPage() {
         exportJsonBackup(payload),
         'application/json',
       )
-      const result = await importWorkspace(payload.records)
+      const serverState = await fetchWorkspace()
+      const existingTagNames = (serverState.tags ?? []).map((tag) =>
+        typeof tag.name === 'string' ? tag.name : '',
+      )
+      const eligible = {
+        ...payload.records,
+        tags: excludeExistingTags(payload.records.tags, existingTagNames),
+      }
+      const eligibleTotal = Object.values(eligible).reduce(
+        (sum, items) => sum + items.length,
+        0,
+      )
+      const result = await importWorkspace(eligible)
       for (const collection of WORKSPACE_EXPORT_COLLECTIONS) {
-        if (result.counts[collection] !== payload.counts[collection]) {
+        const expected = eligible[collection]?.length ?? 0
+        if (result.counts[collection] !== expected) {
           throw new Error(`Server count mismatch for ${collection}`)
         }
       }
       pushToast(
         'success',
-        `Workspace moved to cloud (${check.summary.totalRecords} records) — local copy kept as rollback`,
+        `Workspace moved to cloud (${eligibleTotal} records) — local copy kept as rollback`,
       )
     } catch (err) {
       pushToast('error', err instanceof Error ? err.message : 'Cloud migration failed')
