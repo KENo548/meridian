@@ -135,17 +135,17 @@ describe('countActiveDateRanges', () => {
     assert.equal(countActiveDateRanges(f({ openingDateFrom: '2026-01-01', openingDateTo: '2026-06-01' })), 1)
   })
 
-  it('counts 4 independent date range pairs', () => {
-    assert.equal(
-      countActiveDateRanges(
-        f({
-          openingDateFrom: '2026-01-01',
-          deadlineTo: '2026-12-31',
-          startDateFrom: '2026-06-01',
-          applicationDateTo: '2026-09-01',
-        }),
-      ),
-      4,
-    )
-  })
+it('counts 3 independent date range pairs excluding deadline', () => {
+     assert.equal(
+       countActiveDateRanges(
+         f({
+           openingDateFrom: '2026-01-01',
+           deadlineTo: '2026-12-31',
+           startDateFrom: '2026-06-01',
+           applicationDateTo: '2026-09-01',
+         }),
+       ),
+       3,
+     )
+   })
 })

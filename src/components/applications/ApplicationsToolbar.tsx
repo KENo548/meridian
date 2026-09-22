@@ -218,6 +218,9 @@ export function ApplicationsToolbar({
     if (filters.hasOffer != null) {
       list.push({ key: 'hasOffer', label: 'Has offer', clear: () => setFilters({ hasOffer: null }) })
     }
+    if (filters.showArchived) {
+      list.push({ key: 'showArchived', label: 'Show archived', clear: () => setFilters({ showArchived: false }) })
+    }
     if (filters.rollingDeadline != null) {
       list.push({ key: 'rollingDeadline', label: 'Rolling only', clear: () => setFilters({ rollingDeadline: null }) })
     }

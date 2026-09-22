@@ -190,11 +190,13 @@ export function countActiveKeys(
   return n
 }
 
-/** Date bounds count per range pair (from/to together are one filter). */
+/** Date bounds count per range pair (from/to together are one filter).
+ * Excludes deadline range — it belongs to the Application group and is
+ * counted separately in ApplicationsToolbar's activeFilterCount. */
 export function countActiveDateRanges(filters: ApplicationFilters): number {
   let n = 0
   if (filters.openingDateFrom || filters.openingDateTo) n++
-  if (filters.deadlineFrom || filters.deadlineTo) n++
+  // deadlineFrom/To excluded — counted in Application group separately
   if (filters.startDateFrom || filters.startDateTo) n++
   if (filters.applicationDateFrom || filters.applicationDateTo) n++
   return n

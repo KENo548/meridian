@@ -82,7 +82,6 @@ export const STATUS_ORDER: ApplicationStatus[] = [
 export const OPEN_STATUSES: ApplicationStatus[] = [
   'researching',
   'watching',
-  'not_open',
   'interested',
   'to_apply',
   'application_started',
@@ -148,7 +147,7 @@ export const KANBAN_COLUMNS: { id: string; label: string; statuses: ApplicationS
   {
     id: 'interested',
     label: 'Interested',
-    statuses: ['researching', 'watching', 'not_open', 'interested', 'to_apply'],
+    statuses: ['researching', 'watching', 'interested', 'to_apply'],
   },
   { id: 'preparing', label: 'Preparing', statuses: ['application_started', 'preparing'] },
   { id: 'applied', label: 'Applied', statuses: ['applied', 'online_assessment'] },
