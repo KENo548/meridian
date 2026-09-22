@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { MultiSelect } from '@/components/ui/MultiSelect'
 import { useMeridianStore } from '@/lib/store'
-import { clsx, countActiveDateRanges, countActiveKeys, getLanguages } from '@/lib/utils'
+import { clsx, countActiveDateRanges, countActiveKeys, getLanguages, isSystemTag } from '@/lib/utils'
 import type {
   ApplicationStatus,
   AssessmentType,
@@ -109,7 +109,7 @@ export function FiltersPanel() {
   const filters = useMeridianStore((s) => s.filters)
   const setFilters = useMeridianStore((s) => s.setFilters)
   const resetFilters = useMeridianStore((s) => s.resetFilters)
-  const tags = useMeridianStore((s) => s.tags)
+  const tags = useMeridianStore((s) => s.tags.filter((t) => !isSystemTag(t)))
   const applications = useMeridianStore((s) => s.applications)
 
   const cities = [...new Set(applications.map((a) => a.city).filter(Boolean) as string[])].sort()
@@ -260,7 +260,7 @@ export function FiltersPanel() {
 
       <FilterGroup
         label="Application"
-        active={countActive(['cvRequired', 'coverLetterRequired', 'transcriptRequired', 'deadlineTypes', 'deadlineWithinDays', 'rollingDeadline', 'deadlineFrom', 'deadlineTo'])}
+        active={countActive(['cvRequired', 'coverLetterRequired', 'transcriptRequired', 'deadlineTypes', 'deadlineWithinDays', 'rollingDeadline']) + ((filters.deadlineFrom || filters.deadlineTo) ? 1 : 0)}
       >
         <ChipGroup
           label="CV required"
