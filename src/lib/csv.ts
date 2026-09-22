@@ -27,6 +27,7 @@ import {
   ELIGIBLE_YEAR_LABELS,
   ROLE_TYPE_LABELS,
   SPECIALIZATION_LABELS,
+  STATUS_LABELS,
 } from '@/constants'
 
 /* ------------------------------------------------------------------ */
@@ -122,7 +123,13 @@ function pick(row: Record<string, string>, keys: string[]): string {
 }
 
 function mapStatus(raw: string): ApplicationStatus {
-  return STATUS_MAP[raw.trim().toLowerCase()] ?? 'interested'
+  const key = raw.trim().toLowerCase()
+  // Canonical identifiers round-trip as identity: the exporter writes
+  // snake_case (e.g. first_round) and must read back unchanged (PR #1 T2).
+  if ((Object.keys(STATUS_LABELS) as ApplicationStatus[]).includes(key as ApplicationStatus)) {
+    return key as ApplicationStatus
+  }
+  return STATUS_MAP[key] ?? 'interested'
 }
 
 function mapRole(raw: string): RoleType {
@@ -131,7 +138,10 @@ function mapRole(raw: string): RoleType {
   // otherwise map e.g. `spring_insight` to `spring_week` via `spring`.
   const exact = (Object.keys(ROLE_TYPE_LABELS) as RoleType[]).find((v) => v === k)
   if (exact) return exact
-  for (const [needle, value] of Object.entries(ROLE_MAP)) {
+  // Longest needles first so specific aliases (e.g. `spring insight`) win
+  // over generic prefixes (e.g. `spring`) regardless of map order (PR #1 T3).
+  const needles = Object.entries(ROLE_MAP).sort((a, b) => b[0].length - a[0].length)
+  for (const [needle, value] of needles) {
     if (k.includes(needle)) return value
   }
   return 'other'
@@ -142,6 +152,8 @@ function mapDeadlineType(raw: string, deadline: string): DeadlineType {
   if (k.includes('roll')) return 'rolling'
   if (k.includes('filled')) return 'until_filled'
   if (k.includes('estimat')) return 'estimated'
+  // The exporter writes `unknown` verbatim; it must round-trip (PR #1 T4).
+  if (k === 'unknown') return 'unknown'
   if (deadline) return 'specific'
   if (!raw && !deadline) return 'unknown'
   return 'specific'
@@ -361,7 +373,7 @@ export function parseApplicationsCsv(csvText: string): { apps: Application[]; er
       team: pick(row, ['Team', 'team']) || pick(row, ['Specific Team', 'specific_team']) || undefined,
       specificTeam:
         pick(row, ['Specific Team', 'specific_team']) || pick(row, ['Team', 'team']) || undefined,
-      specialization: undefined,
+      specialization: normalizeSpecialization(legacySpecialization),
       specializations: mapSpecializations(pick(row, ['Specializations', 'specializations']), legacySpecialization),
       languageRequirements: parseLanguageCell(pick(row, ['Languages', 'languages'])),
       targetGraduationYears: mapGraduationYears(pick(row, ['Graduation Years', 'Target Graduation Years'])),
@@ -384,6 +396,9 @@ export function parseApplicationsCsv(csvText: string): { apps: Application[]; er
       recommendedTiming: mapTiming(pick(row, ['Recommended Timing', 'Apply Timing'])),
       nextAction: pick(row, ['Next Action', 'next_action']) || undefined,
       nextActionDate: pick(row, ['Next Action Date', 'next_action_date']) || undefined,
+      lastChecked: pick(row, ['Last Checked', 'last_checked']) || undefined,
+      dateInformationVerified:
+        pick(row, ['Date Verified', 'Date Information Verified', 'date_verified']) || undefined,
       cvRequired: mapDocRequirement(pick(row, ['CV Required', 'CV'])),
       coverLetterRequired: mapDocRequirement(pick(row, ['Cover Letter Required', 'Cover Letter'])),
       transcriptRequired: mapDocRequirement(pick(row, ['Transcript Required', 'Transcript'])),
@@ -413,20 +428,36 @@ export function parseApplicationsCsv(csvText: string): { apps: Application[]; er
 }
 
 export function exportApplicationsCsv(apps: Application[]): string {
+  // Column contract: the original 21 legacy columns keep their exact name
+  // and order; every V2 column is appended after `Cycle` (PR #1 U1).
+  // Import is header-name based, so order changes never break our own
+  // parsing — but positional consumers rely on the legacy prefix.
   const rows = apps.map((a) => ({
     Company: a.companyName,
     'Job Title': a.jobTitle,
     Status: a.status,
     'Role Type': a.roleType,
     Division: a.division ?? '',
-    Divisions: (a.divisions ?? []).join('|'),
     Specialization: a.specialization ?? '',
-    Specializations: (a.specializations ?? []).join('|'),
-    Team: a.team ?? a.specificTeam ?? '',
-    'Specific Team': a.specificTeam ?? a.team ?? '',
     Location: a.location ?? '',
     City: a.city ?? '',
     Country: a.country ?? '',
+    'Opening Date': a.openingDate ?? '',
+    Deadline: a.deadline ?? '',
+    'Deadline Type': a.deadlineType,
+    'Application Date': a.applicationDate ?? '',
+    'Start Date': a.startDate ?? '',
+    'End Date': a.endDate ?? '',
+    Source: a.source ?? '',
+    'Application Link': a.applicationUrl ?? '',
+    'Job URL': a.jobUrl ?? '',
+    'Company URL': a.companyUrl ?? '',
+    Notes: a.notes ?? '',
+    Cycle: a.recruitmentCycle ?? '',
+    Team: a.team ?? a.specificTeam ?? '',
+    'Specific Team': a.specificTeam ?? a.team ?? '',
+    Divisions: (a.divisions ?? []).join('|'),
+    Specializations: (a.specializations ?? []).join('|'),
     'Work Mode': a.workArrangement ?? '',
     'Firm Category': a.companyType ?? '',
     'Graduation Years': (a.targetGraduationYears ?? []).join('|'),
@@ -435,18 +466,13 @@ export function exportApplicationsCsv(apps: Application[]): string {
     Languages: serializeLanguageCell(getLanguages(a)),
     'Work Authorization': a.workAuthorization ?? '',
     'Visa Notes': a.visaNotes ?? '',
-    'Opening Date': a.openingDate ?? '',
-    Deadline: a.deadline ?? '',
-    'Deadline Type': a.deadlineType,
     'Timing Notes': a.timingNotes ?? '',
-    'Application Date': a.applicationDate ?? '',
-    'Start Date': a.startDate ?? '',
-    'End Date': a.endDate ?? '',
-    Duration: a.duration ?? '',
     Priority: a.priority ?? '',
     'Recommended Timing': a.recommendedTiming ?? '',
     'Next Action': a.nextAction ?? '',
     'Next Action Date': a.nextActionDate ?? '',
+    'Last Checked': a.lastChecked ?? '',
+    'Date Verified': a.dateInformationVerified ?? '',
     'CV Required': a.cvRequired && a.cvRequired !== 'unknown' ? a.cvRequired : '',
     'Cover Letter Required': a.coverLetterRequired && a.coverLetterRequired !== 'unknown' ? a.coverLetterRequired : '',
     'Transcript Required':
@@ -461,13 +487,8 @@ export function exportApplicationsCsv(apps: Application[]): string {
     'Application Process': a.applicationProcess ?? '',
     'Interview Process': a.interviewProcess ?? '',
     'Expected Timeline': a.expectedInterviewTimeline ?? '',
-    Source: a.source ?? '',
+    Duration: a.duration ?? '',
     'Source URL': a.sourceUrl ?? '',
-    'Application Link': a.applicationUrl ?? '',
-    'Job URL': a.jobUrl ?? '',
-    'Company URL': a.companyUrl ?? '',
-    Notes: a.notes ?? '',
-    Cycle: a.recruitmentCycle ?? '',
   }))
   return Papa.unparse(rows)
 }

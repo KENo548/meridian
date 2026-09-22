@@ -8,6 +8,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import Papa from 'papaparse'
 import {
   exportApplicationsCsv,
   parseApplicationsCsv,
@@ -190,6 +191,10 @@ describe('export/import round trip', () => {
       'recommendedTiming',
       'nextAction',
       'nextActionDate',
+      'lastChecked',
+      'dateInformationVerified',
+      'specialization',
+      'duration',
       'cvRequired',
       'coverLetterRequired',
       'transcriptRequired',
@@ -218,5 +223,61 @@ describe('export/import round trip', () => {
   it('survives commas, quotes, pipes and multiline notes', () => {
     const { apps } = parseApplicationsCsv(exportApplicationsCsv([fullApp()]))
     assert.equal(apps[0]?.notes, 'Line one, with comma.\n"Quoted" line with | pipe.')
+  })
+
+  it('round-trips a pipe inside a free-text field exactly (pre-registered edge)', () => {
+    // Pipe is the multi-value separator, but legacy text fields are never
+    // pipe-split: PapaParse quoting must carry the literal through.
+    const app = { ...fullApp(), companyName: 'A | B', notes: 'x|y|z' }
+    const { apps } = parseApplicationsCsv(exportApplicationsCsv([app]))
+    assert.equal(apps[0]?.companyName, 'A | B')
+    assert.equal(apps[0]?.notes, 'x|y|z')
+  })
+})
+
+describe('canonical identifier round trip (PR #1 T2/T3/T4)', () => {
+  it('preserves canonical statuses instead of resetting to interested', () => {
+    const first = { ...fullApp(), status: 'first_round' as const }
+    const missed = { ...fullApp(), status: 'missed_deadline' as const }
+    const { apps } = parseApplicationsCsv(exportApplicationsCsv([first, missed]))
+    assert.equal(apps[0]?.status, 'first_round')
+    assert.equal(apps[1]?.status, 'missed_deadline')
+  })
+
+  it('round-trips deadlineType unknown even with a deadline present', () => {
+    const app = { ...fullApp(), deadlineType: 'unknown' as const }
+    const { apps } = parseApplicationsCsv(exportApplicationsCsv([app]))
+    assert.equal(apps[0]?.deadlineType, 'unknown')
+  })
+
+  it('imports Spring Insight as spring_insight, not spring_week', () => {
+    const { apps } = parseApplicationsCsv('Company,Job Title,Role Type\nAcme,Analyst,Spring Insight')
+    assert.equal(apps[0]?.roleType, 'spring_insight')
+  })
+
+  it('prefers the longest alias so generic spring never wins', () => {
+    // "Spring Insight Programme" contains both `spring insight` (14) and
+    // `insight programme` (17): longest-first deterministically resolves it
+    // without ever falling through to generic `spring`.
+    const { apps } = parseApplicationsCsv('Company,Job Title,Role Type\nAcme,Analyst,Spring Insight Programme')
+    assert.equal(apps[0]?.roleType, 'insight_programme')
+  })
+
+  it('preserves the legacy specialization scalar canonically', () => {
+    const { apps } = parseApplicationsCsv('Company,Job Title,Specialization\nAcme,Analyst,M&A')
+    assert.equal(apps[0]?.specialization, 'manda')
+    assert.deepEqual(apps[0]?.specializations, ['manda'])
+  })
+})
+
+describe('legacy column contract (PR #1 U1)', () => {
+  it('keeps the original 21 columns first, V2 columns appended', () => {
+    const parsed = Papa.parse<string[]>(exportApplicationsCsv([fullApp()]))
+    const header = parsed.data[0] ?? []
+    assert.deepEqual(header.slice(0, 21), OLD_HEADER.split(','))
+    const cycleIdx = header.indexOf('Cycle')
+    for (const key of ['Divisions', 'Specializations', 'Last Checked', 'Date Verified']) {
+      assert.ok(header.indexOf(key) > cycleIdx, `${key} must follow Cycle`)
+    }
   })
 })
