@@ -1,0 +1,109 @@
+# Meridian CodeRabbit policy — Round 2.
+# Schema-validated 2026-09-22 against the official reference
+# https://docs.coderabbit.ai/reference/configuration (last updated 2026-09-15).
+# Every key below was verified present in that schema; anything unverifiable
+# was omitted rather than guessed.
+#
+# Role: independent PRE-RELEASE review evidence only.
+#   OpenCode builds. CodeRabbit challenges. JARVIS interprets. Human releases.
+# CodeRabbit never approves, merges, deploys, edits code, or gates merges
+# (no commit-status gating; JARVIS + human control release readiness).
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  enable_prompt_for_ai_agents: false
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+  finishing_touches:
+    autofix:
+      enabled: false
+  path_filters:
+    - "!node_modules/**"
+    - "!server/node_modules/**"
+    - "!dist/**"
+    - "!dist-ssr/**"
+    - "!**/*.log"
+    - "!logs/**"
+    - "!public/icons.svg"
+    - "!reports/**"
+    - "!server/data/**"
+    - "!server/investigate-*.js"
+    - "!server/*-report.json"
+    - "!server/unresolved-investigation-results.json"
+    - "!server/test-*.js"
+    - "!server/test-*.cjs"
+    - "!backups/**"
+    - "!**/*.bak"
+    - "!**/*.backup"
+  path_instructions:
+    - path: "**"
+      instructions: >
+        Meridian policy: you are independent pre-release review evidence, not
+        an authority. Findings are evidence for JARVIS and the human releaser.
+        Prioritize BLOCKER class: security, auth/session defects, cross-user
+        data leaks, ownership failures, data loss, destructive or
+        non-idempotent migrations, bad rollbacks, secret exposure,
+        correctness and release-breaking regressions. REVIEW class: missing
+        tests for meaningful behavior, races, unsafe error handling, API
+        contract drift, resource leaks, material accessibility defects,
+        evidence-backed performance regressions. DEFER (one line or omit):
+        style, broad refactors, speculative architecture, microservices,
+        dependency swaps without evidence, hypothetical abstractions,
+        formatter nits, elegance rewrites. Respect smallest-change discipline
+        and existing architecture. Do not propose redesigning the completed
+        1.1.0 release, the Neon cloud-authority decision, or the deliberate
+        browser-local document fileData behavior.
+    - path: "server/auth*.js"
+      instructions: >
+        BLOCKER-class scrutiny: JWT signing/verification, cookie flags
+        (httpOnly/secure/sameSite), bcrypt usage. Any cross-user data access
+        or secret exposure is a blocker. State file, line, impact.
+    - path: "server/db*.js"
+      instructions: >
+        BLOCKER-class scrutiny: per-user ownership scoping on every query,
+        parameterized statements only, pool lifecycle, SQLite/Postgres
+        behavioral parity. Raw string-interpolated SQL is a blocker.
+    - path: "server/workspace.js"
+      instructions: >
+        BLOCKER-class scrutiny: per-user isolation, import/export
+        correctness, no silent data overwrite, no fabricated rows.
+    - path: "server/index.js"
+      instructions: >
+        Scrutinize auth middleware ordering, rate-limit scope, error handling
+        (never swallow workspace failures silently), CORS and credential
+        settings.
+    - path: "scripts/*.js"
+      instructions: >
+        BLOCKER-class scrutiny for migrations: single-transaction atomicity
+        with rollback on any error, idempotency with explicit ON CONFLICT
+        targets, before/after COUNT verification, temp files outside the repo.
+    - path: "src/lib/store.ts"
+      instructions: >
+        Watch for hydration races, cross-user state bleed, cloud-vs-local
+        authority violations. Neon is the durable authority for workspace
+        metadata; browser-local document fileData is deliberate, not a bug.
+    - path: "src/lib/workspace*.ts"
+      instructions: >
+        Verify frontend API contracts match the Express routes; unsafe error
+        handling and silent data loss are REVIEW-class minimum.
+    - path: "src/contexts/AuthContext.tsx"
+      instructions: >
+        Auth/session defects are BLOCKER class. Verify session restore, login
+        and logout paths against server/auth.js behavior.
+    - path: "render.yaml"
+      instructions: >
+        Deployment config: flag secret mishandling, disk-mount changes,
+        resource-limit regressions. Evidence only, never auto-edit.
+    - path: "vercel.json"
+      instructions: >
+        Deployment config: flag SPA-rewrite breakage or accidental API-route
+        shadowing. Evidence only, never auto-edit.
+    - path: "src/components/**"
+      instructions: >
+        Review for correctness, races, and material accessibility defects.
+        Defer pure stylistic preference.
+
+chat:
+  auto_reply: false
