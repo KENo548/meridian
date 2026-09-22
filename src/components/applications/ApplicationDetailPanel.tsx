@@ -109,9 +109,14 @@ export function ApplicationDetailPanel() {
   })
   const [showContactForm, setShowContactForm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  // Graduation-year draft: the persisted value only holds valid years, so
+  // typing into it directly would reject the first keystroke and wipe the
+  // field (PR #1 U9). Draft locally, commit parsed years on blur.
+  const [gradDraft, setGradDraft] = useState<string | null>(null)
 
   useEffect(() => {
     setNotes(app?.notes ?? '')
+    setGradDraft(null)
   }, [app?.id, app?.notes])
 
   if (!app) return null
@@ -134,9 +139,16 @@ export function ApplicationDetailPanel() {
         : key === 'specializations'
           ? (getSpecializations(app) as unknown as T[])
           : ((app[key] ?? []) as unknown as T[])
-    saveField({ [key]: base.includes(value) ? base.filter((x) => x !== value) : [...base, value] } as Parameters<
-      typeof updateApplication
-    >[1])
+    const next = base.includes(value) ? base.filter((x) => x !== value) : [...base, value]
+    // Once the canonical array is authoritative, the legacy scalar must go:
+    // getDivisions/getSpecializations fall back to it whenever the array is
+    // empty, so a leftover scalar would resurrect a removed value (PR #1 T6).
+    // Server PUT replaces the whole record, so `undefined` clears end to end.
+    saveField({
+      [key]: next,
+      ...(key === 'divisions' ? { division: undefined } : {}),
+      ...(key === 'specializations' ? { specialization: undefined } : {}),
+    } as Parameters<typeof updateApplication>[1])
   }
 
   return (
@@ -355,8 +367,11 @@ export function ApplicationDetailPanel() {
             <Input
               label="Target graduation years"
               placeholder="e.g. 2027, 2028"
-              value={(app.targetGraduationYears ?? []).join(', ')}
+              value={gradDraft ?? (app.targetGraduationYears ?? []).join(', ')}
               onChange={(e) => {
+                setGradDraft(e.target.value)
+              }}
+              onBlur={(e) => {
                 const years: number[] = []
                 for (const part of e.target.value.split(/[,|\s]+/)) {
                   const year = Number.parseInt(part, 10)
@@ -364,6 +379,7 @@ export function ApplicationDetailPanel() {
                     years.push(year)
                   }
                 }
+                setGradDraft(null)
                 saveField({ targetGraduationYears: years.length ? years.sort((a, b) => a - b) : undefined })
               }}
             />
