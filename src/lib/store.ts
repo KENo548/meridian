@@ -135,7 +135,13 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
 
       let tags = (remote.tags ?? []) as unknown as Tag[]
       const remoteApplications = (remote.applications ?? []) as unknown as Application[]
-      let savedViews = (remote.savedViews ?? []) as unknown as SavedView[]
+      // Normalize every persisted view: pre-V2 records omit the new filter
+      // keys and would crash V2 readers (PR #1 T5). Seeded defaults below
+      // are already merged; this covers legacy/partial remote data.
+      let savedViews = ((remote.savedViews ?? []) as unknown as SavedView[]).map((view) => ({
+        ...view,
+        filters: { ...emptyFilters(), ...view.filters },
+      }))
 
       if (remoteApplications.length === 0 && tags.length === 0) {
         // First launch for this account — seed default tags server-side.
@@ -144,10 +150,12 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
         tags = fresh
       }
 
-      if (savedViews.length === 0) {
-        // Seed the default quick views once. They are ordinary saved
-        // views — same filter model, no special logic — and the user
-        // can delete or extend them freely.
+      // Seed the default quick views exactly once: only for a genuinely
+      // new workspace (no applications AND no tags server-side). A user who
+      // deletes every view must not see them resurrected on next hydration
+      // (PR #1 U4). `remote.tags` (not the maybe-just-seeded `tags`) is the
+      // durable newness signal — no browser-local authority, no migrations.
+      if (savedViews.length === 0 && remoteApplications.length === 0 && (remote.tags ?? []).length === 0) {
         const fresh: SavedView[] = DEFAULT_SAVED_VIEWS.map((view) => ({
           id: uid('view'),
           name: view.name,
@@ -300,6 +308,36 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
       companyUrl: input.companyUrl,
       notes: input.notes,
       followUpDate: input.followUpDate,
+      // V2 structured recruiting fields. Every Application field the wizard
+      // supplies must persist — omitting one silently loses user data
+      // (PR #1 T1). Only Application-owned fields are copied; the extra
+      // input keys (requirements, tagIds, force) are handled separately.
+      divisions: input.divisions,
+      specializations: input.specializations,
+      specificTeam: input.specificTeam,
+      languageRequirements: input.languageRequirements,
+      targetGraduationYears: input.targetGraduationYears,
+      eligibleUniversityYears: input.eligibleUniversityYears,
+      eligibilityRequirements: input.eligibilityRequirements,
+      workAuthorization: input.workAuthorization,
+      visaNotes: input.visaNotes,
+      timingNotes: input.timingNotes,
+      priority: input.priority,
+      recommendedTiming: input.recommendedTiming,
+      nextAction: input.nextAction,
+      nextActionDate: input.nextActionDate,
+      dateInformationVerified: input.dateInformationVerified,
+      cvRequired: input.cvRequired,
+      coverLetterRequired: input.coverLetterRequired,
+      transcriptRequired: input.transcriptRequired,
+      referencesRequired: input.referencesRequired,
+      applicationQuestions: input.applicationQuestions,
+      requirementsNotes: input.requirementsNotes,
+      assessments: input.assessments,
+      assessmentNotes: input.assessmentNotes,
+      applicationProcess: input.applicationProcess,
+      interviewProcess: input.interviewProcess,
+      expectedInterviewTimeline: input.expectedInterviewTimeline,
       archived: false,
       isDemo: input.isDemo,
       tagIds: input.tagIds ?? [],
