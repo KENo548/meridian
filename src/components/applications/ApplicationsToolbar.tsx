@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useMeridianStore } from '@/lib/store'
 import { exportApplicationsCsv, parseApplicationsCsv } from '@/lib/csv'
-import { clsx, countActiveDateRanges } from '@/lib/utils'
+import { clsx, countActiveDateRanges, isSystemTag } from '@/lib/utils'
 import {
   ASSESSMENT_TYPE_LABELS,
   COMPANY_TYPE_LABELS,
@@ -73,7 +73,7 @@ export function ApplicationsToolbar({
   const filters = useMeridianStore((s) => s.filters)
   const setFilters = useMeridianStore((s) => s.setFilters)
   const resetFilters = useMeridianStore((s) => s.resetFilters)
-  const tags = useMeridianStore((s) => s.tags)
+  const tags = useMeridianStore((s) => s.tags.filter((t) => !isSystemTag(t)))
   const viewMode = useMeridianStore((s) => s.viewMode)
   const setViewMode = useMeridianStore((s) => s.setViewMode)
   const setAddWizardOpen = useMeridianStore((s) => s.setAddWizardOpen)

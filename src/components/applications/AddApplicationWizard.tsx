@@ -25,7 +25,7 @@ import {
   WORK_MODE_LABELS,
 } from '@/constants'
 import { useMeridianStore } from '@/lib/store'
-import { isValidUrl } from '@/lib/utils'
+import { isSystemTag, isValidUrl } from '@/lib/utils'
 import type {
   ApplicationStatus,
   AssessmentType,
@@ -114,7 +114,7 @@ export function AddApplicationWizard() {
   const createApplication = useMeridianStore((s) => s.createApplication)
   const pushToast = useMeridianStore((s) => s.pushToast)
   const ensureTag = useMeridianStore((s) => s.ensureTag)
-  const tags = useMeridianStore((s) => s.tags)
+  const tags = useMeridianStore((s) => s.tags.filter((t) => !isSystemTag(t)))
 
   const [step, setStep] = useState(0)
   const [form, setForm] = useState(emptyForm)

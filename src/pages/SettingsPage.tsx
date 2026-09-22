@@ -22,7 +22,7 @@ export function SettingsPage() {
   const documents = useMeridianStore((s) => s.documents)
   const contacts = useMeridianStore((s) => s.contacts)
   const tasks = useMeridianStore((s) => s.tasks)
-  const tags = useMeridianStore((s) => s.tags)
+  const tags = useMeridianStore((s) => s.tags.filter((t) => !t.name.startsWith('_system:')))
   const savedViews = useMeridianStore((s) => s.savedViews)
   const loadDemoData = useMeridianStore((s) => s.loadDemoData)
   const clearAllData = useMeridianStore((s) => s.clearAllData)

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { DEFAULT_SAVED_VIEWS, DEFAULT_TAGS } from '@/constants'
+import { DEFAULT_SAVED_VIEWS, DEFAULT_TAGS, WORKSPACE_INIT_SENTINEL } from '@/constants'
 import { getDb, nowIso, uid } from '@/lib/db'
 import { emptyFilters, findDuplicate } from '@/lib/utils'
 import {
@@ -143,27 +143,54 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
         filters: { ...emptyFilters(), ...view.filters },
       }))
 
-      if (remoteApplications.length === 0 && tags.length === 0) {
-        // First launch for this account — seed default tags server-side.
-        const fresh: Tag[] = DEFAULT_TAGS.map((name) => ({ id: uid('tag'), name }))
-        await cloud(get, 'Workspace setup', () => importWorkspace({ tags: fresh }))
-        tags = fresh
-      }
+      // ── First-launch initialization (F3) ──────────────────────────
+      // Tags + default views are seeded in ONE import call so a partial
+      // failure cannot leave the workspace in a state where tags exist
+      // but views don't, which the old two-step code treated as
+      // "already initialized" and permanently skipped.
+      //
+      // A sentinel tag (_system:initialized) is included in the seed
+      // and persists even if the user later deletes all visible tags
+      // or views. Its presence proves init completed; its absence
+      // means we should (re)seed. Deleting the sentinel restores the
+      // workspace to "uninitialized" — same as a brand-new account.
+      const hasInitSentinel = tags.some((t) => t.name === WORKSPACE_INIT_SENTINEL)
+      const sentinelTag: Tag = { id: uid('tag'), name: WORKSPACE_INIT_SENTINEL }
 
-      // Seed the default quick views exactly once: only for a genuinely
-      // new workspace (no applications AND no tags server-side). A user who
-      // deletes every view must not see them resurrected on next hydration
-      // (PR #1 U4). `remote.tags` (not the maybe-just-seeded `tags`) is the
-      // durable newness signal — no browser-local authority, no migrations.
-      if (savedViews.length === 0 && remoteApplications.length === 0 && (remote.tags ?? []).length === 0) {
-        const fresh: SavedView[] = DEFAULT_SAVED_VIEWS.map((view) => ({
+      if (!hasInitSentinel && remoteApplications.length === 0 && savedViews.length === 0) {
+        // Genuinely new workspace OR full retry after partial failure:
+        // seed tags (including sentinel) + default views in one request.
+        const freshTags: Tag[] = [
+          ...DEFAULT_TAGS.map((name) => ({ id: uid('tag'), name })),
+          sentinelTag,
+        ]
+        const freshViews: SavedView[] = DEFAULT_SAVED_VIEWS.map((view) => ({
           id: uid('view'),
           name: view.name,
           filters: { ...emptyFilters(), ...view.filters },
           createdAt: nowIso(),
         }))
-        await cloud(get, 'Workspace setup', () => importWorkspace({ savedViews: fresh }))
-        savedViews = fresh
+        await cloud(get, 'Workspace setup', () =>
+          importWorkspace({ tags: freshTags, savedViews: freshViews }),
+        )
+        tags = freshTags
+        savedViews = freshViews
+      } else if (!hasInitSentinel && tags.length > 0 && savedViews.length === 0) {
+        // Partial failure: tags were committed but views were not.
+        // Re-seed views + sentinel in one call. Existing tags are
+        // untouched — importWorkspace upserts, and the sentinel is
+        // added to the collection. The user keeps their tags.
+        const freshViews: SavedView[] = DEFAULT_SAVED_VIEWS.map((view) => ({
+          id: uid('view'),
+          name: view.name,
+          filters: { ...emptyFilters(), ...view.filters },
+          createdAt: nowIso(),
+        }))
+        await cloud(get, 'Workspace setup', () =>
+          importWorkspace({ tags: [sentinelTag], savedViews: freshViews }),
+        )
+        tags = [...tags, sentinelTag]
+        savedViews = freshViews
       }
 
       set({

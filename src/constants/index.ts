@@ -442,6 +442,16 @@ export const DEFAULT_REQUIREMENT_TYPES: RequirementType[] = [
   'essay',
 ]
 
+/**
+ * Durable initialization marker. This tag is seeded alongside default tags
+ * in a single import call and serves as proof that the workspace has been
+ * through first-launch initialization. Hydration checks for its presence
+ * before attempting to seed defaults.
+ *
+ * Hidden from the UI — tag list filters exclude names starting with '_system:'.
+ */
+export const WORKSPACE_INIT_SENTINEL = '_system:initialized'
+
 export const DEFAULT_TAGS = [
   'Priority',
   'Dream Company',

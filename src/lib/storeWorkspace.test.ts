@@ -9,7 +9,7 @@ import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { useMeridianStore } from './store.ts'
 import { setWorkspaceApiBase } from './workspaceApi.ts'
-import { DEFAULT_SAVED_VIEWS } from '../constants/index.ts'
+import { DEFAULT_SAVED_VIEWS, WORKSPACE_INIT_SENTINEL } from '../constants/index.ts'
 import type { Application } from '../types/index.ts'
 
 interface CapturedCall {
@@ -190,14 +190,27 @@ describe('saved-view compatibility (PR #1 T5/U4)', () => {
     await useMeridianStore.getState().hydrate()
     const seeded = useMeridianStore.getState().savedViews
     assert.equal(seeded.length, DEFAULT_SAVED_VIEWS.length)
+    // Combined import: tags + sentinel + savedViews in one call
     const importPosts = calls.filter((c) => c.method === 'POST' && c.url.includes('/import'))
-    assert.ok(importPosts.some((c) => (c.body as { records: Record<string, unknown[]> }).records.savedViews?.length === DEFAULT_SAVED_VIEWS.length))
+    assert.ok(importPosts.length >= 1, 'expected at least one import POST')
+    const lastImport = importPosts[importPosts.length - 1]
+    const records = (lastImport.body as { records: Record<string, unknown[]> }).records
+    assert.ok(Array.isArray(records.tags), 'import includes tags')
+    assert.ok(
+      (records.tags as Array<{ name: string }>).some((t) => t.name === WORKSPACE_INIT_SENTINEL),
+      'sentinel tag included in seed',
+    )
+    assert.ok(
+      Array.isArray(records.savedViews) && records.savedViews.length === DEFAULT_SAVED_VIEWS.length,
+      'default views included in seed',
+    )
   })
 
   it('does not reseed defaults after the user deletes every view', async () => {
     remoteDump = {
       ...emptyDump(),
-      tags: [{ id: 'tag_1', name: 'core' }],
+      // Sentinel present → init completed, no reseed even with views empty
+      tags: [{ id: 'tag_1', name: 'core' }, { id: 'tag_sys', name: WORKSPACE_INIT_SENTINEL }],
       savedViews: [],
     }
     await useMeridianStore.getState().hydrate()
@@ -209,6 +222,66 @@ describe('saved-view compatibility (PR #1 T5/U4)', () => {
         (c.body as { records: Record<string, unknown[]> }).records.savedViews !== undefined,
     )
     assert.equal(viewImports.length, 0)
+  })
+})
+
+describe('F3 — initialization atomicity / partial-failure recovery', () => {
+  beforeEach(() => {
+    calls.length = 0
+    resetStore()
+    installFetch()
+  })
+
+  it('seeds tags + sentinel + views in one combined import', async () => {
+    remoteDump = emptyDump()
+    await useMeridianStore.getState().hydrate()
+    const importPosts = calls.filter((c) => c.method === 'POST' && c.url.includes('/import'))
+    assert.equal(importPosts.length, 1, 'exactly one import call for fresh workspace')
+    const records = (importPosts[0].body as { records: Record<string, unknown[]> }).records
+    // Tags include sentinel
+    const tagNames = (records.tags as Array<{ name: string }>).map((t) => t.name)
+    assert.ok(tagNames.includes(WORKSPACE_INIT_SENTINEL), 'sentinel tag present')
+    assert.ok(tagNames.length > DEFAULT_SAVED_VIEWS.length, 'user tags + sentinel')
+    // Views included
+    assert.equal((records.savedViews as unknown[]).length, DEFAULT_SAVED_VIEWS.length)
+  })
+
+  it('retries views after partial failure (tags exist but no sentinel, no views)', async () => {
+    // Simulate: tags were committed by a previous partial import, but
+    // sentinel and views were not (server crash mid-loop).
+    remoteDump = {
+      ...emptyDump(),
+      tags: [{ id: 'tag_existing', name: 'Priority' }],
+      savedViews: [],
+    }
+    await useMeridianStore.getState().hydrate()
+    // Should seed views + sentinel (not duplicate tags)
+    const savedViews = useMeridianStore.getState().savedViews
+    assert.equal(savedViews.length, DEFAULT_SAVED_VIEWS.length, 'views seeded on retry')
+    const importPosts = calls.filter((c) => c.method === 'POST' && c.url.includes('/import'))
+    assert.ok(importPosts.length >= 1, 'import POST fired')
+    const lastImport = importPosts[importPosts.length - 1]
+    const records = (lastImport.body as { records: Record<string, unknown[]> }).records
+    assert.ok(
+      Array.isArray(records.savedViews) && records.savedViews.length > 0,
+      'retry includes views',
+    )
+    assert.ok(
+      (records.tags as Array<{ name: string }>).some((t) => t.name === WORKSPACE_INIT_SENTINEL),
+      'retry includes sentinel',
+    )
+  })
+
+  it('does not reseed when sentinel is present even if views are empty', async () => {
+    remoteDump = {
+      ...emptyDump(),
+      tags: [{ id: 'tag_sys', name: WORKSPACE_INIT_SENTINEL }],
+      savedViews: [],
+    }
+    await useMeridianStore.getState().hydrate()
+    assert.deepEqual(useMeridianStore.getState().savedViews, [])
+    const importPosts = calls.filter((c) => c.method === 'POST' && c.url.includes('/import'))
+    assert.equal(importPosts.length, 0, 'no import when sentinel exists')
   })
 })
 

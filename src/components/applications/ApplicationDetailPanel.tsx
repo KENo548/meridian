@@ -29,6 +29,7 @@ import {
 } from '@/constants'
 import { useMeridianStore } from '@/lib/store'
 import {
+  isSystemTag,
   toDateInput,
   formatDisplayDate,
   clsx,
@@ -86,7 +87,7 @@ export function ApplicationDetailPanel() {
   const requirements = useMeridianStore((s) => s.requirements)
   const tasks = useMeridianStore((s) => s.tasks)
   const contacts = useMeridianStore((s) => s.contacts)
-  const allTags = useMeridianStore((s) => s.tags)
+  const allTags = useMeridianStore((s) => s.tags.filter((t) => !isSystemTag(t)))
   const updateApplication = useMeridianStore((s) => s.updateApplication)
   const deleteApplications = useMeridianStore((s) => s.deleteApplications)
   const archiveApplications = useMeridianStore((s) => s.archiveApplications)
