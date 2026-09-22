@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useMeridianStore } from '@/lib/store'
 import { exportApplicationsCsv, parseApplicationsCsv } from '@/lib/csv'
-import { clsx } from '@/lib/utils'
+import { clsx, countActiveDateRanges } from '@/lib/utils'
 import {
   ASSESSMENT_TYPE_LABELS,
   COMPANY_TYPE_LABELS,
@@ -117,6 +117,9 @@ export function ApplicationsToolbar({
     if (filters.rollingDeadline != null) n++
     if (filters.deadlineWithinDays != null) n++
     if (filters.showArchived) n++
+    // Date-range pairs count too — a date-only filter state restricts
+    // results and must enable the badge and Save view (PR #1 U5).
+    n += countActiveDateRanges(filters)
     return n
   }, [filters])
 
@@ -188,6 +191,27 @@ export function ApplicationsToolbar({
         clear: () => setFilters({ deadlineFrom: undefined, deadlineTo: undefined }),
       })
     }
+    if (filters.openingDateFrom || filters.openingDateTo) {
+      list.push({
+        key: 'openingDateRange',
+        label: `Opening ${filters.openingDateFrom ?? '…'} → ${filters.openingDateTo ?? '…'}`,
+        clear: () => setFilters({ openingDateFrom: undefined, openingDateTo: undefined }),
+      })
+    }
+    if (filters.startDateFrom || filters.startDateTo) {
+      list.push({
+        key: 'startDateRange',
+        label: `Start ${filters.startDateFrom ?? '…'} → ${filters.startDateTo ?? '…'}`,
+        clear: () => setFilters({ startDateFrom: undefined, startDateTo: undefined }),
+      })
+    }
+    if (filters.applicationDateFrom || filters.applicationDateTo) {
+      list.push({
+        key: 'applicationDateRange',
+        label: `Applied ${filters.applicationDateFrom ?? '…'} → ${filters.applicationDateTo ?? '…'}`,
+        clear: () => setFilters({ applicationDateFrom: undefined, applicationDateTo: undefined }),
+      })
+    }
     if (filters.hasInterview != null) {
       list.push({ key: 'hasInterview', label: 'Has interview', clear: () => setFilters({ hasInterview: null }) })
     }
@@ -198,8 +222,7 @@ export function ApplicationsToolbar({
       list.push({ key: 'rollingDeadline', label: 'Rolling only', clear: () => setFilters({ rollingDeadline: null }) })
     }
     return list
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters])
+  }, [filters, tags])
 
   const onExport = () => {
     const csv = exportApplicationsCsv(applications.filter((a) => !a.archived || filters.showArchived))

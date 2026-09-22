@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { MultiSelect } from '@/components/ui/MultiSelect'
 import { useMeridianStore } from '@/lib/store'
-import { clsx, getLanguages } from '@/lib/utils'
+import { clsx, countActiveDateRanges, countActiveKeys, getLanguages } from '@/lib/utils'
 import type {
   ApplicationStatus,
   AssessmentType,
@@ -125,13 +125,7 @@ export function FiltersPanel() {
   }
 
   const countActive = (keys: Array<keyof typeof filters>): number =>
-    keys.reduce((n, k) => {
-      const v = filters[k]
-      if (Array.isArray(v)) return n + v.length
-      if (v === true || v === false) return n + 1
-      if (typeof v === 'number') return n + 1
-      return n
-    }, 0)
+    countActiveKeys(filters, keys)
 
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3 animate-fade-in">
@@ -266,7 +260,7 @@ export function FiltersPanel() {
 
       <FilterGroup
         label="Application"
-        active={countActive(['cvRequired', 'coverLetterRequired', 'transcriptRequired', 'deadlineTypes', 'deadlineWithinDays', 'rollingDeadline'])}
+        active={countActive(['cvRequired', 'coverLetterRequired', 'transcriptRequired', 'deadlineTypes', 'deadlineWithinDays', 'rollingDeadline', 'deadlineFrom', 'deadlineTo'])}
       >
         <ChipGroup
           label="CV required"
@@ -399,7 +393,7 @@ export function FiltersPanel() {
         </div>
       </FilterGroup>
 
-      <FilterGroup label="Dates" active={0}>
+      <FilterGroup label="Dates" active={countActiveDateRanges(filters)}>
         <div className="grid sm:grid-cols-2 gap-3">
           <Input
             label="Opening from"
@@ -440,7 +434,7 @@ export function FiltersPanel() {
         </div>
       </FilterGroup>
 
-      <FilterGroup label="Source & Tags" active={countActive(['sources', 'tags', 'requirementTypes'])}>
+      <FilterGroup label="Source & Tags" active={countActive(['sources', 'tags', 'requirementTypes', 'showArchived'])}>
         <ChipGroup
           label="Source"
           options={(Object.keys(SOURCE_LABELS) as Source[]).map((k) => ({

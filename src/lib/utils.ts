@@ -140,6 +140,43 @@ export function emptyFilters(): ApplicationFilters {
 }
 
 /* ------------------------------------------------------------------ */
+/* Filter activity counting (PR #1 U5/U8). Shared by the toolbar badge  */
+/* and the panel group badges so both counters agree on what is active. */
+/* ------------------------------------------------------------------ */
+
+/** A single filter value counts as active when it restricts results. */
+export function isActiveFilterValue(v: unknown): boolean {
+  if (Array.isArray(v)) return v.length > 0
+  if (typeof v === 'string') return v.trim().length > 0
+  if (typeof v === 'number') return true
+  // Only `true` counts: `false` (e.g. showArchived default) and null
+  // (unset tristates) restrict nothing.
+  return v === true
+}
+
+/** Count active keys — arrays, strings, numbers and true booleans. */
+export function countActiveKeys(
+  filters: ApplicationFilters,
+  keys: Array<keyof ApplicationFilters>,
+): number {
+  let n = 0
+  for (const k of keys) {
+    if (isActiveFilterValue(filters[k])) n++
+  }
+  return n
+}
+
+/** Date bounds count per range pair (from/to together are one filter). */
+export function countActiveDateRanges(filters: ApplicationFilters): number {
+  let n = 0
+  if (filters.openingDateFrom || filters.openingDateTo) n++
+  if (filters.deadlineFrom || filters.deadlineTo) n++
+  if (filters.startDateFrom || filters.startDateTo) n++
+  if (filters.applicationDateFrom || filters.applicationDateTo) n++
+  return n
+}
+
+/* ------------------------------------------------------------------ */
 /* V2 normalization: legacy fields stay stored; arrays are canonical.  */
 /* Normalizers never mutate the record — they derive a view of it.     */
 /* ------------------------------------------------------------------ */
