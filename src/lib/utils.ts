@@ -502,6 +502,10 @@ export function sortApplications(apps: Application[], sort: SortState): Applicat
           return app.jobTitle.toLowerCase()
         case 'status':
           return STATUS_RANK[app.status]
+        case 'priority':
+          return app.priority === 'high' ? 0 : app.priority === 'medium' ? 1 : app.priority === 'low' ? 2 : 3
+        case 'nextActionDate':
+          return app.nextActionDate ?? ''
         case 'location':
           return (app.location ?? app.city ?? '').toLowerCase()
         case 'startDate':

@@ -504,6 +504,8 @@ export type SortField =
   | 'status'
   | 'location'
   | 'startDate'
+  | 'priority'
+  | 'nextActionDate'
   | 'updatedAt'
 
 export interface SortState {
