@@ -140,28 +140,52 @@ export function emptyFilters(): ApplicationFilters {
 }
 
 /* ------------------------------------------------------------------ */
+/* System tag helpers                                                  */
+/* ------------------------------------------------------------------ */
+
+/** System tags (_system: prefix) are internal markers hidden from the UI. */
+export function isSystemTag(tag: { name: string }): boolean {
+  return tag.name.startsWith('_system:')
+}
+
+/* ------------------------------------------------------------------ */
 /* Filter activity counting (PR #1 U5/U8). Shared by the toolbar badge  */
 /* and the panel group badges so both counters agree on what is active. */
 /* ------------------------------------------------------------------ */
 
+/** Keys where false is a meaningful active filter state (not the default). */
+const TRISTATE_KEYS: ReadonlySet<string> = new Set([
+  'hasInterview',
+  'hasOffer',
+  'rollingDeadline',
+])
+
 /** A single filter value counts as active when it restricts results. */
-export function isActiveFilterValue(v: unknown): boolean {
+export function isActiveFilterValue(
+  v: unknown,
+  key?: keyof ApplicationFilters,
+): boolean {
   if (Array.isArray(v)) return v.length > 0
   if (typeof v === 'string') return v.trim().length > 0
   if (typeof v === 'number') return true
-  // Only `true` counts: `false` (e.g. showArchived default) and null
-  // (unset tristates) restrict nothing.
-  return v === true
+  // For tristate keys (hasInterview, hasOffer, rollingDeadline), false is
+  // a meaningful exclusion that restricts results — it must count as active.
+  // For showArchived, false is the default and counts as inactive.
+  if (typeof v === 'boolean') {
+    return key !== undefined && TRISTATE_KEYS.has(key) ? true : v === true
+  }
+  // null / undefined are always inactive (unset).
+  return false
 }
 
-/** Count active keys — arrays, strings, numbers and true booleans. */
+/** Count active keys — arrays, strings, numbers and meaningful booleans. */
 export function countActiveKeys(
   filters: ApplicationFilters,
   keys: Array<keyof ApplicationFilters>,
 ): number {
   let n = 0
   for (const k of keys) {
-    if (isActiveFilterValue(filters[k])) n++
+    if (isActiveFilterValue(filters[k], k)) n++
   }
   return n
 }

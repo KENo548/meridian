@@ -43,8 +43,24 @@ describe('isActiveFilterValue', () => {
     assert.ok(isActiveFilterValue(true))
   })
 
-  it('does not count false booleans as active (default showArchived)', () => {
+  it('does not count false as active without a key (generic)', () => {
     assert.equal(isActiveFilterValue(false), false)
+  })
+
+  it('counts false as active for tristate keys (hasInterview)', () => {
+    assert.ok(isActiveFilterValue(false, 'hasInterview'))
+  })
+
+  it('counts false as active for tristate keys (hasOffer)', () => {
+    assert.ok(isActiveFilterValue(false, 'hasOffer'))
+  })
+
+  it('counts false as active for tristate keys (rollingDeadline)', () => {
+    assert.ok(isActiveFilterValue(false, 'rollingDeadline'))
+  })
+
+  it('does not count false as active for showArchived (default)', () => {
+    assert.equal(isActiveFilterValue(false, 'showArchived'), false)
   })
 
   it('does not count null as active', () => {
@@ -81,8 +97,28 @@ describe('countActiveKeys', () => {
     assert.equal(countActiveKeys(f({ hasInterview: true }), ['hasInterview']), 1)
   })
 
+  it('counts hasInterview=false as active (meaningful exclusion)', () => {
+    assert.equal(countActiveKeys(f({ hasInterview: false }), ['hasInterview']), 1)
+  })
+
   it('does not count hasInterview=null as active', () => {
     assert.equal(countActiveKeys(f({ hasInterview: null }), ['hasInterview']), 0)
+  })
+
+  it('counts hasOffer=false as active (meaningful exclusion)', () => {
+    assert.equal(countActiveKeys(f({ hasOffer: false }), ['hasOffer']), 1)
+  })
+
+  it('does not count hasOffer=null as active', () => {
+    assert.equal(countActiveKeys(f({ hasOffer: null }), ['hasOffer']), 0)
+  })
+
+  it('counts rollingDeadline=false as active (meaningful exclusion)', () => {
+    assert.equal(countActiveKeys(f({ rollingDeadline: false }), ['rollingDeadline']), 1)
+  })
+
+  it('does not count rollingDeadline=null as active', () => {
+    assert.equal(countActiveKeys(f({ rollingDeadline: null }), ['rollingDeadline']), 0)
   })
 })
 
