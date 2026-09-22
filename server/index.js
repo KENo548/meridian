@@ -36,6 +36,7 @@ async function lazy() {
     searchJSearch: jsearch.searchJSearch,
     getConfiguredFeeds: rss.getConfiguredFeeds,
     addFeed: rss.addFeed,
+    addFeedWithCheck: rss.addFeedWithCheck,
     removeFeed: rss.removeFeed,
     toggleFeed: rss.toggleFeed,
     fetchAllFeeds: rss.fetchAllFeeds,
@@ -364,13 +365,17 @@ app.get('/api/rss/feeds', async (_req, res) => {
 
 app.post('/api/rss/feeds', async (req, res) => {
   try {
-    const { addFeed, removeFeed, toggleFeed } = await lazy();
+    const { addFeedWithCheck, removeFeed, toggleFeed } = await lazy();
     const { action, name, url } = req.body;
 
     if (action === 'add') {
-      if (!url) return res.status(400).json({ error: 'URL is required' });
-      const feed = addFeed(name, url);
-      return res.json({ feed, message: 'Feed added' });
+      const result = await addFeedWithCheck(name, url, { skipCheck: req.body.skipCheck === true });
+      if (result.status === 'url_required') return res.status(400).json({ error: result.error, code: 'URL_REQUIRED' });
+      if (result.status === 'invalid_url') return res.status(400).json({ error: result.error, code: 'INVALID_URL' });
+      if (result.status === 'unreachable') return res.status(422).json({ error: result.error, code: 'UNREACHABLE' });
+      if (result.status === 'not_a_feed') return res.status(422).json({ error: result.error, code: 'NOT_A_FEED' });
+      if (result.status === 'duplicate') return res.json({ feed: result.feed, message: result.message, duplicate: true });
+      return res.json({ feed: result.feed, message: result.message });
     }
 
     if (action === 'remove') {

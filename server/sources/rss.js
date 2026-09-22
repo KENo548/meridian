@@ -295,6 +295,77 @@ function invalidateCache() {
   cache.flushAll();
 }
 
+function validateFeedUrl(raw) {
+  if (!raw || typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  try {
+    // Explicit scheme must be http: or https:
+    const parsed = new URL(trimmed)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+    return parsed.href
+  } catch {
+    // No absolute URL — treat as bare host and prepend https:// (mirrors validateUrl in normalize.js)
+    try {
+      return new URL(`https://${trimmed}`).href
+    } catch {
+      return null
+    }
+  }
+}
+
+async function addFeedWithCheck(name, url, options = {}) {
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return { status: 'url_required', error: 'URL is required' }
+  }
+  const canonical = validateFeedUrl(url)
+  if (!canonical) {
+    return { status: 'invalid_url', error: 'Enter a valid http(s) URL' }
+  }
+
+  // Duplicate detection
+  const existing = configuredFeeds.find(f => f.url === canonical || f.url === url.trim())
+  if (existing) {
+    existing.enabled = true
+    if (name) existing.name = String(name).trim()
+    persistFeeds()
+    return { status: 'duplicate', feed: existing, message: 'Feed already tracked — re-enabled' }
+  }
+
+  // Network reachability + parse check
+  if (!options.skipCheck) {
+    let response
+    try {
+      response = await fetch(canonical, {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': 'Meridian-Job-Tracker/1.0' },
+      })
+    } catch {
+      return { status: 'unreachable', error: "Couldn't reach that feed URL" }
+    }
+    if (response.status >= 400) {
+      return { status: 'unreachable', error: "Couldn't reach that feed URL" }
+    }
+    let text
+    try {
+      text = await response.text()
+    } catch {
+      return { status: 'unreachable', error: "Couldn't reach that feed URL" }
+    }
+    try {
+      await parser.parseString(text)
+    } catch {
+      return { status: 'not_a_feed', error: "That URL isn't returning a readable RSS/Atom feed" }
+    }
+  }
+
+  const feed = { name: String(name || canonical).trim(), url: canonical, enabled: true }
+  configuredFeeds.push(feed)
+  persistFeeds()
+  return { status: 'added', feed, message: 'Feed added' }
+}
+
 export {
   getConfiguredFeeds,
   addFeed,
@@ -303,4 +374,6 @@ export {
   fetchFeed,
   fetchAllFeeds,
   invalidateCache as rssInvalidateCache,
+  validateFeedUrl,
+  addFeedWithCheck,
 };

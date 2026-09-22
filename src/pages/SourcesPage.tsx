@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { JobSearchResults } from '@/components/sources/JobSearchResults'
 import { ImportPreviewModal } from '@/components/sources/ImportPreviewModal'
 import {
@@ -123,6 +124,9 @@ export function SourcesPage() {
   const [newFeedUrl, setNewFeedUrl] = useState('')
   const [checkingRss, setCheckingRss] = useState(false)
   const [addingFeed, setAddingFeed] = useState(false)
+  const [addFeedUrlError, setAddFeedUrlError] = useState<string | null>(null)
+  const [showAddAnyway, setShowAddAnyway] = useState(false)
+  const [dupFeedTarget, setDupFeedTarget] = useState<{ url: string; message: string } | null>(null)
 
   // Registry state
   const [firms, setFirms] = useState<FirmInfo[]>([])
@@ -274,18 +278,61 @@ export function SourcesPage() {
   // ─── RSS ────────────────────────────────────────────────────
 
   async function handleAddFeed() {
-    const url = newFeedUrl.trim()
-    if (!url) return
+    const trimmed = newFeedUrl.trim()
+    if (!trimmed) return
+    // Client pre-validation — no network call on invalid input
+    try {
+      const u = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error()
+    } catch {
+      setAddFeedUrlError('Enter a valid http(s) URL')
+      return
+    }
     setAddingFeed(true)
     try {
-      await addRssFeed(url)
-      setRssFeeds((prev) => [...prev, { name: url, url, enabled: true }])
+      const result = await addRssFeed(trimmed)
+      if (result.duplicate) {
+        pushToast('success', 'Feed already tracked — re-enabled')
+      } else {
+        pushToast('success', 'RSS feed added')
+      }
+      setRssFeeds((prev) => {
+        const exists = prev.some((f) => f.url === result.feed.url)
+        return exists
+          ? prev.map((f) => (f.url === result.feed.url ? { name: result.feed.name, url: result.feed.url, enabled: true } : f))
+          : [...prev, { name: result.feed.name, url: result.feed.url, enabled: true }]
+      })
       setNewFeedUrl('')
-      pushToast('success', 'RSS feed added')
-    } catch {
-      pushToast('error', 'Failed to add RSS feed')
+      setAddFeedUrlError(null)
+    } catch (err: any) {
+      if (err?.code === 'UNREACHABLE' || err?.code === 'NOT_A_FEED') {
+        setDupFeedTarget({ url: trimmed, message: err?.message })
+        setShowAddAnyway(true)
+      } else {
+        pushToast('error', err?.message || 'Failed to add RSS feed')
+      }
     } finally {
       setAddingFeed(false)
+    }
+  }
+
+  async function forceAddFeed() {
+    if (!dupFeedTarget) return
+    try {
+      const result = await addRssFeed(dupFeedTarget.url, { skipCheck: true })
+      pushToast('success', 'RSS feed added')
+      setRssFeeds((prev) => {
+        const exists = prev.some((f) => f.url === result.feed.url)
+        return exists
+          ? prev.map((f) => (f.url === result.feed.url ? { name: result.feed.name, url: result.feed.url, enabled: true } : f))
+          : [...prev, { name: result.feed.name, url: result.feed.url, enabled: true }]
+      })
+      setNewFeedUrl('')
+      setAddFeedUrlError(null)
+      setDupFeedTarget(null)
+    } catch {
+      pushToast('error', 'Failed to add RSS feed')
+      setDupFeedTarget(null)
     }
   }
 
@@ -1016,9 +1063,13 @@ export function SourcesPage() {
             <Input
               placeholder="https://example.com/rss/jobs"
               value={newFeedUrl}
-              onChange={(e) => setNewFeedUrl(e.target.value)}
+              onChange={(e) => {
+                setNewFeedUrl(e.target.value)
+                setAddFeedUrlError(null)
+              }}
               onKeyDown={(e) => e.key === 'Enter' && handleAddFeed()}
               leftIcon={<Rss className="size-4" />}
+              error={addFeedUrlError ?? undefined}
               className="flex-1"
             />
             <div className="flex gap-2">
@@ -1206,6 +1257,17 @@ export function SourcesPage() {
         onImported={() => {
           pushToast('success', 'Job imported successfully')
         }}
+      />
+
+      {/* ─── Add Feed Anyway Confirm ───────────────────────── */}
+      <ConfirmDialog
+        open={showAddAnyway}
+        title="Add feed anyway?"
+        message={`${dupFeedTarget?.message} It may be temporarily down or may not be a standard feed. Add it anyway?`}
+        confirmLabel="Add anyway"
+        variant="warning"
+        onConfirm={() => { setShowAddAnyway(false); void forceAddFeed() }}
+        onCancel={() => { setShowAddAnyway(false); setDupFeedTarget(null) }}
       />
     </div>
   )

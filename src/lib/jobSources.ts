@@ -208,13 +208,19 @@ export async function getRssFeeds(): Promise<{ name: string; url: string; enable
   }
 }
 
-export async function addRssFeed(url: string): Promise<void> {
+export async function addRssFeed(url: string, opts?: { skipCheck?: boolean }): Promise<{ feed: { name: string; url: string; enabled: boolean }; duplicate: boolean; message: string }> {
   const res = await fetchAuth(`${API_BASE}/api/rss/feeds`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'add', url }),
+    body: JSON.stringify({ action: 'add', url: url.trim(), ...(opts?.skipCheck ? { skipCheck: true } : {}) }),
   })
-  if (!res.ok) throw new Error(`Add RSS feed failed: ${res.status}`)
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || `Add RSS feed failed (${res.status})`) as Error & { code?: string }
+    if (data.code) err.code = data.code
+    throw err
+  }
+  return { feed: data.feed, duplicate: data.duplicate === true, message: data.message }
 }
 
 export async function removeRssFeed(url: string): Promise<void> {
