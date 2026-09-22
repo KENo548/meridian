@@ -56,7 +56,7 @@ export function AnalyticsPage() {
             Upcoming deadlines <span className="text-[var(--color-faint)] font-normal">(14 days)</span>
           </h2>
           <p className="text-2xl font-bold font-display text-[var(--color-warning)] tabular-nums">{upcoming.length}</p>
-          <p className="text-xs text-[var(--color-muted)] mt-1">open opportunities due soon</p>
+          <p className="text-xs text-[var(--color-muted)] mt-1">opportunities due soon</p>
         </section>
         <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <h2 className="font-display font-semibold text-sm text-[var(--color-text)] mb-3">Rolling</h2>

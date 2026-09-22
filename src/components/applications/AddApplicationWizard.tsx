@@ -888,6 +888,7 @@ export function LanguageEditor({
             <select
               value={row.requirement}
               onChange={(e) => patchRow(i, { requirement: e.target.value as LanguageNeed })}
+              aria-label={`Language requirement for ${row.language || 'row ' + (i + 1)}`}
               className="h-9 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs text-[var(--color-text)]"
             >
               <option value="required">Required</option>
@@ -900,7 +901,11 @@ export function LanguageEditor({
               value={row.proficiency}
               onChange={(e) => patchRow(i, { proficiency: e.target.value })}
             />
-            <Button variant="ghost" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+            <Button
+              variant="ghost"
+              aria-label={`Remove ${row.language || 'language'} requirement`}
+              onClick={() => onChange(rows.filter((_, j) => j !== i))}
+            >
               ×
             </Button>
           </div>

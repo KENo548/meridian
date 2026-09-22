@@ -47,6 +47,7 @@ export function MultiSelect<T extends string>({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={searchPlaceholder}
+          aria-label={`Search ${label.toLowerCase()}`}
           className="w-full h-8 mb-2 px-2 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
         />
       ) : null}
@@ -57,6 +58,9 @@ export function MultiSelect<T extends string>({
             <button
               key={opt.value}
               type="button"
+              role="checkbox"
+              aria-checked={on}
+              aria-pressed={on}
               onClick={() => onToggle(opt.value)}
               className={clsx(
                 'rounded border px-2 py-1 text-xs cursor-pointer transition-colors',
