@@ -28,6 +28,9 @@ export function Input({ label, hint, error, leftIcon, className, id, ...rest }: 
           className={clsx(
             'w-full h-9 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)]',
             'text-[var(--color-text)] placeholder:text-[var(--color-faint)]',
+            // text-base on mobile prevents iOS auto-zoom on focus (>= 16px);
+            // text-sm on md+ restores the compact desktop design (PR #1 U10).
+            'text-base md:text-sm',
             'px-3 focus:border-[var(--color-accent)]/60 focus:outline-none transition-colors',
             leftIcon ? 'pl-9' : undefined,
             error ? 'border-[var(--color-danger)]' : undefined,

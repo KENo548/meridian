@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { DEFAULT_TAGS } from '@/constants'
+import { DEFAULT_SAVED_VIEWS, DEFAULT_TAGS, WORKSPACE_INIT_SENTINEL } from '@/constants'
 import { getDb, nowIso, uid } from '@/lib/db'
 import { emptyFilters, findDuplicate } from '@/lib/utils'
 import {
@@ -135,12 +135,62 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
 
       let tags = (remote.tags ?? []) as unknown as Tag[]
       const remoteApplications = (remote.applications ?? []) as unknown as Application[]
+      // Normalize every persisted view: pre-V2 records omit the new filter
+      // keys and would crash V2 readers (PR #1 T5). Seeded defaults below
+      // are already merged; this covers legacy/partial remote data.
+      let savedViews = ((remote.savedViews ?? []) as unknown as SavedView[]).map((view) => ({
+        ...view,
+        filters: { ...emptyFilters(), ...view.filters },
+      }))
 
-      if (remoteApplications.length === 0 && tags.length === 0) {
-        // First launch for this account — seed default tags server-side.
-        const fresh: Tag[] = DEFAULT_TAGS.map((name) => ({ id: uid('tag'), name }))
-        await cloud(get, 'Workspace setup', () => importWorkspace({ tags: fresh }))
-        tags = fresh
+      // ── First-launch initialization (F3) ──────────────────────────
+      // Tags + default views are seeded in ONE import call so a partial
+      // failure cannot leave the workspace in a state where tags exist
+      // but views don't, which the old two-step code treated as
+      // "already initialized" and permanently skipped.
+      //
+      // A sentinel tag (_system:initialized) is included in the seed
+      // and persists even if the user later deletes all visible tags
+      // or views. Its presence proves init completed; its absence
+      // means we should (re)seed. Deleting the sentinel restores the
+      // workspace to "uninitialized" — same as a brand-new account.
+      const hasInitSentinel = tags.some((t) => t.name === WORKSPACE_INIT_SENTINEL)
+      const sentinelTag: Tag = { id: uid('tag'), name: WORKSPACE_INIT_SENTINEL }
+
+      if (!hasInitSentinel && remoteApplications.length === 0 && savedViews.length === 0) {
+        // Genuinely new workspace OR full retry after partial failure:
+        // seed tags (including sentinel) + default views in one request.
+        const freshTags: Tag[] = [
+          ...DEFAULT_TAGS.map((name) => ({ id: uid('tag'), name })),
+          sentinelTag,
+        ]
+        const freshViews: SavedView[] = DEFAULT_SAVED_VIEWS.map((view) => ({
+          id: uid('view'),
+          name: view.name,
+          filters: { ...emptyFilters(), ...view.filters },
+          createdAt: nowIso(),
+        }))
+        await cloud(get, 'Workspace setup', () =>
+          importWorkspace({ tags: freshTags, savedViews: freshViews }),
+        )
+        tags = freshTags
+        savedViews = freshViews
+      } else if (!hasInitSentinel && tags.length > 0 && savedViews.length === 0) {
+        // Partial failure: tags were committed but views were not.
+        // Re-seed views + sentinel in one call. Existing tags are
+        // untouched — importWorkspace upserts, and the sentinel is
+        // added to the collection. The user keeps their tags.
+        const freshViews: SavedView[] = DEFAULT_SAVED_VIEWS.map((view) => ({
+          id: uid('view'),
+          name: view.name,
+          filters: { ...emptyFilters(), ...view.filters },
+          createdAt: nowIso(),
+        }))
+        await cloud(get, 'Workspace setup', () =>
+          importWorkspace({ tags: [sentinelTag], savedViews: freshViews }),
+        )
+        tags = [...tags, sentinelTag]
+        savedViews = freshViews
       }
 
       set({
@@ -151,7 +201,7 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
         contacts: (remote.contacts ?? []) as unknown as Contact[],
         tasks: (remote.tasks ?? []) as unknown as Task[],
         tags,
-        savedViews: (remote.savedViews ?? []) as unknown as SavedView[],
+        savedViews,
         hydrated: true,
       })
 
@@ -285,6 +335,36 @@ export const useMeridianStore = create<MeridianState>((set, get) => ({
       companyUrl: input.companyUrl,
       notes: input.notes,
       followUpDate: input.followUpDate,
+      // V2 structured recruiting fields. Every Application field the wizard
+      // supplies must persist — omitting one silently loses user data
+      // (PR #1 T1). Only Application-owned fields are copied; the extra
+      // input keys (requirements, tagIds, force) are handled separately.
+      divisions: input.divisions,
+      specializations: input.specializations,
+      specificTeam: input.specificTeam,
+      languageRequirements: input.languageRequirements,
+      targetGraduationYears: input.targetGraduationYears,
+      eligibleUniversityYears: input.eligibleUniversityYears,
+      eligibilityRequirements: input.eligibilityRequirements,
+      workAuthorization: input.workAuthorization,
+      visaNotes: input.visaNotes,
+      timingNotes: input.timingNotes,
+      priority: input.priority,
+      recommendedTiming: input.recommendedTiming,
+      nextAction: input.nextAction,
+      nextActionDate: input.nextActionDate,
+      dateInformationVerified: input.dateInformationVerified,
+      cvRequired: input.cvRequired,
+      coverLetterRequired: input.coverLetterRequired,
+      transcriptRequired: input.transcriptRequired,
+      referencesRequired: input.referencesRequired,
+      applicationQuestions: input.applicationQuestions,
+      requirementsNotes: input.requirementsNotes,
+      assessments: input.assessments,
+      assessmentNotes: input.assessmentNotes,
+      applicationProcess: input.applicationProcess,
+      interviewProcess: input.interviewProcess,
+      expectedInterviewTimeline: input.expectedInterviewTimeline,
       archived: false,
       isDemo: input.isDemo,
       tagIds: input.tagIds ?? [],

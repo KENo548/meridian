@@ -3,38 +3,66 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/Input'
+import { MultiSelect } from '@/components/ui/MultiSelect'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import {
+  ASSESSMENT_TYPE_LABELS,
   COMPANY_TYPE_LABELS,
   DEADLINE_TYPE_LABELS,
+  DIVISION_LABELS,
+  DOC_REQUIREMENT_LABELS,
+  ELIGIBLE_YEAR_LABELS,
+  PRIORITY_LABELS,
+  RECOMMENDED_TIMING_LABELS,
   REQUIREMENT_TYPE_LABELS,
   ROLE_TYPE_LABELS,
   SOURCE_LABELS,
   SPECIALIZATION_LABELS,
   STATUS_LABELS,
   STATUS_ORDER,
+  WORK_AUTH_LABELS,
+  WORK_MODE_LABELS,
 } from '@/constants'
 import { useMeridianStore } from '@/lib/store'
-import { isValidUrl } from '@/lib/utils'
+import { isSystemTag, isValidUrl } from '@/lib/utils'
 import type {
   ApplicationStatus,
+  AssessmentType,
   CompanyType,
   DeadlineType,
+  Division,
+  DocumentRequirement,
+  EligibleUniversityYear,
+  LanguageNeed,
+  Priority,
+  RecommendedTiming,
   RequirementType,
   RequirementStatus,
   RoleType,
   Source,
   Specialization,
+  WorkArrangement,
+  WorkAuthorization,
 } from '@/types'
 
 const emptyForm = () => ({
   companyName: '',
   jobTitle: '',
   roleType: 'summer_internship' as RoleType,
-  division: '',
-  specialization: '' as '' | Specialization,
+  divisions: [] as Division[],
+  specializations: [] as Specialization[],
+  specificTeam: '',
+  companyType: '' as '' | CompanyType,
   location: '',
+  city: '',
+  country: '',
+  workArrangement: '' as '' | WorkArrangement,
+  eligibleUniversityYears: [] as EligibleUniversityYear[],
+  graduationYearsText: '',
+  eligibilityRequirements: '',
+  visaNotes: '',
+  workAuthorization: '' as '' | WorkAuthorization,
   openingDate: '',
   deadline: '',
   deadlineType: 'specific' as DeadlineType,
@@ -43,6 +71,18 @@ const emptyForm = () => ({
   endDate: '',
   duration: '',
   recruitmentCycle: '',
+  timingNotes: '',
+  cvRequired: '' as '' | DocumentRequirement,
+  coverLetterRequired: '' as '' | DocumentRequirement,
+  transcriptRequired: '' as '' | DocumentRequirement,
+  referencesRequired: '' as '' | DocumentRequirement,
+  applicationQuestions: '' as '' | 'yes' | 'no' | 'unknown',
+  requirementsNotes: '',
+  assessments: [] as AssessmentType[],
+  assessmentNotes: '',
+  applicationProcess: '',
+  interviewProcess: '',
+  expectedInterviewTimeline: '',
   applicationUrl: '',
   jobUrl: '',
   companyWebsite: '',
@@ -50,12 +90,23 @@ const emptyForm = () => ({
   source: '' as '' | Source,
   sourceUrl: '',
   status: 'interested' as ApplicationStatus,
-  companyType: '' as '' | CompanyType,
+  priority: '' as '' | Priority,
+  recommendedTiming: '' as '' | RecommendedTiming,
+  nextAction: '',
+  nextActionDate: '',
+  dateInformationVerified: '',
   notes: '',
   followUpDate: '',
 })
 
-const STEP_LABELS = ['Role', 'Dates', 'Requirements', 'Links', 'Tracking']
+const STEP_LABELS = ['Opportunity', 'Eligibility', 'Dates', 'Requirements', 'Process', 'Tracking']
+const LINKS_STEP = 5
+
+interface LanguageRow {
+  language: string
+  requirement: LanguageNeed
+  proficiency: string
+}
 
 export function AddApplicationWizard() {
   const open = useMeridianStore((s) => s.addWizardOpen)
@@ -63,10 +114,15 @@ export function AddApplicationWizard() {
   const createApplication = useMeridianStore((s) => s.createApplication)
   const pushToast = useMeridianStore((s) => s.pushToast)
   const ensureTag = useMeridianStore((s) => s.ensureTag)
-  const tags = useMeridianStore((s) => s.tags)
+  // Selector must return a stable store-owned reference (Zustand v5 +
+  // useSyncExternalStore re-renders on identity change, so deriving with
+  // .filter() inside the selector risks a render loop — PR #1 F9).
+  const storedTags = useMeridianStore((s) => s.tags)
+  const tags = storedTags.filter((t) => !isSystemTag(t))
 
   const [step, setStep] = useState(0)
   const [form, setForm] = useState(emptyForm)
+  const [langRows, setLangRows] = useState<LanguageRow[]>([])
   const [reqMap, setReqMap] = useState<Record<RequirementType, boolean>>(() => {
     const map = {} as Record<RequirementType, boolean>
     for (const key of Object.keys(REQUIREMENT_TYPE_LABELS) as RequirementType[]) {
@@ -87,6 +143,7 @@ export function AddApplicationWizard() {
     setAddWizardOpen(false)
     setStep(0)
     setForm(emptyForm())
+    setLangRows([])
     setShowDuplicateConfirm(false)
     setDuplicateTarget(null)
     setReqMap(() => {
@@ -105,6 +162,13 @@ export function AddApplicationWizard() {
 
   const patch = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  const toggleList = <T extends string>(key: 'divisions' | 'specializations' | 'eligibleUniversityYears' | 'assessments', value: T) => {
+    setForm((f) => {
+      const cur = f[key] as unknown as T[]
+      return { ...f, [key]: cur.includes(value) ? cur.filter((x) => x !== value) : [...cur, value] } as typeof f
+    })
   }
 
   const toggleReq = (type: RequirementType) => {
@@ -135,7 +199,7 @@ export function AddApplicationWizard() {
       if (!form.jobTitle.trim()) next.jobTitle = 'Required'
     }
 
-    if (s === 3) {
+    if (s === LINKS_STEP) {
       if (form.applicationUrl && !isValidUrl(form.applicationUrl)) next.applicationUrl = 'Invalid URL'
       if (form.jobUrl && !isValidUrl(form.jobUrl)) next.jobUrl = 'Invalid URL'
       if (form.companyWebsite && !isValidUrl(form.companyWebsite))
@@ -154,10 +218,19 @@ export function AddApplicationWizard() {
     setStep((s) => s + 1)
   }
 
+  const parseGraduationYears = (): number[] => {
+    const out: number[] = []
+    for (const part of form.graduationYearsText.split(/[,|\s]+/)) {
+      const year = Number.parseInt(part, 10)
+      if (Number.isFinite(year) && year >= 1900 && year <= 2200 && !out.includes(year)) out.push(year)
+    }
+    return out.sort((a, b) => a - b)
+  }
+
   const submit = async (force = false) => {
-    if (!validateStep(0) || !validateStep(3)) {
+    if (!validateStep(0) || !validateStep(LINKS_STEP)) {
       if (!validateStep(0)) setStep(0)
-      else if (!validateStep(3)) setStep(3)
+      else if (!validateStep(LINKS_STEP)) setStep(LINKS_STEP)
       return
     }
     setSaving(true)
@@ -176,6 +249,14 @@ export function AddApplicationWizard() {
         tagIds.push(tag.id)
       }
 
+      const languageRequirements = langRows
+        .filter((r) => r.language.trim())
+        .map((r) => ({
+          language: r.language.trim(),
+          requirement: r.requirement,
+          ...(r.proficiency.trim() ? { proficiency: r.proficiency.trim() } : {}),
+        }))
+
       const result = await createApplication({
         companyName: form.companyName,
         jobTitle: form.jobTitle,
@@ -185,9 +266,20 @@ export function AddApplicationWizard() {
         deadline: form.deadline || undefined,
         openingDate: form.openingDate || undefined,
         location: form.location || undefined,
-        division: form.division || undefined,
-        specialization: form.specialization || undefined,
+        city: form.city || undefined,
+        country: form.country || undefined,
+        workArrangement: form.workArrangement || undefined,
+        divisions: form.divisions.length ? form.divisions : undefined,
+        specializations: form.specializations.length ? form.specializations : undefined,
+        specificTeam: form.specificTeam || undefined,
         companyType: form.companyType || undefined,
+        eligibleUniversityYears: form.eligibleUniversityYears.length ? form.eligibleUniversityYears : undefined,
+        targetGraduationYears: parseGraduationYears().length ? parseGraduationYears() : undefined,
+        eligibilityRequirements: form.eligibilityRequirements || undefined,
+        visaNotes: form.visaNotes || undefined,
+        workAuthorization: form.workAuthorization || undefined,
+        languageRequirements: languageRequirements.length ? languageRequirements : undefined,
+        timingNotes: form.timingNotes || undefined,
         source: form.source || undefined,
         applicationUrl: form.applicationUrl || undefined,
         jobUrl: form.jobUrl || undefined,
@@ -201,6 +293,22 @@ export function AddApplicationWizard() {
         companyWebsite: form.companyWebsite || undefined,
         companyCareersPage: form.companyCareersPage || undefined,
         sourceUrl: form.sourceUrl || undefined,
+        priority: form.priority || undefined,
+        recommendedTiming: form.recommendedTiming || undefined,
+        nextAction: form.nextAction || undefined,
+        nextActionDate: form.nextActionDate || undefined,
+        dateInformationVerified: form.dateInformationVerified || undefined,
+        cvRequired: form.cvRequired || undefined,
+        coverLetterRequired: form.coverLetterRequired || undefined,
+        transcriptRequired: form.transcriptRequired || undefined,
+        referencesRequired: form.referencesRequired || undefined,
+        applicationQuestions: form.applicationQuestions || undefined,
+        requirementsNotes: form.requirementsNotes || undefined,
+        assessments: form.assessments.length ? form.assessments : undefined,
+        assessmentNotes: form.assessmentNotes || undefined,
+        applicationProcess: form.applicationProcess || undefined,
+        interviewProcess: form.interviewProcess || undefined,
+        expectedInterviewTimeline: form.expectedInterviewTimeline || undefined,
         requirements: reqs,
         tagIds,
         force,
@@ -219,7 +327,7 @@ export function AddApplicationWizard() {
     }
   }
 
-  const isLast = step === 4
+  const isLast = step === STEP_LABELS.length - 1
 
   const footer = (
     <>
@@ -292,20 +400,44 @@ export function AddApplicationWizard() {
             }))}
             onChange={(e) => patch('roleType', e.target.value as RoleType)}
           />
-          <Input
-            label="Division"
-            value={form.division}
-            onChange={(e) => patch('division', e.target.value)}
-          />
           <Select
-            label="Specialization"
-            value={form.specialization}
+            label="Firm category"
+            value={form.companyType}
             placeholder="Select…"
-            options={(Object.keys(SPECIALIZATION_LABELS) as Specialization[]).map((k) => ({
+            options={(Object.keys(COMPANY_TYPE_LABELS) as CompanyType[]).map((k) => ({
               value: k,
-              label: SPECIALIZATION_LABELS[k],
+              label: COMPANY_TYPE_LABELS[k],
             }))}
-            onChange={(e) => patch('specialization', e.target.value as Specialization | '')}
+            onChange={(e) => patch('companyType', e.target.value as CompanyType | '')}
+          />
+          <div className="sm:col-span-2">
+            <MultiSelect
+              label="Divisions"
+              options={(Object.keys(DIVISION_LABELS) as Division[]).map((k) => ({
+                value: k,
+                label: DIVISION_LABELS[k],
+              }))}
+              selected={form.divisions}
+              onToggle={(v) => toggleList('divisions', v)}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <MultiSelect
+              label="Specializations"
+              searchable
+              options={(Object.keys(SPECIALIZATION_LABELS) as Specialization[]).map((k) => ({
+                value: k,
+                label: SPECIALIZATION_LABELS[k],
+              }))}
+              selected={form.specializations}
+              onToggle={(v) => toggleList('specializations', v)}
+            />
+          </div>
+          <Input
+            label="Specific team"
+            placeholder="e.g. FIG — Banks (free text, never forced into a list)"
+            value={form.specificTeam}
+            onChange={(e) => patch('specificTeam', e.target.value)}
           />
           <Input
             label="Location"
@@ -316,6 +448,75 @@ export function AddApplicationWizard() {
       )}
 
       {step === 1 && (
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input
+            label="City"
+            value={form.city}
+            onChange={(e) => patch('city', e.target.value)}
+          />
+          <Input
+            label="Country"
+            value={form.country}
+            onChange={(e) => patch('country', e.target.value)}
+          />
+          <Select
+            label="Work mode"
+            value={form.workArrangement}
+            placeholder="Unknown"
+            options={(Object.keys(WORK_MODE_LABELS) as WorkArrangement[]).map((k) => ({
+              value: k,
+              label: WORK_MODE_LABELS[k],
+            }))}
+            onChange={(e) => patch('workArrangement', e.target.value as WorkArrangement | '')}
+          />
+          <Input
+            label="Graduation years"
+            placeholder="e.g. 2027, 2028"
+            value={form.graduationYearsText}
+            onChange={(e) => patch('graduationYearsText', e.target.value)}
+          />
+          <div className="sm:col-span-2">
+            <MultiSelect
+              label="Eligible university years"
+              options={(Object.keys(ELIGIBLE_YEAR_LABELS) as EligibleUniversityYear[]).map((k) => ({
+                value: k,
+                label: ELIGIBLE_YEAR_LABELS[k],
+              }))}
+              selected={form.eligibleUniversityYears}
+              onToggle={(v) => toggleList('eligibleUniversityYears', v)}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <LanguageEditor rows={langRows} onChange={setLangRows} />
+          </div>
+          <Select
+            label="Work authorization"
+            value={form.workAuthorization}
+            placeholder="Unknown"
+            options={(Object.keys(WORK_AUTH_LABELS) as WorkAuthorization[]).map((k) => ({
+              value: k,
+              label: WORK_AUTH_LABELS[k],
+            }))}
+            onChange={(e) => patch('workAuthorization', e.target.value as WorkAuthorization | '')}
+          />
+          <div className="sm:col-span-2">
+            <Textarea
+              label="Eligibility notes"
+              value={form.eligibilityRequirements}
+              onChange={(e) => patch('eligibilityRequirements', e.target.value)}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Textarea
+              label="Visa notes"
+              value={form.visaNotes}
+              onChange={(e) => patch('visaNotes', e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
         <div className="grid sm:grid-cols-2 gap-3">
           <Input
             label="Opening date"
@@ -368,38 +569,195 @@ export function AddApplicationWizard() {
             value={form.recruitmentCycle}
             onChange={(e) => patch('recruitmentCycle', e.target.value)}
           />
-        </div>
-      )}
-
-      {step === 2 && (
-        <div>
-          <p className="text-sm text-[var(--color-muted)] mb-3">
-            Select the materials required for this application.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {(Object.keys(REQUIREMENT_TYPE_LABELS) as RequirementType[]).map((type) => {
-              const on = reqMap[type]
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => toggleReq(type)}
-                  className={`rounded border px-2.5 py-1.5 text-xs cursor-pointer transition-colors ${
-                    on
-                      ? 'border-[var(--color-accent)] bg-[rgba(212,168,83,0.12)] text-[var(--color-accent)]'
-                      : 'border-[var(--color-border)] text-[var(--color-muted)]'
-                  }`}
-                >
-                  {REQUIREMENT_TYPE_LABELS[type]}
-                </button>
-              )
-            })}
+          <div className="sm:col-span-2">
+            <Textarea
+              label="Timing notes"
+              placeholder="Approximate timing when no exact date is known — never invents a date"
+              value={form.timingNotes}
+              onChange={(e) => patch('timingNotes', e.target.value)}
+            />
           </div>
         </div>
       )}
 
       {step === 3 && (
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Select
+              label="CV required"
+              value={form.cvRequired}
+              placeholder="Unknown"
+              options={(Object.keys(DOC_REQUIREMENT_LABELS) as DocumentRequirement[]).map((k) => ({
+                value: k,
+                label: DOC_REQUIREMENT_LABELS[k],
+              }))}
+              onChange={(e) => patch('cvRequired', e.target.value as DocumentRequirement | '')}
+            />
+            <Select
+              label="Cover letter required"
+              value={form.coverLetterRequired}
+              placeholder="Unknown"
+              options={(Object.keys(DOC_REQUIREMENT_LABELS) as DocumentRequirement[]).map((k) => ({
+                value: k,
+                label: DOC_REQUIREMENT_LABELS[k],
+              }))}
+              onChange={(e) => patch('coverLetterRequired', e.target.value as DocumentRequirement | '')}
+            />
+            <Select
+              label="Transcript required"
+              value={form.transcriptRequired}
+              placeholder="Unknown"
+              options={(Object.keys(DOC_REQUIREMENT_LABELS) as DocumentRequirement[]).map((k) => ({
+                value: k,
+                label: DOC_REQUIREMENT_LABELS[k],
+              }))}
+              onChange={(e) => patch('transcriptRequired', e.target.value as DocumentRequirement | '')}
+            />
+            <Select
+              label="References required"
+              value={form.referencesRequired}
+              placeholder="Unknown"
+              options={(Object.keys(DOC_REQUIREMENT_LABELS) as DocumentRequirement[]).map((k) => ({
+                value: k,
+                label: DOC_REQUIREMENT_LABELS[k],
+              }))}
+              onChange={(e) => patch('referencesRequired', e.target.value as DocumentRequirement | '')}
+            />
+            <Select
+              label="Application questions"
+              value={form.applicationQuestions}
+              placeholder="Unknown"
+              options={[
+                { value: 'yes', label: 'Yes' },
+                { value: 'no', label: 'No' },
+                { value: 'unknown', label: 'Unknown' },
+              ]}
+              onChange={(e) => patch('applicationQuestions', e.target.value as '' | 'yes' | 'no' | 'unknown')}
+            />
+            <div className="sm:col-span-2">
+              <Textarea
+                label="Requirements notes"
+                value={form.requirementsNotes}
+                onChange={(e) => patch('requirementsNotes', e.target.value)}
+              />
+            </div>
+          </div>
+          <MultiSelect
+            label="Assessments"
+            searchable
+            hint="Each type is independently filterable — never a single text blob."
+            options={(Object.keys(ASSESSMENT_TYPE_LABELS) as AssessmentType[]).map((k) => ({
+              value: k,
+              label: ASSESSMENT_TYPE_LABELS[k],
+            }))}
+            selected={form.assessments}
+            onToggle={(v) => toggleList('assessments', v)}
+          />
+          <Textarea
+            label="Assessment notes"
+            value={form.assessmentNotes}
+            onChange={(e) => patch('assessmentNotes', e.target.value)}
+          />
+          <div>
+            <p className="text-sm text-[var(--color-muted)] mb-3">
+              Select the materials required for this application (workflow tracking).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(REQUIREMENT_TYPE_LABELS) as RequirementType[]).map((type) => {
+                const on = reqMap[type]
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => toggleReq(type)}
+                    className={`rounded border px-2.5 py-1.5 text-xs cursor-pointer transition-colors ${
+                      on
+                        ? 'border-[var(--color-accent)] bg-[rgba(212,168,83,0.12)] text-[var(--color-accent)]'
+                        : 'border-[var(--color-border)] text-[var(--color-muted)]'
+                    }`}
+                  >
+                    {REQUIREMENT_TYPE_LABELS[type]}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 4 && (
         <div className="grid sm:grid-cols-2 gap-3">
+          <div className="sm:col-span-2">
+            <Textarea
+              label="Application process"
+              placeholder="e.g. Application → Numerical Test → HireVue → AC → Offer"
+              value={form.applicationProcess}
+              onChange={(e) => patch('applicationProcess', e.target.value)}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Textarea
+              label="Interview process"
+              value={form.interviewProcess}
+              onChange={(e) => patch('interviewProcess', e.target.value)}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Textarea
+              label="Expected interview timeline"
+              value={form.expectedInterviewTimeline}
+              onChange={(e) => patch('expectedInterviewTimeline', e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
+      {step === 5 && (
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Select
+            label="Status"
+            value={form.status}
+            options={STATUS_ORDER.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+            onChange={(e) => patch('status', e.target.value as ApplicationStatus)}
+          />
+          <Select
+            label="Priority"
+            value={form.priority}
+            placeholder="Select…"
+            options={(Object.keys(PRIORITY_LABELS) as Priority[]).map((k) => ({
+              value: k,
+              label: PRIORITY_LABELS[k],
+            }))}
+            onChange={(e) => patch('priority', e.target.value as Priority | '')}
+          />
+          <Select
+            label="Recommended timing"
+            value={form.recommendedTiming}
+            placeholder="Unknown"
+            options={(Object.keys(RECOMMENDED_TIMING_LABELS) as RecommendedTiming[]).map((k) => ({
+              value: k,
+              label: RECOMMENDED_TIMING_LABELS[k],
+            }))}
+            onChange={(e) => patch('recommendedTiming', e.target.value as RecommendedTiming | '')}
+          />
+          <Input
+            label="Next action"
+            placeholder="e.g. Submit application"
+            value={form.nextAction}
+            onChange={(e) => patch('nextAction', e.target.value)}
+          />
+          <Input
+            label="Next action date"
+            type="date"
+            value={form.nextActionDate}
+            onChange={(e) => patch('nextActionDate', e.target.value)}
+          />
+          <Input
+            label="Information verified"
+            type="date"
+            value={form.dateInformationVerified}
+            onChange={(e) => patch('dateInformationVerified', e.target.value)}
+          />
           <Input
             label="Application URL"
             value={form.applicationUrl}
@@ -439,27 +797,6 @@ export function AddApplicationWizard() {
             value={form.sourceUrl}
             error={errors.sourceUrl}
             onChange={(e) => patch('sourceUrl', e.target.value)}
-          />
-        </div>
-      )}
-
-      {step === 4 && (
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Select
-            label="Status"
-            value={form.status}
-            options={STATUS_ORDER.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
-            onChange={(e) => patch('status', e.target.value as ApplicationStatus)}
-          />
-          <Select
-            label="Company type"
-            value={form.companyType}
-            placeholder="Select…"
-            options={(Object.keys(COMPANY_TYPE_LABELS) as CompanyType[]).map((k) => ({
-              value: k,
-              label: COMPANY_TYPE_LABELS[k],
-            }))}
-            onChange={(e) => patch('companyType', e.target.value as CompanyType | '')}
           />
           <div className="sm:col-span-2">
             <Textarea
@@ -522,5 +859,68 @@ export function AddApplicationWizard() {
         onCancel={() => { setShowDuplicateConfirm(false); setDuplicateTarget(null) }}
       />
     </>
+  )
+}
+
+export function LanguageEditor({
+  rows,
+  onChange,
+}: {
+  rows: LanguageRow[]
+  onChange: (rows: LanguageRow[]) => void
+}) {
+  const patchRow = (index: number, patch: Partial<LanguageRow>) => {
+    onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+  }
+
+  return (
+    <div>
+      <span className="text-[var(--color-muted)] font-medium text-xs tracking-wide uppercase">
+        Languages
+      </span>
+      <p className="text-[11px] text-[var(--color-faint)] mb-1.5">
+        Whether each language is required or preferred matters more than proficiency levels.
+      </p>
+      <div className="space-y-2">
+        {rows.map((row, i) => (
+          <div key={i} className="grid grid-cols-[1fr_110px_1fr_auto] gap-2 items-center">
+            <Input
+              placeholder="Language"
+              value={row.language}
+              onChange={(e) => patchRow(i, { language: e.target.value })}
+            />
+            <select
+              value={row.requirement}
+              onChange={(e) => patchRow(i, { requirement: e.target.value as LanguageNeed })}
+              aria-label={`Language requirement for ${row.language || 'row ' + (i + 1)}`}
+              className="h-9 rounded-md bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs text-[var(--color-text)]"
+            >
+              <option value="required">Required</option>
+              <option value="preferred">Preferred</option>
+              <option value="optional">Optional</option>
+              <option value="unknown">Unknown</option>
+            </select>
+            <Input
+              placeholder="Proficiency (optional)"
+              value={row.proficiency}
+              onChange={(e) => patchRow(i, { proficiency: e.target.value })}
+            />
+            <Button
+              variant="ghost"
+              aria-label={`Remove ${row.language || 'language'} requirement`}
+              onClick={() => onChange(rows.filter((_, j) => j !== i))}
+            >
+              ×
+            </Button>
+          </div>
+        ))}
+        <Button
+          variant="ghost"
+          onClick={() => onChange([...rows, { language: '', requirement: 'unknown' as LanguageNeed, proficiency: '' }])}
+        >
+          + Add language
+        </Button>
+      </div>
+    </div>
   )
 }

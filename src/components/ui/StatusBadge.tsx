@@ -6,13 +6,21 @@ import type { ComponentProps } from 'react'
 type Tone = ComponentProps<typeof Badge>['tone']
 
 const STATUS_TONE: Record<ApplicationStatus, Tone> = {
+  researching: 'neutral',
+  watching: 'neutral',
+  not_open: 'neutral',
   interested: 'neutral',
   to_apply: 'info',
+  application_started: 'info',
   preparing: 'warning',
   applied: 'teal',
   online_assessment: 'teal',
+  hirevue: 'accent',
+  phone_interview: 'accent',
   first_interview: 'accent',
+  first_round: 'accent',
   second_interview: 'accent',
+  second_round: 'accent',
   final_interview: 'accent',
   assessment_centre: 'accent',
   superday: 'accent',
@@ -22,6 +30,7 @@ const STATUS_TONE: Record<ApplicationStatus, Tone> = {
   withdrawn: 'neutral',
   ghosted: 'neutral',
   closed: 'neutral',
+  missed_deadline: 'danger',
 }
 
 interface StatusBadgeProps {

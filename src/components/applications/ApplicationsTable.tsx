@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { DeadlineBadge } from '@/components/ui/DeadlineBadge'
 import { Select } from '@/components/ui/Select'
-import { STATUS_LABELS, STATUS_ORDER, ROLE_TYPE_LABELS } from '@/constants'
+import { PRIORITY_LABELS, STATUS_LABELS, STATUS_ORDER, ROLE_TYPE_LABELS } from '@/constants'
 import { useMeridianStore } from '@/lib/store'
 import { formatDisplayDate, clsx } from '@/lib/utils'
 import type { Application, ApplicationStatus, SortField } from '@/types'
@@ -89,6 +89,9 @@ export function ApplicationsTable({ applications }: ApplicationsTableProps) {
               <SortHeader field="status" label="Status" current={sort} onSort={onSort} />
             </th>
             <th className="px-3 py-2.5">
+              <SortHeader field="priority" label="Priority" current={sort} onSort={onSort} />
+            </th>
+            <th className="px-3 py-2.5">
               <SortHeader field="deadline" label="Deadline" current={sort} onSort={onSort} />
             </th>
             <th className="px-3 py-2.5">
@@ -147,6 +150,22 @@ export function ApplicationsTable({ applications }: ApplicationsTableProps) {
                       })
                     }}
                   />
+                </td>
+                <td className="px-3 py-2.5">
+                  {app.priority ? (
+                    <span
+                      className={clsx(
+                        'inline-block rounded-full px-2 py-0.5 text-[11px] font-medium',
+                        app.priority === 'high' && 'bg-[var(--color-danger)]/15 text-[var(--color-danger)]',
+                        app.priority === 'medium' && 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]',
+                        app.priority === 'low' && 'bg-[var(--color-surface-3)] text-[var(--color-muted)]',
+                      )}
+                    >
+                      {PRIORITY_LABELS[app.priority]}
+                    </span>
+                  ) : (
+                    <span className="text-[var(--color-faint)]">—</span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex flex-col gap-1 items-start">

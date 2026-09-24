@@ -12,16 +12,24 @@ import {
 import {
   APPLIED_OR_BEYOND,
   CLOSED_STATUSES,
+  DIVISION_LABELS,
   INTERVIEW_STATUSES,
   OPEN_STATUSES,
+  SPECIALIZATION_LABELS,
 } from '@/constants'
 import type {
   Application,
+  ApplicationAvailability,
   ApplicationFilters,
   ApplicationStatus,
   DashboardStats,
   DeadlineUrgency,
+  Division,
+  DocumentRequirement,
+  LanguageNeed,
+  LanguageRequirement,
   SortState,
+  Specialization,
 } from '@/types'
 
 export function parseDate(value?: string | null): Date | null {
@@ -107,6 +115,17 @@ export function emptyFilters(): ApplicationFilters {
     roleTypes: [],
     divisions: [],
     specializations: [],
+    assessments: [],
+    eligibleUniversityYears: [],
+    targetGraduationYears: [],
+    workAuthorizations: [],
+    workModes: [],
+    priorities: [],
+    cvRequired: [],
+    coverLetterRequired: [],
+    transcriptRequired: [],
+    deadlineTypes: [],
+    cycles: [],
     countries: [],
     cities: [],
     sources: [],
@@ -116,8 +135,232 @@ export function emptyFilters(): ApplicationFilters {
     hasInterview: null,
     hasOffer: null,
     rollingDeadline: null,
+    deadlineWithinDays: null,
     showArchived: false,
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* System tag helpers                                                  */
+/* ------------------------------------------------------------------ */
+
+/** System tags (_system: prefix) are internal markers hidden from the UI. */
+export function isSystemTag(tag: { name: string }): boolean {
+  return tag.name.startsWith('_system:')
+}
+
+/* ------------------------------------------------------------------ */
+/* Filter activity counting (PR #1 U5/U8). Shared by the toolbar badge  */
+/* and the panel group badges so both counters agree on what is active. */
+/* ------------------------------------------------------------------ */
+
+/** Keys where false is a meaningful active filter state (not the default). */
+const TRISTATE_KEYS: ReadonlySet<string> = new Set([
+  'hasInterview',
+  'hasOffer',
+  'rollingDeadline',
+])
+
+/** A single filter value counts as active when it restricts results. */
+export function isActiveFilterValue(
+  v: unknown,
+  key?: keyof ApplicationFilters,
+): boolean {
+  if (Array.isArray(v)) return v.length > 0
+  if (typeof v === 'string') return v.trim().length > 0
+  if (typeof v === 'number') return true
+  // For tristate keys (hasInterview, hasOffer, rollingDeadline), false is
+  // a meaningful exclusion that restricts results — it must count as active.
+  // For showArchived, false is the default and counts as inactive.
+  if (typeof v === 'boolean') {
+    return key !== undefined && TRISTATE_KEYS.has(key) ? true : v === true
+  }
+  // null / undefined are always inactive (unset).
+  return false
+}
+
+/** Count active keys — arrays, strings, numbers and meaningful booleans. */
+export function countActiveKeys(
+  filters: ApplicationFilters,
+  keys: Array<keyof ApplicationFilters>,
+): number {
+  let n = 0
+  for (const k of keys) {
+    if (isActiveFilterValue(filters[k], k)) n++
+  }
+  return n
+}
+
+/** Date bounds count per range pair (from/to together are one filter).
+ * Excludes deadline range — it belongs to the Application group and is
+ * counted via countDeadlineRangeActive so toolbar and panel agree. */
+export function countActiveDateRanges(filters: ApplicationFilters): number {
+  let n = 0
+  if (filters.openingDateFrom || filters.openingDateTo) n++
+  // deadlineFrom/To excluded — counted via countDeadlineRangeActive separately
+  if (filters.startDateFrom || filters.startDateTo) n++
+  if (filters.applicationDateFrom || filters.applicationDateTo) n++
+  return n
+}
+
+/** Deadline range counts as one logical filter (from/to together are one).
+ * Single source of truth for toolbar activeFilterCount and the FiltersPanel
+ * Application group badge (PR #1 F8). Neither bound = 0, any bound = 1. */
+export function countDeadlineRangeActive(filters: ApplicationFilters): number {
+  return filters.deadlineFrom || filters.deadlineTo ? 1 : 0
+}
+
+/* ------------------------------------------------------------------ */
+/* V2 normalization: legacy fields stay stored; arrays are canonical.  */
+/* Normalizers never mutate the record — they derive a view of it.     */
+/* ------------------------------------------------------------------ */
+
+function reverseLookup<T extends string>(labels: Record<T, string>): Map<string, T> {
+  const map = new Map<string, T>()
+  for (const [value, label] of Object.entries(labels) as Array<[T, string]>) {
+    map.set(value.toLowerCase(), value)
+    map.set(label.toLowerCase(), value)
+  }
+  return map
+}
+
+const DIVISION_ALIASES: Record<string, Division> = {
+  ib: 'investment_banking',
+  's&t': 'sales_and_trading',
+  sales_trading: 'sales_and_trading',
+  pe: 'private_equity',
+  hf: 'hedge_fund',
+  am: 'asset_management',
+  er: 'equity_research',
+  quant: 'quantitative_finance',
+  tech: 'technology',
+  ops: 'operations',
+}
+
+const SPECIALIZATION_ALIASES: Record<string, Specialization> = {
+  'm&a': 'manda',
+  ib: 'investment_banking',
+  levfin: 'leveraged_finance',
+  'lev fin': 'leveraged_finance',
+  tmt: 'technology_media_telecom',
+  fig: 'financial_institutions',
+  's&t': 'sales_trading',
+  srt: 'structuring',
+}
+
+/** Canonical divisions for a record: `divisions`, else legacy `division`, else []. */
+export function getDivisions(app: Application): Division[] {
+  if (app.divisions && app.divisions.length > 0) {
+    const valid = (Object.keys(DIVISION_LABELS) as Division[])
+    return app.divisions.filter((d): d is Division => valid.includes(d))
+  }
+  const mapped = normalizeDivision(app.division)
+  return mapped ? [mapped] : []
+}
+
+/** Canonical specializations for a record: `specializations`, else legacy, else []. */
+export function getSpecializations(app: Application): Specialization[] {
+  if (app.specializations && app.specializations.length > 0) {
+    const valid = (Object.keys(SPECIALIZATION_LABELS) as Specialization[])
+    return app.specializations.filter((s): s is Specialization => valid.includes(s))
+  }
+  const mapped = normalizeSpecialization(app.specialization)
+  return mapped ? [mapped] : []
+}
+
+export function normalizeDivision(raw?: string | null): Division | undefined {
+  if (!raw || !raw.trim()) return undefined
+  const key = raw.trim().toLowerCase()
+  return (
+    reverseLookup(DIVISION_LABELS).get(key) ??
+    DIVISION_ALIASES[key] ??
+    (Object.keys(DIVISION_LABELS) as Division[]).find((d) => d === key)
+  )
+}
+
+export function normalizeSpecialization(raw?: string | null): Specialization | undefined {
+  if (!raw || !raw.trim()) return undefined
+  const key = raw.trim().toLowerCase()
+  return (
+    reverseLookup(SPECIALIZATION_LABELS).get(key) ??
+    SPECIALIZATION_ALIASES[key] ??
+    (Object.keys(SPECIALIZATION_LABELS) as Specialization[]).find((s) => s === key)
+  )
+}
+
+/**
+ * Canonical language requirements. Prefers `languageRequirements`;
+ * legacy string entries become `{ requirement: 'unknown' }`.
+ * Accepts mixed arrays defensively — stored data predates the schema.
+ */
+export function getLanguages(app: Application): LanguageRequirement[] {
+  if (app.languageRequirements && app.languageRequirements.length > 0) {
+    return app.languageRequirements.filter(
+      (l): l is LanguageRequirement =>
+        !!l && typeof l.language === 'string' && l.language.trim().length > 0,
+    )
+  }
+  return (app.languages ?? [])
+    .filter((l): l is string => typeof l === 'string' && l.trim().length > 0)
+    .map((language) => ({ language: language.trim(), requirement: 'unknown' as const }))
+}
+
+/** Editable language row shape used by LanguageEditor (draft may be blank). */
+export interface EditableLanguageRow {
+  language: string
+  requirement: LanguageNeed
+  proficiency: string
+}
+
+/** Clean editor rows for persistence (PR #1 F7).
+ * Trims language/proficiency, drops blank rows, never persists a
+ * meaningless permanently-blank record. Returns [] when nothing
+ * meaningful remains so callers can save `undefined` instead. */
+export function cleanLanguageRowsForSave(rows: EditableLanguageRow[]): LanguageRequirement[] {
+  return rows
+    .filter((r) => r.language.trim())
+    .map((r) => ({
+      language: r.language.trim(),
+      requirement: r.requirement,
+      ...(r.proficiency.trim() ? { proficiency: r.proficiency.trim() } : {}),
+    }))
+}
+
+/**
+ * Missing document metadata is UNKNOWN — never `no`. Callers must not
+ * write the fallback back to the record; it is a read-time view only.
+ */
+export function resolveDocRequirement(
+  value: DocumentRequirement | undefined,
+): DocumentRequirement {
+  return value ?? 'unknown'
+}
+
+/**
+ * Derived application availability for "open" reasoning. Uses
+ * openingDate, deadline, deadlineType and status together — never
+ * `deadline >= today` alone (that fails rolling and not-yet-open).
+ * Derived on read; never persisted.
+ */
+export function getAvailability(
+  app: Application,
+  today = startOfDay(new Date()),
+): ApplicationAvailability {
+  if (isClosedStatus(app.status)) return 'closed'
+
+  const opening = parseDate(app.openingDate)
+  if (opening && startOfDay(opening) > today) return 'not_yet_open'
+
+  if (app.deadlineType === 'rolling' || app.deadlineType === 'until_filled') return 'rolling'
+
+  if (app.deadlineType === 'unknown' || !app.deadline) return 'unknown'
+  const deadline = parseDate(app.deadline)
+  if (!deadline) return 'unknown'
+
+  const days = differenceInCalendarDays(startOfDay(deadline), today)
+  if (days < 0) return 'closed'
+  if (days <= 7) return 'closing_soon'
+  return 'open'
 }
 
 function matchesDateRange(value: string | undefined, from?: string, to?: string): boolean {
@@ -138,43 +381,109 @@ export function filterApplications(
   return apps.filter((app) => {
     if (!filters.showArchived && app.archived) return false
 
-    if (q) {
-      const hay = [
-        app.companyName,
-        app.jobTitle,
-        app.location,
-        app.city,
-        app.country,
-        app.division,
-        app.specialization,
-        app.status,
-        app.source,
-        app.team,
-        app.office,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-      if (!hay.includes(q)) return false
-    }
+  if (q) {
+    const hay = [
+      app.companyName,
+      app.jobTitle,
+      app.location,
+      app.city,
+      app.country,
+      app.division,
+      ...getDivisions(app).map((d) => DIVISION_LABELS[d]),
+      app.specialization,
+      ...getSpecializations(app).map((s) => SPECIALIZATION_LABELS[s]),
+      app.status,
+      app.source,
+      app.team,
+      app.specificTeam,
+      app.office,
+      app.notes,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    if (!hay.includes(q)) return false
+  }
 
-    if (filters.statuses.length && !filters.statuses.includes(app.status)) return false
-    if (filters.companyTypes.length && (!app.companyType || !filters.companyTypes.includes(app.companyType))) {
-      return false
-    }
-    if (filters.roleTypes.length && !filters.roleTypes.includes(app.roleType)) return false
-    if (filters.divisions.length && (!app.division || !filters.divisions.includes(app.division))) return false
-    if (
-      filters.specializations.length &&
-      (!app.specialization || !filters.specializations.includes(app.specialization))
-    ) {
-      return false
-    }
+  if (filters.statuses.length && !filters.statuses.includes(app.status)) return false
+  if (filters.companyTypes.length && (!app.companyType || !filters.companyTypes.includes(app.companyType))) {
+    return false
+  }
+  if (filters.roleTypes.length && !filters.roleTypes.includes(app.roleType)) return false
+  if (filters.divisions.length && !getDivisions(app).some((d) => filters.divisions.includes(d))) {
+    return false
+  }
+  if (
+    filters.specializations.length &&
+    !getSpecializations(app).some((s) => filters.specializations.includes(s))
+  ) {
+    return false
+  }
     if (filters.countries.length && (!app.country || !filters.countries.includes(app.country))) return false
     if (filters.cities.length && (!app.city || !filters.cities.includes(app.city))) return false
     if (filters.sources.length && (!app.source || !filters.sources.includes(app.source))) return false
     if (filters.tags.length && !filters.tags.some((t) => app.tagIds.includes(t))) return false
-    if (filters.languages.length && (!app.languages || !filters.languages.some(l => app.languages!.includes(l)))) return false
+    if (filters.languages.length && !getLanguages(app).some((l) => filters.languages.includes(l.language))) return false
+
+    // Multi-value taxonomy filters: a record matches on intersection,
+    // never exact array equality. Missing data never matches an active
+    // filter — unknown is not a value.
+    if (filters.assessments.length && !(app.assessments ?? []).some((a) => filters.assessments.includes(a))) {
+      return false
+    }
+    if (
+      filters.eligibleUniversityYears.length &&
+      !(app.eligibleUniversityYears ?? []).some((y) => filters.eligibleUniversityYears.includes(y))
+    ) {
+      return false
+    }
+    if (
+      filters.targetGraduationYears.length &&
+      !(app.targetGraduationYears ?? []).some((y) => filters.targetGraduationYears.includes(y))
+    ) {
+      return false
+    }
+    if (
+      filters.workAuthorizations.length &&
+      (!app.workAuthorization || !filters.workAuthorizations.includes(app.workAuthorization))
+    ) {
+      return false
+    }
+    if (
+      filters.workModes.length &&
+      (!app.workArrangement || !filters.workModes.includes(app.workArrangement))
+    ) {
+      return false
+    }
+    if (filters.priorities.length && (!app.priority || !filters.priorities.includes(app.priority))) {
+      return false
+    }
+    // Document filters match the resolved value, so `unknown` is an
+    // explicit selectable state and old records surface under it —
+    // never under `no`.
+    if (filters.cvRequired.length && !filters.cvRequired.includes(resolveDocRequirement(app.cvRequired))) {
+      return false
+    }
+    if (
+      filters.coverLetterRequired.length &&
+      !filters.coverLetterRequired.includes(resolveDocRequirement(app.coverLetterRequired))
+    ) {
+      return false
+    }
+    if (
+      filters.transcriptRequired.length &&
+      !filters.transcriptRequired.includes(resolveDocRequirement(app.transcriptRequired))
+    ) {
+      return false
+    }
+    if (filters.deadlineTypes.length && !filters.deadlineTypes.includes(app.deadlineType)) return false
+    if (filters.cycles.length && (!app.recruitmentCycle || !filters.cycles.includes(app.recruitmentCycle))) {
+      return false
+    }
+    if (filters.deadlineWithinDays !== null && filters.deadlineWithinDays !== undefined) {
+      const days = daysUntilDeadline(app)
+      if (days === null || days < 0 || days > filters.deadlineWithinDays) return false
+    }
 
     if (filters.hasInterview === true && !INTERVIEW_STATUSES.includes(app.status) && !app.interviewDate) {
       return false
@@ -204,13 +513,21 @@ export function filterApplications(
 }
 
 const STATUS_RANK: Record<ApplicationStatus, number> = {
+  researching: 0,
+  watching: 0,
+  not_open: 0,
   interested: 0,
   to_apply: 1,
+  application_started: 1,
   preparing: 2,
   applied: 3,
   online_assessment: 4,
+  hirevue: 5,
+  phone_interview: 5,
   first_interview: 5,
+  first_round: 5,
   second_interview: 6,
+  second_round: 6,
   final_interview: 7,
   assessment_centre: 8,
   superday: 9,
@@ -220,6 +537,7 @@ const STATUS_RANK: Record<ApplicationStatus, number> = {
   withdrawn: 13,
   ghosted: 14,
   closed: 15,
+  missed_deadline: 15,
 }
 
 function urgencyRank(app: Application): number {
@@ -276,6 +594,10 @@ export function sortApplications(apps: Application[], sort: SortState): Applicat
           return app.jobTitle.toLowerCase()
         case 'status':
           return STATUS_RANK[app.status]
+        case 'priority':
+          return app.priority === 'high' ? 0 : app.priority === 'medium' ? 1 : app.priority === 'low' ? 2 : 3
+        case 'nextActionDate':
+          return app.nextActionDate ?? ''
         case 'location':
           return (app.location ?? app.city ?? '').toLowerCase()
         case 'startDate':

@@ -1,9 +1,12 @@
+import { Badge } from '@/components/ui/Badge'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { DeadlineBadge } from '@/components/ui/DeadlineBadge'
-import { ROLE_TYPE_LABELS } from '@/constants'
+import { PRIORITY_LABELS, ROLE_TYPE_LABELS } from '@/constants'
 import { useMeridianStore } from '@/lib/store'
 import { clsx } from '@/lib/utils'
 import type { Application } from '@/types'
+
+const SPRING_ROLES = ['spring_week', 'spring_insight', 'insight_programme']
 
 interface ApplicationCardListProps {
   applications: Application[]
@@ -48,6 +51,22 @@ export function ApplicationCardList({ applications }: ApplicationCardListProps) 
                   <DeadlineBadge application={app} />
                   <span>{ROLE_TYPE_LABELS[app.roleType]}</span>
                   {app.location || app.city ? <span>{app.location || app.city}</span> : null}
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {SPRING_ROLES.includes(app.roleType) ? (
+                    <Badge tone="info" className="text-[10px]">Spring</Badge>
+                  ) : null}
+                  {app.deadlineType === 'rolling' ? (
+                    <Badge tone="success" className="text-[10px]">Rolling</Badge>
+                  ) : null}
+                  {(app.eligibleUniversityYears ?? []).includes('first_year') ? (
+                    <Badge tone="accent" className="text-[10px]">First-Year</Badge>
+                  ) : null}
+                  {app.priority ? (
+                    <span className="text-[10px] text-[var(--color-muted)]">
+                      {PRIORITY_LABELS[app.priority]} priority
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
