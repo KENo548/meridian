@@ -9,6 +9,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  cleanLanguageRowsForSave,
   emptyFilters,
   filterApplications,
   getAvailability,
@@ -222,6 +223,42 @@ describe('deadline filtering and availability', () => {
     )
     assert.equal(getAvailability(app({ status: 'rejected' })), 'closed')
     assert.equal(getAvailability(app({ deadlineType: 'unknown' })), 'unknown')
+  })
+})
+
+describe('cleanLanguageRowsForSave (PR #1 F7)', () => {
+  it('add blank → enter language/proficiency → save persists the language', () => {
+    // Editor emits a blank row on "+ Add language"; the user then types.
+    const draft = [
+      { language: '', requirement: 'unknown' as const, proficiency: '' },
+    ]
+    assert.deepEqual(cleanLanguageRowsForSave(draft), [])
+    const typed = [{ language: ' German ', requirement: 'required' as const, proficiency: ' C1 ' }]
+    assert.deepEqual(cleanLanguageRowsForSave(typed), [
+      { language: 'German', requirement: 'required', proficiency: 'C1' },
+    ])
+  })
+
+  it('add blank → abandon/remove → no meaningless blank persisted', () => {
+    const abandoned = [{ language: '   ', requirement: 'unknown' as const, proficiency: '  ' }]
+    assert.deepEqual(cleanLanguageRowsForSave(abandoned), [])
+    // Caller saves `undefined` when cleaned is empty — no blank record lands.
+    const cleaned = cleanLanguageRowsForSave(abandoned)
+    assert.equal(cleaned.length ? 'persist' : 'undefined', 'undefined')
+  })
+
+  it('keeps meaningful rows, trims, drops blanks, omits empty proficiency', () => {
+    assert.deepEqual(
+      cleanLanguageRowsForSave([
+        { language: 'French', requirement: 'preferred' as const, proficiency: '' },
+        { language: '  ', requirement: 'unknown' as const, proficiency: '' },
+        { language: 'Spanish', requirement: 'optional' as const, proficiency: 'B2' },
+      ]),
+      [
+        { language: 'French', requirement: 'preferred' },
+        { language: 'Spanish', requirement: 'optional', proficiency: 'B2' },
+      ],
+    )
   })
 })
 

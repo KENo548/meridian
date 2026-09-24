@@ -29,6 +29,7 @@ import {
 } from '@/constants'
 import { useMeridianStore } from '@/lib/store'
 import {
+  cleanLanguageRowsForSave,
   isSystemTag,
   toDateInput,
   formatDisplayDate,
@@ -45,6 +46,7 @@ import type {
   Division,
   DocumentRequirement,
   EligibleUniversityYear,
+  LanguageNeed,
   Priority,
   RecommendedTiming,
   RequirementStatus,
@@ -114,10 +116,20 @@ export function ApplicationDetailPanel() {
   // typing into it directly would reject the first keystroke and wipe the
   // field (PR #1 U9). Draft locally, commit parsed years on blur.
   const [gradDraft, setGradDraft] = useState<string | null>(null)
+  // Language draft: LanguageEditor emits a blank row on "+ Add language",
+  // but the persisted record only holds meaningful rows. Persisting
+  // directly from the callback would filter the blank before the user can
+  // type into it (PR #1 F7). Keep in-progress rows locally, persist the
+  // cleaned meaningful rows so the blank stays editable and never lands
+  // in storage as a meaningless record.
+  const [langDraft, setLangDraft] = useState<
+    Array<{ language: string; requirement: LanguageNeed; proficiency: string }> | null
+  >(null)
 
   useEffect(() => {
     setNotes(app?.notes ?? '')
     setGradDraft(null)
+    setLangDraft(null)
   }, [app?.id, app?.notes])
 
   if (!app) return null
@@ -150,6 +162,22 @@ export function ApplicationDetailPanel() {
       ...(key === 'divisions' ? { division: undefined } : {}),
       ...(key === 'specializations' ? { specialization: undefined } : {}),
     } as Parameters<typeof updateApplication>[1])
+  }
+
+  // Displayed language rows: draft when editing, persisted otherwise.
+  const langRows = langDraft ?? getLanguages(app).map((l) => ({
+    language: l.language,
+    requirement: l.requirement,
+    proficiency: l.proficiency ?? '',
+  }))
+
+  const handleLangChange = (rows: Array<{ language: string; requirement: LanguageNeed; proficiency: string }>) => {
+    // Keep the in-progress rows (including a fresh blank) locally so the
+    // blank stays editable. Persist only meaningful rows; a leftover legacy
+    // `languages` scalar is cleared so a removed value cannot resurrect.
+    setLangDraft(rows)
+    const cleaned = cleanLanguageRowsForSave(rows)
+    saveField({ languageRequirements: cleaned.length ? cleaned : undefined, languages: undefined })
   }
 
   return (
@@ -396,23 +424,7 @@ export function ApplicationDetailPanel() {
                 onChange={(e) => saveField({ workAuthorization: (e.target.value || undefined) as WorkAuthorization | undefined })}
               />
             </div>
-            <LanguageEditor
-              rows={getLanguages(app).map((l) => ({
-                language: l.language,
-                requirement: l.requirement,
-                proficiency: l.proficiency ?? '',
-              }))}
-              onChange={(rows) => {
-                const cleaned = rows
-                  .filter((r) => r.language.trim())
-                  .map((r) => ({
-                    language: r.language.trim(),
-                    requirement: r.requirement,
-                    ...(r.proficiency.trim() ? { proficiency: r.proficiency.trim() } : {}),
-                  }))
-                saveField({ languageRequirements: cleaned.length ? cleaned : undefined })
-              }}
-            />
+            <LanguageEditor rows={langRows} onChange={handleLangChange} />
             <Textarea
               label="Eligibility requirements"
               value={app.eligibilityRequirements ?? ''}

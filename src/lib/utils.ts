@@ -26,6 +26,7 @@ import type {
   DeadlineUrgency,
   Division,
   DocumentRequirement,
+  LanguageNeed,
   LanguageRequirement,
   SortState,
   Specialization,
@@ -295,6 +296,27 @@ export function getLanguages(app: Application): LanguageRequirement[] {
   return (app.languages ?? [])
     .filter((l): l is string => typeof l === 'string' && l.trim().length > 0)
     .map((language) => ({ language: language.trim(), requirement: 'unknown' as const }))
+}
+
+/** Editable language row shape used by LanguageEditor (draft may be blank). */
+export interface EditableLanguageRow {
+  language: string
+  requirement: LanguageNeed
+  proficiency: string
+}
+
+/** Clean editor rows for persistence (PR #1 F7).
+ * Trims language/proficiency, drops blank rows, never persists a
+ * meaningless permanently-blank record. Returns [] when nothing
+ * meaningful remains so callers can save `undefined` instead. */
+export function cleanLanguageRowsForSave(rows: EditableLanguageRow[]): LanguageRequirement[] {
+  return rows
+    .filter((r) => r.language.trim())
+    .map((r) => ({
+      language: r.language.trim(),
+      requirement: r.requirement,
+      ...(r.proficiency.trim() ? { proficiency: r.proficiency.trim() } : {}),
+    }))
 }
 
 /**
