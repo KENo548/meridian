@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { MultiSelect } from '@/components/ui/MultiSelect'
 import { useMeridianStore } from '@/lib/store'
-import { clsx, countActiveDateRanges, countActiveKeys, getLanguages, isSystemTag } from '@/lib/utils'
+import { clsx, countActiveDateRanges, countActiveKeys, countDeadlineRangeActive, getLanguages, isSystemTag } from '@/lib/utils'
 import type {
   ApplicationStatus,
   AssessmentType,
@@ -260,7 +260,7 @@ export function FiltersPanel() {
 
       <FilterGroup
         label="Application"
-        active={countActive(['cvRequired', 'coverLetterRequired', 'transcriptRequired', 'deadlineTypes', 'deadlineWithinDays', 'rollingDeadline']) + ((filters.deadlineFrom || filters.deadlineTo) ? 1 : 0)}
+        active={countActive(['cvRequired', 'coverLetterRequired', 'transcriptRequired', 'deadlineTypes', 'deadlineWithinDays', 'rollingDeadline']) + countDeadlineRangeActive(filters)}
       >
         <ChipGroup
           label="CV required"

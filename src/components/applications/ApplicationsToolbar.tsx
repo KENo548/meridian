@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useMeridianStore } from '@/lib/store'
 import { exportApplicationsCsv, parseApplicationsCsv } from '@/lib/csv'
-import { clsx, countActiveDateRanges, isSystemTag } from '@/lib/utils'
+import { clsx, countActiveDateRanges, countDeadlineRangeActive, isSystemTag } from '@/lib/utils'
 import {
   ASSESSMENT_TYPE_LABELS,
   COMPANY_TYPE_LABELS,
@@ -119,7 +119,10 @@ export function ApplicationsToolbar({
     if (filters.showArchived) n++
     // Date-range pairs count too — a date-only filter state restricts
     // results and must enable the badge and Save view (PR #1 U5).
+    // Deadline range lives here (not in countActiveDateRanges) so a
+    // deadline-only filter still reports non-zero (PR #1 F8).
     n += countActiveDateRanges(filters)
+    n += countDeadlineRangeActive(filters)
     return n
   }, [filters])
 

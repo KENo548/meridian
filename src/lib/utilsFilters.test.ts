@@ -10,6 +10,7 @@ import assert from 'node:assert/strict'
 import {
   countActiveDateRanges,
   countActiveKeys,
+  countDeadlineRangeActive,
   emptyFilters,
   isActiveFilterValue,
 } from './utils.ts'
@@ -148,4 +149,40 @@ it('counts 3 independent date range pairs excluding deadline', () => {
        3,
      )
    })
+})
+
+describe('countDeadlineRangeActive (PR #1 F8)', () => {
+  it('returns 0 when neither bound is set', () => {
+    assert.equal(countDeadlineRangeActive(f()), 0)
+  })
+
+  it('returns 1 when only from is set', () => {
+    assert.equal(countDeadlineRangeActive(f({ deadlineFrom: '2026-01-01' })), 1)
+  })
+
+  it('returns 1 when only to is set', () => {
+    assert.equal(countDeadlineRangeActive(f({ deadlineTo: '2026-12-31' })), 1)
+  })
+
+  it('returns 1 when both bounds are set (one logical filter)', () => {
+    assert.equal(
+      countDeadlineRangeActive(f({ deadlineFrom: '2026-01-01', deadlineTo: '2026-12-31' })),
+      1,
+    )
+  })
+
+  it('deadline-only filter is excluded from Dates but non-zero overall (Save View enabled)', () => {
+    const deadlineOnly = f({ deadlineTo: '2026-12-31' })
+    assert.equal(countActiveDateRanges(deadlineOnly), 0)
+    const toolbarTotal = countActiveDateRanges(deadlineOnly) + countDeadlineRangeActive(deadlineOnly)
+    assert.equal(toolbarTotal, 1)
+    assert.ok(toolbarTotal > 0)
+  })
+
+  it('deadline plus one date range totals 2 with no double-count', () => {
+    const both = f({ deadlineTo: '2026-12-31', openingDateFrom: '2026-01-01' })
+    assert.equal(countActiveDateRanges(both), 1)
+    assert.equal(countDeadlineRangeActive(both), 1)
+    assert.equal(countActiveDateRanges(both) + countDeadlineRangeActive(both), 2)
+  })
 })
