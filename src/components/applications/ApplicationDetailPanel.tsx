@@ -89,7 +89,11 @@ export function ApplicationDetailPanel() {
   const requirements = useMeridianStore((s) => s.requirements)
   const tasks = useMeridianStore((s) => s.tasks)
   const contacts = useMeridianStore((s) => s.contacts)
-  const allTags = useMeridianStore((s) => s.tags.filter((t) => !isSystemTag(t)))
+  // Selector must return a stable store-owned reference (Zustand v5 +
+  // useSyncExternalStore re-renders on identity change, so deriving with
+  // .filter() inside the selector risks a render loop — PR #1 F9).
+  const storedTags = useMeridianStore((s) => s.tags)
+  const allTags = storedTags.filter((t) => !isSystemTag(t))
   const updateApplication = useMeridianStore((s) => s.updateApplication)
   const deleteApplications = useMeridianStore((s) => s.deleteApplications)
   const archiveApplications = useMeridianStore((s) => s.archiveApplications)

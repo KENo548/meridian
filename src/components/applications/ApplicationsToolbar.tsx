@@ -73,7 +73,11 @@ export function ApplicationsToolbar({
   const filters = useMeridianStore((s) => s.filters)
   const setFilters = useMeridianStore((s) => s.setFilters)
   const resetFilters = useMeridianStore((s) => s.resetFilters)
-  const tags = useMeridianStore((s) => s.tags.filter((t) => !isSystemTag(t)))
+  // Selector must return a stable store-owned reference (Zustand v5 +
+  // useSyncExternalStore re-renders on identity change, so deriving with
+  // .filter() inside the selector risks a render loop — PR #1 F9).
+  const storedTags = useMeridianStore((s) => s.tags)
+  const tags = storedTags.filter((t) => !isSystemTag(t))
   const viewMode = useMeridianStore((s) => s.viewMode)
   const setViewMode = useMeridianStore((s) => s.setViewMode)
   const setAddWizardOpen = useMeridianStore((s) => s.setAddWizardOpen)

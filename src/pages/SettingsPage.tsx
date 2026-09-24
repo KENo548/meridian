@@ -22,7 +22,11 @@ export function SettingsPage() {
   const documents = useMeridianStore((s) => s.documents)
   const contacts = useMeridianStore((s) => s.contacts)
   const tasks = useMeridianStore((s) => s.tasks)
-  const tags = useMeridianStore((s) => s.tags.filter((t) => !t.name.startsWith('_system:')))
+  // Selector must return a stable store-owned reference (Zustand v5 +
+  // useSyncExternalStore re-renders on identity change, so deriving with
+  // .filter() inside the selector risks a render loop — PR #1 F9).
+  const storedTags = useMeridianStore((s) => s.tags)
+  const tags = storedTags.filter((t) => !t.name.startsWith('_system:'))
   const savedViews = useMeridianStore((s) => s.savedViews)
   const loadDemoData = useMeridianStore((s) => s.loadDemoData)
   const clearAllData = useMeridianStore((s) => s.clearAllData)

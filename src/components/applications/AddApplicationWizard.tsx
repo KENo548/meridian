@@ -114,7 +114,11 @@ export function AddApplicationWizard() {
   const createApplication = useMeridianStore((s) => s.createApplication)
   const pushToast = useMeridianStore((s) => s.pushToast)
   const ensureTag = useMeridianStore((s) => s.ensureTag)
-  const tags = useMeridianStore((s) => s.tags.filter((t) => !isSystemTag(t)))
+  // Selector must return a stable store-owned reference (Zustand v5 +
+  // useSyncExternalStore re-renders on identity change, so deriving with
+  // .filter() inside the selector risks a render loop — PR #1 F9).
+  const storedTags = useMeridianStore((s) => s.tags)
+  const tags = storedTags.filter((t) => !isSystemTag(t))
 
   const [step, setStep] = useState(0)
   const [form, setForm] = useState(emptyForm)
