@@ -21,6 +21,7 @@ import {
   resolveDocRequirement,
 } from './utils.ts'
 import type { Application, ApplicationFilters, Specialization } from '../types/index.ts'
+import { KANBAN_COLUMNS, OPEN_STATUSES, STATUS_ORDER } from '../constants/index.ts'
 
 function app(overrides: Partial<Application> = {}): Application {
   return {
@@ -259,6 +260,24 @@ describe('cleanLanguageRowsForSave (PR #1 F7)', () => {
         { language: 'Spanish', requirement: 'optional', proficiency: 'B2' },
       ],
     )
+  })
+})
+
+describe('kanban status coverage (PR #1 C1)', () => {
+  it('every STATUS_ORDER status appears in exactly one Kanban column', () => {
+    for (const status of STATUS_ORDER) {
+      const hits = KANBAN_COLUMNS.filter((col) => col.statuses.includes(status))
+      assert.equal(hits.length, 1, `${status} must be in exactly one column, found ${hits.length}`)
+    }
+  })
+
+  it('not_open is excluded from stats but visible on the board', () => {
+    // F6: analytics must never count not_open as open.
+    assert.ok(!OPEN_STATUSES.includes('not_open'))
+    // C1: ...but the board must still show it, exactly once, in Interested.
+    const hits = KANBAN_COLUMNS.filter((col) => col.statuses.includes('not_open'))
+    assert.equal(hits.length, 1)
+    assert.equal(hits[0].id, 'interested')
   })
 })
 

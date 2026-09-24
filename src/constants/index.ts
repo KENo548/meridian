@@ -147,7 +147,10 @@ export const KANBAN_COLUMNS: { id: string; label: string; statuses: ApplicationS
   {
     id: 'interested',
     label: 'Interested',
-    statuses: ['researching', 'watching', 'interested', 'to_apply'],
+    // not_open lives here for BOARD VISIBILITY only (PR #1 C1). It must
+    // stay out of OPEN_STATUSES so analytics never counts it as an open
+    // opportunity (PR #1 F6). Stats and grouping semantics are separate.
+    statuses: ['researching', 'watching', 'not_open', 'interested', 'to_apply'],
   },
   { id: 'preparing', label: 'Preparing', statuses: ['application_started', 'preparing'] },
   { id: 'applied', label: 'Applied', statuses: ['applied', 'online_assessment'] },
