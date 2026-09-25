@@ -243,12 +243,12 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Adapter health
-app.get('/api/adapter-health', async (_req, res) => {
+app.get('/api/adapter-health', async (req, res) => {
   try {
     const health = await getAllAdapterHealth()
     res.json({ adapters: health })
   } catch (err) {
-    internalError(res, err, 'Failed to fetch adapter health');
+    internalError(res, err, 'Failed to fetch adapter health', req);
   }
 })
 
@@ -337,13 +337,13 @@ app.get('/api/search', async (req, res) => {
       location: location || '',
     });
   } catch (err) {
-    internalError(res, err, 'Search failed');
+    internalError(res, err, 'Search failed', req);
   }
 });
 
 // ─── Registry routes ───────────────────────────────────────────
 
-app.get('/api/registry', async (_req, res) => {
+app.get('/api/registry', async (req, res) => {
   const { getAllFirms, getSourceStats } = await lazy();
   try {
     // Awaited: registry reads resolve only after the DB commit/read completes.
@@ -352,7 +352,7 @@ app.get('/api/registry', async (_req, res) => {
     const stats = await getSourceStats();
     res.json({ firms, stats });
   } catch (err) {
-    internalError(res, err, 'Failed to fetch registry');
+    internalError(res, err, 'Failed to fetch registry', req);
   }
 });
 
@@ -363,7 +363,7 @@ app.get('/api/registry/:firmId', async (req, res) => {
     if (!firm) return res.status(404).json({ error: 'Firm not found' });
     res.json({ firm });
   } catch (err) {
-    internalError(res, err, 'Failed to fetch firm');
+    internalError(res, err, 'Failed to fetch firm', req);
   }
 });
 
@@ -380,7 +380,7 @@ app.post('/api/registry/:firmId/toggle', async (req, res) => {
     if (!firm) return res.status(404).json({ error: 'Firm not found' });
     res.json({ firm });
   } catch (err) {
-    internalError(res, err, 'Toggle failed');
+    internalError(res, err, 'Toggle failed', req);
   }
 });
 
@@ -408,7 +408,7 @@ app.get('/api/jobs', async (req, res) => {
     
     res.json({ jobs, total });
   } catch (err) {
-    internalError(res, err, 'Failed to fetch jobs');
+    internalError(res, err, 'Failed to fetch jobs', req);
   }
 });
 
@@ -420,7 +420,7 @@ app.get('/api/jobs/:jobId', async (req, res) => {
     const sightings = await getAllSightingsForJob(req.params.jobId);
     res.json({ job, sightings });
   } catch (err) {
-    internalError(res, err, 'Failed to fetch job');
+    internalError(res, err, 'Failed to fetch job', req);
   }
 });
 
@@ -429,7 +429,7 @@ app.get('/api/jobs/:jobId/observations', async (req, res) => {
     const observations = await getActiveSightingsForJob(req.params.jobId);
     res.json({ observations });
   } catch (err) {
-    internalError(res, err, 'Failed to fetch observations');
+    internalError(res, err, 'Failed to fetch observations', req);
   }
 });
 
@@ -443,7 +443,7 @@ app.post('/api/jobs/batch', async (req, res) => {
     const jobs = await getActiveSightingsForJobs(jobIds);
     res.json({ jobs });
   } catch (err) {
-    internalError(res, err, 'Failed to fetch batch');
+    internalError(res, err, 'Failed to fetch batch', req);
   }
 });
 
@@ -455,7 +455,7 @@ app.post('/api/scan', async (req, res) => {
     const result = await scanAll();
     res.json({ result });
   } catch (err) {
-    internalError(res, err, 'Scan failed');
+    internalError(res, err, 'Scan failed', req);
   }
 });
 
@@ -465,7 +465,7 @@ app.post('/api/scan/:firmId', async (req, res) => {
     const result = await scanSingleFirm(req.params.firmId);
     res.json({ result });
   } catch (err) {
-    internalError(res, err, 'Scan failed');
+    internalError(res, err, 'Scan failed', req);
   }
 });
 
@@ -483,86 +483,86 @@ app.get('/api/scan/last', async (_req, res) => {
 
 // ─── Cron routes ────────────────────────────────────────────────
 
-app.post('/api/cron/start', async (_req, res) => {
+app.post('/api/cron/start', async (req, res) => {
   const { startCronScan } = await lazy();
   try {
     startCronScan(CRON_INTERVAL_HOURS);
     res.json({ message: `Cron started (every ${CRON_INTERVAL_HOURS}h)` });
   } catch (err) {
-    internalError(res, err, 'Failed to start cron');
+    internalError(res, err, 'Failed to start cron', req);
   }
 });
 
 // ─── Coverage routes ────────────────────────────────────────────
 
-app.get('/api/coverage', async (_req, res) => {
+app.get('/api/coverage', async (req, res) => {
   const { getCoverageReport } = await lazy();
   try {
     const report = await getCoverageReport();
     res.json({ report });
   } catch (err) {
-    internalError(res, err, 'Failed to get coverage');
+    internalError(res, err, 'Failed to get coverage', req);
   }
 });
 
 // ─── Discovery routes ───────────────────────────────────────────
 
-app.get('/api/discovery', async (_req, res) => {
+app.get('/api/discovery', async (req, res) => {
   const { getAllDiscoveries, getDiscoveryStats } = await lazy();
   try {
     const discoveries = await getAllDiscoveries();
     const stats = await getDiscoveryStats();
     res.json({ discoveries, stats });
   } catch (err) {
-    internalError(res, err, 'Failed to get discoveries');
+    internalError(res, err, 'Failed to get discoveries', req);
   }
 });
 
-app.post('/api/discovery/run', async (_req, res) => {
+app.post('/api/discovery/run', async (req, res) => {
   const { runDiscovery } = await lazy();
   try {
     const result = await runDiscovery();
     res.json({ result });
   } catch (err) {
-    internalError(res, err, 'Discovery failed');
+    internalError(res, err, 'Discovery failed', req);
   }
 });
 
 // ─── Pipeline routes ────────────────────────────────────────────
 
-app.get('/api/pipeline/status', async (_req, res) => {
+app.get('/api/pipeline/status', async (req, res) => {
   const { getPipelineStatus } = await lazy();
   try {
     const status = await getPipelineStatus();
     res.json({ status });
   } catch (err) {
-    internalError(res, err, 'Failed to get pipeline status');
+    internalError(res, err, 'Failed to get pipeline status', req);
   }
 });
 
-app.post('/api/pipeline/clear', async (_req, res) => {
+app.post('/api/pipeline/clear', async (req, res) => {
   const { clearPipelineState } = await lazy();
   try {
     await clearPipelineState();
     res.json({ message: 'Pipeline state cleared' });
   } catch (err) {
-    internalError(res, err, 'Failed to clear pipeline');
+    internalError(res, err, 'Failed to clear pipeline', req);
   }
 });
 
 // ─── Staleness routes ──────────────────────────────────────────
 
-app.get('/api/staleness', async (_req, res) => {
+app.get('/api/staleness', async (req, res) => {
   const { getStalenessReport } = await lazy();
   try {
     const report = await getStalenessReport();
     res.json({ report });
   } catch (err) {
-    internalError(res, err, 'Failed to get staleness report');
+    internalError(res, err, 'Failed to get staleness report', req);
   }
 });
 
-app.post('/api/staleness/apply', async (_req, res) => {
+app.post('/api/staleness/apply', async (req, res) => {
   const { applyStalenessTransitions, getAllDiscoveries } = await lazy();
   try {
     // applyStalenessTransitions requires the entry list; calling it with
@@ -571,19 +571,19 @@ app.post('/api/staleness/apply', async (_req, res) => {
     const result = await applyStalenessTransitions(entries);
     res.json({ result });
   } catch (err) {
-    internalError(res, err, 'Failed to apply staleness');
+    internalError(res, err, 'Failed to apply staleness', req);
   }
 });
 
 // ─── RSS routes ─────────────────────────────────────────────────
 
-app.get('/api/rss/feeds', async (_req, res) => {
+app.get('/api/rss/feeds', async (req, res) => {
   const { getConfiguredFeeds } = await lazy();
   try {
     const feeds = await getConfiguredFeeds();
     res.json({ feeds });
   } catch (err) {
-    internalError(res, err, 'Failed to get feeds');
+    internalError(res, err, 'Failed to get feeds', req);
   }
 });
 
@@ -617,11 +617,11 @@ app.post('/api/rss/feeds', async (req, res) => {
 
     res.status(400).json({ error: 'Invalid action. Use "add", "remove", or "toggle".' });
   } catch (err) {
-    internalError(res, err, 'Failed to modify feeds');
+    internalError(res, err, 'Failed to modify feeds', req);
   }
 });
 
-app.get('/api/rss/check', async (_req, res) => {
+app.get('/api/rss/check', async (req, res) => {
   try {
     const { fetchAllFeeds } = await lazy();
     const result = await fetchAllFeeds();
@@ -632,7 +632,7 @@ app.get('/api/rss/check', async (_req, res) => {
       checkedAt: new Date().toISOString(),
     });
   } catch (err) {
-    internalError(res, err, 'RSS check failed');
+    internalError(res, err, 'RSS check failed', req);
   }
 });
 
@@ -643,7 +643,7 @@ app.delete('/api/rss/feeds/:feedId', async (req, res) => {
     if (!removed) return res.status(404).json({ error: 'Feed not found' });
     res.json({ message: 'Feed removed' });
   } catch (err) {
-    internalError(res, err, 'Failed to remove feed');
+    internalError(res, err, 'Failed to remove feed', req);
   }
 });
 
@@ -660,7 +660,7 @@ app.post('/api/rss/feeds/:feedId/toggle', async (req, res) => {
     if (!feed) return res.status(404).json({ error: 'Feed not found' });
     res.json({ feed });
   } catch (err) {
-    internalError(res, err, 'Failed to toggle feed');
+    internalError(res, err, 'Failed to toggle feed', req);
   }
 });
 
@@ -995,11 +995,11 @@ app.get('/api/opportunities', async (req, res) => {
       metrics,
     });
   } catch (err) {
-    internalError(res, err, 'Failed to fetch opportunities');
+    internalError(res, err, 'Failed to fetch opportunities', req);
   }
 });
 
-app.get('/api/opportunities/metrics', async (_req, res) => {
+app.get('/api/opportunities/metrics', async (req, res) => {
   try {
     const { getAllDiscoveries } = await lazy();
     const entries = await getAllDiscoveries();
@@ -1030,7 +1030,7 @@ app.get('/api/opportunities/metrics', async (_req, res) => {
 
     res.json(metrics);
   } catch (err) {
-    internalError(res, err, 'Failed to fetch metrics');
+    internalError(res, err, 'Failed to fetch metrics', req);
   }
 });
 
@@ -1043,32 +1043,32 @@ app.post('/api/opportunities/resolve', async (req, res) => {
     const result = await resolveOpportunities({ verify, limit });
     res.json(result);
   } catch (err) {
-    internalError(res, err, 'Resolution failed');
+    internalError(res, err, 'Resolution failed', req);
   }
 });
 
-app.get('/api/opportunities/coverage', async (_req, res) => {
+app.get('/api/opportunities/coverage', async (req, res) => {
   try {
     const { getAllDiscoveries, generateCoverageGapReport } = await lazy();
     const entries = await getAllDiscoveries();
     const report = generateCoverageGapReport(entries);
     res.json(report);
   } catch (err) {
-    internalError(res, err, 'Coverage report failed');
+    internalError(res, err, 'Coverage report failed', req);
   }
 });
 
-app.get('/api/opportunities/staleness', async (_req, res) => {
+app.get('/api/opportunities/staleness', async (req, res) => {
   try {
     const { getStalenessReport } = await lazy();
     const report = await getStalenessReport();
     res.json(report);
   } catch (err) {
-    internalError(res, err, 'Staleness report failed');
+    internalError(res, err, 'Staleness report failed', req);
   }
 });
 
-app.post('/api/opportunities/staleness/apply', async (_req, res) => {
+app.post('/api/opportunities/staleness/apply', async (req, res) => {
   try {
     const { applyStalenessTransitions, getAllDiscoveries } = await lazy();
     // applyStalenessTransitions requires the entry list (for...of undefined
@@ -1077,7 +1077,7 @@ app.post('/api/opportunities/staleness/apply', async (_req, res) => {
     const result = await applyStalenessTransitions(entries);
     res.json(result);
   } catch (err) {
-    internalError(res, err, 'Apply staleness failed');
+    internalError(res, err, 'Apply staleness failed', req);
   }
 });
 
@@ -1096,19 +1096,19 @@ app.get('/api/opportunities/:id', async (req, res) => {
     if (!entry) return res.status(404).json({ error: 'Opportunity not found' });
     res.json(deriveOpportunityFromEntry(entry));
   } catch (err) {
-    internalError(res, err, 'Failed to fetch opportunity');
+    internalError(res, err, 'Failed to fetch opportunity', req);
   }
 });
 
 // ─── Health check with DB stats ─────────────────────────────────
 
-app.get('/api/health/stats', async (_req, res) => {
+app.get('/api/health/stats', async (req, res) => {
   try {
     const { getDbStats } = await import('./db-adapter.js');
     const stats = await getDbStats();
     res.json({ stats });
   } catch (err) {
-    internalError(res, err, 'Failed to get stats');
+    internalError(res, err, 'Failed to get stats', req);
   }
 });
 

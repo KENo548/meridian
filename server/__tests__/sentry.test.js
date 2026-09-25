@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import {
   REDACTED,
   captureTechnicalError,
+  expressErrorMiddleware,
   initSentry,
   isSentryEnabled,
   resetSentryForTests,
@@ -365,5 +366,116 @@ describe('frame source-context suppression (Round 1A)', () => {
     const filtered = captured.integrations([{ name: 'ContextLines' }, { name: 'Dedupe' }]);
     assert.deepEqual(filtered, [{ name: 'Dedupe' }]);
     resetSentryForTests();
+  });
+});
+
+describe('expressErrorMiddleware status gating (F2)', () => {
+  function mockRes() {
+    return {
+      headersSent: false,
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        this.body = payload;
+        return this;
+      },
+    };
+  }
+
+  async function withCountingClient(fn) {
+    resetSentryForTests();
+    let captures = 0;
+    await initSentry({
+      dsn: 'https://public@example.com/1',
+      loader: async () => ({
+        init() {},
+        captureException() {
+          captures += 1;
+        },
+      }),
+    });
+    try {
+      await fn(() => captures);
+    } finally {
+      resetSentryForTests();
+    }
+  }
+
+  it('400: response preserved, nothing captured', async () => {
+    await withCountingClient((count) => {
+      const res = mockRes();
+      const err = new Error('Unexpected token } in JSON at position 12');
+      err.status = 400;
+      err.body = '{"notes":"client-supplied junk"}';
+      let nextCalled = false;
+      expressErrorMiddleware(err, { path: '/api/jobs', method: 'POST' }, res, () => {
+        nextCalled = true;
+      });
+      assert.equal(res.statusCode, 400);
+      assert.deepEqual(res.body, { error: 'Unexpected token } in JSON at position 12' });
+      assert.equal(count(), 0);
+      assert.equal(nextCalled, false);
+    });
+  });
+
+  it('413: nothing captured', async () => {
+    await withCountingClient((count) => {
+      const res = mockRes();
+      const err = new Error('request entity too large');
+      err.status = 413;
+      expressErrorMiddleware(err, { path: '/api/workspace/import', method: 'POST' }, res, () => {});
+      assert.equal(res.statusCode, 413);
+      assert.deepEqual(res.body, { error: 'request entity too large' });
+      assert.equal(count(), 0);
+    });
+  });
+
+  it('500: captured exactly once, generic body, internal text absent', async () => {
+    await withCountingClient((count) => {
+      const marker = 'MARKER-MW-500-77zz';
+      const res = mockRes();
+      const err = new Error(`synthetic failure ${marker}: postgres://u:p@h/d`);
+      err.status = 500;
+      expressErrorMiddleware(err, { path: '/api/jobs', method: 'GET' }, res, () => {});
+      assert.equal(count(), 1);
+      assert.equal(res.statusCode, 500);
+      assert.deepEqual(res.body, { error: 'Internal server error' });
+      assert.ok(!JSON.stringify(res.body).includes(marker));
+    });
+  });
+
+  it('status-less error: defaults to 500, captured once, generic response', async () => {
+    await withCountingClient((count) => {
+      const res = mockRes();
+      expressErrorMiddleware(
+        new Error('Not allowed by CORS'),
+        { path: '/api/jobs', method: 'GET' },
+        res,
+        () => {},
+      );
+      assert.equal(count(), 1);
+      assert.equal(res.statusCode, 500);
+      assert.deepEqual(res.body, { error: 'Internal server error' });
+    });
+  });
+
+  it('headersSent: delegates to next without responding', async () => {
+    await withCountingClient((count) => {
+      const res = mockRes();
+      res.headersSent = true;
+      let nextErr = null;
+      const err = new Error('late failure');
+      err.status = 500;
+      expressErrorMiddleware(err, { path: '/x', method: 'GET' }, res, (e) => {
+        nextErr = e;
+      });
+      assert.equal(nextErr, err);
+      assert.equal(res.statusCode, null);
+      assert.equal(count(), 1);
+    });
   });
 });

@@ -83,8 +83,13 @@ describe('internal 500 responses (H)', () => {
     const source = readFileSync(new URL('../index.js', import.meta.url), 'utf8');
     assert.ok(!source.includes('details: err.message'), 'leaked details: err.message remains');
     assert.ok(!source.includes('details:err.message'), 'leaked details:err.message remains');
-    const wired = (source.match(/internalError\(res, err,/g) || []).length;
-    assert.ok(wired >= 30, `expected 30+ internalError sites, found ${wired}`);
+    // Approved call shape passes the Express request so Sentry events keep
+    // the already-approved route/method technical context (F1).
+    const withReq = (source.match(/internalError\(res, err, '[^']+', req\)/g) || []).length;
+    assert.equal(withReq, 32, `expected 32 internalError(res, err, msg, req) sites, found ${withReq}`);
+    const withoutReq = (source.match(/internalError\(res, err,[^)]*\)/g) || [])
+      .filter((call) => !call.endsWith(', req)'));
+    assert.deepEqual(withoutReq, [], 'internalError sites missing req');
   });
 
   it('deliberate 4xx validation responses are untouched', () => {

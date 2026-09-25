@@ -469,17 +469,26 @@ export function internalError(res, err, publicMessage, req) {
  */
 // eslint-disable-next-line no-unused-vars
 export function expressErrorMiddleware(err, req, res, next) {
-  try {
-    captureTechnicalError(err, { route: req && req.path, method: req && req.method });
-  } catch {
-    // ignore
+  // Normalize status FIRST: expected client errors (4xx, e.g. malformed
+  // JSON bodies rejected by express.json()) are never Sentry evidence.
+  // Missing/invalid status defaults to 500 and IS captured.
+  const status = err && typeof err.status === 'number' ? err.status : 500;
+  if (status >= 500) {
+    try {
+      captureTechnicalError(err, {
+        route: req && req.path,
+        method: req && req.method,
+        status,
+      });
+    } catch {
+      // ignore
+    }
   }
   try {
     if (res.headersSent) {
       if (typeof next === 'function') return next(err);
       return undefined;
     }
-    const status = err && typeof err.status === 'number' ? err.status : 500;
     if (status >= 500) {
       try {
         console.error('[API] Unhandled error:', err && err.message ? err.message : err);
