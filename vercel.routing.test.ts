@@ -93,6 +93,52 @@ describe('upstream fail-closed matrix', () => {
   })
 })
 
+describe('exact upstream policy', () => {
+  it('Preview rejects lookalikes containing staging', () => {
+    assert.throws(() =>
+      resolveApiUpstream({ MERIDIAN_API_UPSTREAM: 'https://staging-test.invalid', VERCEL_ENV: 'preview' }),
+    )
+    assert.throws(() =>
+      resolveApiUpstream({ MERIDIAN_API_UPSTREAM: 'https://attacker-staging.example.com', VERCEL_ENV: 'preview' }),
+    )
+    assert.throws(() =>
+      resolveApiUpstream({ MERIDIAN_API_UPSTREAM: 'https://evil.meridian-staging-oyfk.onrender.com', VERCEL_ENV: 'preview' }),
+    )
+  })
+
+  it('Preview rejects staging origin with path/query/fragment/credentials', () => {
+    assert.throws(() =>
+      resolveApiUpstream({ MERIDIAN_API_UPSTREAM: `${STAGING}/api`, VERCEL_ENV: 'preview' }),
+    )
+    assert.throws(() =>
+      resolveApiUpstream({ MERIDIAN_API_UPSTREAM: `${STAGING}?x=1`, VERCEL_ENV: 'preview' }),
+    )
+    assert.throws(() =>
+      resolveApiUpstream({ MERIDIAN_API_UPSTREAM: `${STAGING}#frag`, VERCEL_ENV: 'preview' }),
+    )
+    assert.throws(() =>
+      resolveApiUpstream({ MERIDIAN_API_UPSTREAM: 'https://user:pass@meridian-staging-oyfk.onrender.com', VERCEL_ENV: 'preview' }),
+    )
+  })
+
+  it('Production rejects arbitrary and lookalike origins', () => {
+    assert.throws(() =>
+      resolveApiUpstream({ MERIDIAN_API_UPSTREAM: 'https://api.example.com', VERCEL_ENV: 'production' }),
+    )
+    assert.throws(() =>
+      resolveApiUpstream({ MERIDIAN_API_UPSTREAM: 'https://meridian-rcfu.onrender.com.evil.com', VERCEL_ENV: 'production' }),
+    )
+    assert.throws(() =>
+      resolveApiUpstream({ MERIDIAN_API_UPSTREAM: STAGING, VERCEL_ENV: 'production' }),
+    )
+  })
+
+  it('unknown environment is treated as non-production (staging only)', () => {
+    assert.equal(resolveApiUpstream({ MERIDIAN_API_UPSTREAM: STAGING }), STAGING)
+    assert.throws(() => resolveApiUpstream({ MERIDIAN_API_UPSTREAM: PROD }))
+  })
+})
+
 describe('generated routing shape', () => {
   it('G. /api rewrite precedes the SPA fallback', () => {
     assert.equal(config.rewrites[0].source, '/api/:path*')

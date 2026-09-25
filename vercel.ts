@@ -25,6 +25,12 @@ export interface UpstreamEnv {
   VERCEL_ENV?: string | undefined;
 }
 
+// Exact allowed origins per deployment environment. Compared by full
+// normalized origin (never substring, never hostname): lookalikes,
+// subdomains, and staging-test fixtures are all rejected.
+export const STAGING_UPSTREAM = 'https://meridian-staging-oyfk.onrender.com';
+export const PRODUCTION_UPSTREAM = 'https://meridian-rcfu.onrender.com';
+
 export interface ProxyRewrite {
   source: string;
   destination: string;
@@ -60,16 +66,20 @@ export function resolveApiUpstream(env: UpstreamEnv): string {
   if (url.pathname !== '/' && url.pathname !== '') {
     throw new Error('MERIDIAN_API_UPSTREAM must be an origin (no path)');
   }
+  if (url.search || url.hash) {
+    throw new Error('MERIDIAN_API_UPSTREAM must be an origin (no query or fragment)');
+  }
   const normalized = `${url.protocol}//${url.host}`;
   const vercelEnv = env.VERCEL_ENV ?? '';
-  if (vercelEnv === 'production') {
-    if (normalized.includes('staging')) {
-      throw new Error('production must not target a staging upstream');
-    }
-  } else if (!normalized.includes('staging')) {
-    // preview, development, local builds, and unknown environments:
-    // staging only, never production.
-    throw new Error('non-production deployments must target the staging upstream');
+  // Exact per-environment allowlist. The dashboard value must equal the
+  // expected origin byte-for-byte after normalization; anything else —
+  // production host in Preview, staging host in Production, lookalikes,
+  // subdomains, fixtures — fails the deployment instead of misrouting it.
+  const expected = vercelEnv === 'production' ? PRODUCTION_UPSTREAM : STAGING_UPSTREAM;
+  if (normalized !== expected) {
+    throw new Error(
+      `MERIDIAN_API_UPSTREAM must be ${expected} for this deployment environment`,
+    );
   }
   return normalized;
 }
