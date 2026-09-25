@@ -27,19 +27,12 @@ export function setWorkspaceApiBase(url: string | null): void {
   apiBaseOverride = url
 }
 
+// Same-origin API: the default base is empty so every call is a relative
+// /api/* path, routed by the Vercel rewrite (or the Vite dev proxy
+// locally). The override seam stays for tests only.
 function resolveApiBase(): string {
   if (apiBaseOverride) return apiBaseOverride
-  const fromEnv = (
-    import.meta as unknown as {
-      env?: Record<string, string | undefined>
-    }
-  ).env?.VITE_API_BASE
-  if (fromEnv) return fromEnv
-  const host =
-    typeof window === 'undefined' ? 'localhost' : window.location.hostname
-  return host === 'localhost' || host === '127.0.0.1'
-    ? 'http://localhost:3001'
-    : `http://${host}:3001`
+  return ''
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

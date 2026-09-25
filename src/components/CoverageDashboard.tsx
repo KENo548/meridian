@@ -100,8 +100,8 @@ export function CoverageDashboard() {
   const loadAdapterHealth = async () => {
     setLoadingHealth(true)
     try {
-      const API_BASE = (import.meta as any).env?.VITE_API_BASE || `http://${window.location.hostname}:3001`
-      const res = await fetch(`${API_BASE}/api/adapter-health`, { credentials: 'include' })
+      // Same-origin API: relative path, routed by the Vercel rewrite.
+      const res = await fetch('/api/adapter-health', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         setAdapterHealth(data.adapters || [])

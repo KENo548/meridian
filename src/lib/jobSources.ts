@@ -1,9 +1,7 @@
 import type { Application } from '@/types'
 
-const API_BASE = import.meta.env.VITE_API_BASE
-  || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3001'
-    : `http://${window.location.hostname}:3001`)
+// Same-origin API: relative /api/* paths, routed by the Vercel rewrite
+// (or the Vite dev proxy locally). No absolute base is needed.
 
 async function fetchAuth(url: string, init?: RequestInit): Promise<Response> {
   return fetch(url, { ...init, credentials: 'include' })
@@ -93,7 +91,7 @@ export async function searchJobs(filters: SearchFilters): Promise<JobResult[]> {
   if (filters.page) params.set('page', String(filters.page))
 
   try {
-    const res = await fetchAuth(`${API_BASE}/api/search?${params.toString()}`)
+    const res = await fetchAuth(`/api/search?${params.toString()}`)
     if (!res.ok) throw new Error(`Search failed: ${res.status}`)
     const data = await res.json()
     return Array.isArray(data) ? data : data.jobs ?? data.results ?? []
@@ -105,7 +103,7 @@ export async function searchJobs(filters: SearchFilters): Promise<JobResult[]> {
 
 export async function getSourceStatus(): Promise<SourceStatus[]> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/sources`)
+    const res = await fetchAuth(`/api/sources`)
     if (!res.ok) throw new Error(`Sources failed: ${res.status}`)
     const data = await res.json()
     const list = data.sources ?? data ?? []
@@ -127,7 +125,7 @@ export async function getSourceStatus(): Promise<SourceStatus[]> {
 
 export async function getRegistry(): Promise<{ firms: FirmInfo[]; stats: any }> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/registry`)
+    const res = await fetchAuth(`/api/registry`)
     if (!res.ok) throw new Error(`Registry failed: ${res.status}`)
     return await res.json()
   } catch (err) {
@@ -137,7 +135,7 @@ export async function getRegistry(): Promise<{ firms: FirmInfo[]; stats: any }> 
 }
 
 export async function toggleFirmEnabled(firmId: string, enabled: boolean): Promise<void> {
-  const res = await fetchAuth(`${API_BASE}/api/registry/${firmId}/toggle`, {
+  const res = await fetchAuth(`/api/registry/${firmId}/toggle`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
@@ -149,7 +147,7 @@ export async function toggleFirmEnabled(firmId: string, enabled: boolean): Promi
 
 export async function triggerScan(): Promise<ScanResult> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/scan`, { method: 'POST' })
+    const res = await fetchAuth(`/api/scan`, { method: 'POST' })
     if (!res.ok) throw new Error(`Scan failed: ${res.status}`)
     return await res.json()
   } catch (err) {
@@ -160,7 +158,7 @@ export async function triggerScan(): Promise<ScanResult> {
 
 export async function getScanStatus(): Promise<{ scanning: boolean; lastScan: any }> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/scan/status`)
+    const res = await fetchAuth(`/api/scan/status`)
     if (!res.ok) throw new Error(`Scan status failed: ${res.status}`)
     return await res.json()
   } catch (err) {
@@ -171,7 +169,7 @@ export async function getScanStatus(): Promise<{ scanning: boolean; lastScan: an
 
 export async function getLastScanResult(): Promise<ScanResult | null> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/scan/last`)
+    const res = await fetchAuth(`/api/scan/last`)
     if (!res.ok) return null
     return await res.json()
   } catch {
@@ -181,7 +179,7 @@ export async function getLastScanResult(): Promise<ScanResult | null> {
 
 export async function scanFirm(firmId: string): Promise<any> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/scan/${firmId}`, { method: 'POST' })
+    const res = await fetchAuth(`/api/scan/${firmId}`, { method: 'POST' })
     if (!res.ok) throw new Error(`Scan firm failed: ${res.status}`)
     return await res.json()
   } catch (err) {
@@ -194,7 +192,7 @@ export async function scanFirm(firmId: string): Promise<any> {
 
 export async function getRssFeeds(): Promise<{ name: string; url: string; enabled: boolean }[]> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/rss/feeds`)
+    const res = await fetchAuth(`/api/rss/feeds`)
     if (!res.ok) throw new Error(`RSS feeds failed: ${res.status}`)
     const data = await res.json()
     const feeds = data.feeds ?? data ?? []
@@ -209,7 +207,7 @@ export async function getRssFeeds(): Promise<{ name: string; url: string; enable
 }
 
 export async function addRssFeed(url: string): Promise<void> {
-  const res = await fetchAuth(`${API_BASE}/api/rss/feeds`, {
+  const res = await fetchAuth(`/api/rss/feeds`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'add', url }),
@@ -218,7 +216,7 @@ export async function addRssFeed(url: string): Promise<void> {
 }
 
 export async function removeRssFeed(url: string): Promise<void> {
-  const res = await fetchAuth(`${API_BASE}/api/rss/feeds`, {
+  const res = await fetchAuth(`/api/rss/feeds`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'remove', url }),
@@ -227,7 +225,7 @@ export async function removeRssFeed(url: string): Promise<void> {
 }
 
 export async function toggleRssFeed(url: string, enabled: boolean): Promise<void> {
-  const res = await fetchAuth(`${API_BASE}/api/rss/feeds`, {
+  const res = await fetchAuth(`/api/rss/feeds`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'toggle', url, enabled }),
@@ -237,7 +235,7 @@ export async function toggleRssFeed(url: string, enabled: boolean): Promise<void
 
 export async function checkRssFeeds(): Promise<JobResult[]> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/rss/check`)
+    const res = await fetchAuth(`/api/rss/check`)
     if (!res.ok) throw new Error(`Check RSS feeds failed: ${res.status}`)
     const data = await res.json()
     return Array.isArray(data) ? data : data.jobs ?? data.results ?? []
@@ -367,7 +365,7 @@ export async function getOpportunities(filters: OpportunityFilters = {}): Promis
   if (filters.limit) params.set('limit', String(filters.limit))
 
   try {
-    const res = await fetchAuth(`${API_BASE}/api/opportunities?${params.toString()}`)
+    const res = await fetchAuth(`/api/opportunities?${params.toString()}`)
     if (!res.ok) throw new Error(`Opportunities failed: ${res.status}`)
     return await res.json()
   } catch (err) {
@@ -378,7 +376,7 @@ export async function getOpportunities(filters: OpportunityFilters = {}): Promis
 
 export async function getOpportunityMetrics(): Promise<OpportunityMetrics> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/opportunities/metrics`)
+    const res = await fetchAuth(`/api/opportunities/metrics`)
     if (!res.ok) throw new Error(`Metrics failed: ${res.status}`)
     return await res.json()
   } catch (err) {
@@ -389,7 +387,7 @@ export async function getOpportunityMetrics(): Promise<OpportunityMetrics> {
 
 export async function getOpportunity(id: string): Promise<Opportunity | null> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/opportunities/${id}`)
+    const res = await fetchAuth(`/api/opportunities/${id}`)
     if (!res.ok) return null
     return await res.json()
   } catch {
@@ -444,7 +442,7 @@ export async function resolveOpportunities(options: { verify?: boolean; limit?: 
   coverageGap: CoverageGapReport
 }> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/opportunities/resolve`, {
+    const res = await fetchAuth(`/api/opportunities/resolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(options),
@@ -459,7 +457,7 @@ export async function resolveOpportunities(options: { verify?: boolean; limit?: 
 
 export async function getCoverageGapReport(): Promise<CoverageGapReport> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/opportunities/coverage`)
+    const res = await fetchAuth(`/api/opportunities/coverage`)
     if (!res.ok) throw new Error(`Coverage failed: ${res.status}`)
     return await res.json()
   } catch (err) {
@@ -470,7 +468,7 @@ export async function getCoverageGapReport(): Promise<CoverageGapReport> {
 
 export async function getStalenessReport(): Promise<StalenessReport> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/opportunities/staleness`)
+    const res = await fetchAuth(`/api/opportunities/staleness`)
     if (!res.ok) throw new Error(`Staleness failed: ${res.status}`)
     return await res.json()
   } catch (err) {
@@ -481,7 +479,7 @@ export async function getStalenessReport(): Promise<StalenessReport> {
 
 export async function applyStalenessTransitions(): Promise<{ total: number; transitions: number }> {
   try {
-    const res = await fetchAuth(`${API_BASE}/api/opportunities/staleness/apply`, { method: 'POST' })
+    const res = await fetchAuth(`/api/opportunities/staleness/apply`, { method: 'POST' })
     if (!res.ok) throw new Error(`Apply staleness failed: ${res.status}`)
     return await res.json()
   } catch (err) {
