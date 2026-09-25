@@ -18,6 +18,7 @@ import {
   scrubString,
   scrubUrl,
   scrubValue,
+  withoutContextLines,
 } from '../sentry.js';
 
 describe('backend Sentry init (A: DSN absent, B: failure fail-open)', () => {
@@ -227,5 +228,142 @@ describe('backend seeded-secret proof (F)', () => {
     assert.ok(serialized.includes('/api/workspace/import'));
     assert.ok(serialized.includes('db-pg.js'));
     assert.ok(serialized.includes('limit=10'));
+  });
+});
+
+describe('frame source-context suppression (Round 1A)', () => {
+  it('strips pre_context/context_line/post_context everywhere, keeps stack location', () => {
+    const markers = [
+      'MARKER-CTX-PRE-aa11',
+      'MARKER-CTX-LINE-bb22',
+      'MARKER-CTX-POST-cc33',
+      'MARKER-CTX-NESTED-dd44',
+      'MARKER-CTX-THREAD-ee55',
+      'MARKER-CTX-EXTRA-ff66',
+    ];
+    const event = {
+      exception: {
+        values: [
+          {
+            type: 'Error',
+            value: 'synthetic failure',
+            stacktrace: {
+              frames: [
+                {
+                  filename: 'server/sentry.js',
+                  function: 'captureTechnicalError',
+                  module: 'sentry',
+                  lineno: 10,
+                  colno: 5,
+                  in_app: true,
+                  pre_context: [`const x = '${markers[0]}';`],
+                  context_line: `throw new Error('${markers[1]}');`,
+                  post_context: [`// ${markers[2]}`],
+                },
+                {
+                  filename: 'node:internal/modules/run_main',
+                  function: 'run',
+                  lineno: 1,
+                  colno: 1,
+                },
+              ],
+            },
+          },
+          {
+            type: 'Error',
+            value: 'synthetic cause',
+            stacktrace: {
+              frames: [
+                {
+                  filename: 'server/index.js',
+                  function: 'handler',
+                  lineno: 99,
+                  colno: 2,
+                  in_app: true,
+                  pre_context: [`// ${markers[3]}`],
+                  context_line: 'handle();',
+                  post_context: [],
+                },
+              ],
+            },
+          },
+        ],
+      },
+      threads: {
+        values: [
+          {
+            id: '0',
+            stacktrace: {
+              frames: [
+                {
+                  filename: 'server/worker.js',
+                  function: 'work',
+                  lineno: 7,
+                  colno: 3,
+                  in_app: true,
+                  context_line: `// ${markers[4]}`,
+                },
+              ],
+            },
+          },
+        ],
+      },
+      extra: { fileData: markers[5], route: '/synthetic' },
+    };
+    const scrubbed = scrubSentryEvent(event);
+    const serialized = JSON.stringify(scrubbed);
+    for (const marker of markers) {
+      assert.ok(!serialized.includes(marker), `source-context leak: ${marker}`);
+    }
+    // Stack LOCATION is preserved on every frame.
+    const first = scrubbed.exception.values[0].stacktrace.frames[0];
+    assert.equal(first.filename, 'server/sentry.js');
+    assert.equal(first.function, 'captureTechnicalError');
+    assert.equal(first.lineno, 10);
+    assert.equal(first.colno, 5);
+    assert.ok(!('pre_context' in first));
+    assert.ok(!('context_line' in first));
+    assert.ok(!('post_context' in first));
+    const nested = scrubbed.exception.values[1].stacktrace.frames[0];
+    assert.equal(nested.filename, 'server/index.js');
+    assert.equal(nested.lineno, 99);
+    assert.ok(!('pre_context' in nested));
+    const threadFrame = scrubbed.threads.values[0].stacktrace.frames[0];
+    assert.equal(threadFrame.filename, 'server/worker.js');
+    assert.equal(threadFrame.colno, 3);
+    assert.ok(!('context_line' in threadFrame));
+    // Frames without context fields pass through untouched.
+    const runtime = scrubbed.exception.values[0].stacktrace.frames[1];
+    assert.equal(runtime.filename, 'node:internal/modules/run_main');
+    assert.equal(runtime.lineno, 1);
+    // Structured scrubbing still applies alongside frame stripping.
+    assert.equal(scrubbed.extra.fileData, REDACTED);
+    assert.equal(scrubbed.extra.route, '/synthetic');
+  });
+
+  it('withoutContextLines drops only the ContextLines integration', () => {
+    const defaults = [{ name: 'ContextLines' }, { name: 'LinkedErrors' }, { name: 'Http' }];
+    assert.deepEqual(withoutContextLines(defaults), [{ name: 'LinkedErrors' }, { name: 'Http' }]);
+    assert.deepEqual(withoutContextLines([]), []);
+    assert.deepEqual(withoutContextLines(null), []);
+    assert.deepEqual(withoutContextLines(undefined), []);
+  });
+
+  it('initSentry wires the ContextLines-removing integrations filter', async () => {
+    resetSentryForTests();
+    let captured = null;
+    await initSentry({
+      dsn: 'https://public@example.com/1',
+      loader: async () => ({
+        init(options) {
+          captured = options;
+        },
+        captureException() {},
+      }),
+    });
+    assert.equal(typeof captured.integrations, 'function');
+    const filtered = captured.integrations([{ name: 'ContextLines' }, { name: 'Dedupe' }]);
+    assert.deepEqual(filtered, [{ name: 'Dedupe' }]);
+    resetSentryForTests();
   });
 });

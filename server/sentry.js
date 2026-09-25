@@ -223,6 +223,62 @@ function cloneEvent(event) {
 }
 
 /**
+ * Strip frame SOURCE CONTENT while keeping stack LOCATION.
+ *
+ * The SDK's ContextLines integration embeds neighboring source lines
+ * (pre_context / context_line / post_context) into stack frames. Source
+ * text is not trustworthy payload: it can contain sensitive literals.
+ * We keep filename / function / lineno / colno / module / in_app and
+ * delete only the content fields. Covers every exception value and, where
+ * present, thread stack frames. Never throws.
+ */
+export function stripFrameSourceContent(event) {
+  try {
+    if (!event || typeof event !== 'object') return event;
+    const stripFrames = (frames) => {
+      if (!Array.isArray(frames)) return;
+      for (const frame of frames) {
+        if (!frame || typeof frame !== 'object') continue;
+        delete frame.pre_context;
+        delete frame.context_line;
+        delete frame.post_context;
+      }
+    };
+    const values = event.exception && event.exception.values;
+    if (Array.isArray(values)) {
+      for (const value of values) {
+        if (value && value.stacktrace) stripFrames(value.stacktrace.frames);
+      }
+    }
+    const threads = event.threads && event.threads.values;
+    if (Array.isArray(threads)) {
+      for (const thread of threads) {
+        if (thread && thread.stacktrace) stripFrames(thread.stacktrace.frames);
+      }
+    }
+    return event;
+  } catch {
+    return event;
+  }
+}
+
+/**
+ * Default-integrations filter: remove the integration named ContextLines,
+ * which reads local source files and embeds surrounding source CONTENT
+ * into stack frames. All other defaults are preserved. Never throws.
+ */
+export function withoutContextLines(defaultIntegrations) {
+  try {
+    const list = Array.isArray(defaultIntegrations) ? defaultIntegrations : [];
+    return list.filter(
+      (integration) => !integration || integration.name !== 'ContextLines',
+    );
+  } catch {
+    return defaultIntegrations;
+  }
+}
+
+/**
  * beforeSend-compatible scrubber. Removes user identity, request bodies,
  * cookies, auth headers, and workspace content; keeps route template,
  * method, status, error type, stack (string-scrubbed), release, commit,
@@ -232,6 +288,10 @@ export function scrubSentryEvent(event) {
   try {
     if (!event || typeof event !== 'object') return {};
     const scrubbed = cloneEvent(event);
+    // Stack LOCATION without neighboring source CONTENT (see
+    // stripFrameSourceContent). Runs before any string scrubbing so no
+    // source literal can survive via frame context.
+    stripFrameSourceContent(scrubbed);
     // No user identity, ever. (We never call setUser either.)
     delete scrubbed.user;
     // Request: keep method + scrubbed URL only.
@@ -339,6 +399,10 @@ export async function initSentry(options = {}) {
       profilesSampleRate: 0,
       enableLogs: false,
       attachStacktrace: true,
+      // Primary source-context prevention: never collect neighboring
+      // source CONTENT (ContextLines reads local files into frames).
+      // An explicit integrations override in sentryOptions still wins.
+      integrations: withoutContextLines,
       beforeSend(event) {
         try {
           return scrubSentryEvent(event);

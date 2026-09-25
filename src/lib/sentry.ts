@@ -236,6 +236,84 @@ function cloneEvent(event: unknown): Record<string, unknown> {
   }
 }
 
+interface StackFrameLike {
+  pre_context?: unknown
+  context_line?: unknown
+  post_context?: unknown
+  [key: string]: unknown
+}
+
+/**
+ * Strip frame SOURCE CONTENT while keeping stack LOCATION.
+ *
+ * SDK context integrations embed neighboring source lines (pre_context /
+ * context_line / post_context) into stack frames. Source text is not
+ * trustworthy payload: it can contain sensitive literals. We keep
+ * filename / function / lineno / colno / module / in_app and delete only
+ * the content fields. Covers every exception value and, where present,
+ * thread stack frames. Never throws.
+ */
+export function stripFrameSourceContent<T>(event: T): T {
+  try {
+    if (!event || typeof event !== 'object') return event
+    const stripFrames = (frames: unknown): void => {
+      if (!Array.isArray(frames)) return
+      for (const frame of frames) {
+        if (!frame || typeof frame !== 'object') continue
+        const target = frame as StackFrameLike
+        delete target.pre_context
+        delete target.context_line
+        delete target.post_context
+      }
+    }
+    const record = event as Record<string, unknown>
+    const exception = record.exception as
+      | { values?: Array<{ stacktrace?: { frames?: unknown } }> }
+      | undefined
+    if (Array.isArray(exception?.values)) {
+      for (const value of exception.values) {
+        stripFrames(value?.stacktrace?.frames)
+      }
+    }
+    const threads = record.threads as
+      | { values?: Array<{ stacktrace?: { frames?: unknown } }> }
+      | undefined
+    if (Array.isArray(threads?.values)) {
+      for (const thread of threads.values) {
+        stripFrames(thread?.stacktrace?.frames)
+      }
+    }
+    return event
+  } catch {
+    return event
+  }
+}
+
+interface IntegrationLike {
+  name?: unknown
+  [key: string]: unknown
+}
+
+/**
+ * Default-integrations filter: remove the integration named ContextLines,
+ * which embeds surrounding source CONTENT into stack frames. All other
+ * defaults are preserved. Never throws.
+ */
+export function withoutContextLines(
+  defaultIntegrations: unknown,
+): unknown {
+  try {
+    const list = Array.isArray(defaultIntegrations) ? defaultIntegrations : []
+    return list.filter(
+      (integration) =>
+        !integration ||
+        (integration as IntegrationLike).name !== 'ContextLines',
+    )
+  } catch {
+    return defaultIntegrations
+  }
+}
+
 /**
  * beforeSend-compatible scrubber. Removes user identity, request bodies,
  * cookies, auth headers, and workspace content; keeps route, error type,
@@ -246,6 +324,10 @@ export function scrubSentryEvent(event: unknown): Record<string, unknown> {
   try {
     if (!event || typeof event !== 'object') return {}
     const scrubbed = cloneEvent(event)
+    // Stack LOCATION without neighboring source CONTENT (see
+    // stripFrameSourceContent). Runs before any string scrubbing so no
+    // source literal can survive via frame context.
+    stripFrameSourceContent(scrubbed)
     delete scrubbed.user
     const request = scrubbed.request
     if (request && typeof request === 'object') {
@@ -352,6 +434,10 @@ export async function initSentry(options: InitOptions = {}): Promise<boolean> {
       profilesSampleRate: 0,
       enableLogs: false,
       attachStacktrace: true,
+      // Primary source-context prevention: never collect neighboring
+      // source CONTENT. An explicit integrations override in
+      // sentryOptions still wins.
+      integrations: withoutContextLines,
       beforeSend(event: unknown) {
         try {
           return scrubSentryEvent(event)
