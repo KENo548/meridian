@@ -7,9 +7,20 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import authRouter, { verifyAuth } from './auth.js';
 import { extractLanguagesFromJob } from './sources/extractLanguages.js';
+import { initSentry, captureTechnicalError, internalError, expressErrorMiddleware } from './sentry.js';
+import { buildHealthBody } from './release.js';
+
+// Privacy-safe error monitoring (Sentry Round 1): DSN-gated, fail-open.
+// A missing DSN or a Sentry failure never affects startup or serving.
+initSentry().catch(() => {});
 
 process.on('unhandledRejection', (err) => {
   console.error('[UnhandledRejection]', err?.message || err);
+  try {
+    captureTechnicalError(err, { route: 'unhandledRejection' });
+  } catch {
+    // Sentry must never break the process-level handler.
+  }
 });
 
 // ─── Lazy imports — heavy modules loaded on first use ────────────
@@ -221,15 +232,14 @@ const SOURCES = {
   efc: { name: 'eFinancialCareers', configured: EFC_ENABLED, description: 'eFinancialCareers job scraping' },
 };
 
-// Health check
+// Health check (public). Release string only (short SHA included) —
+// never the full commit, never secrets.
 app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    sources: Object.fromEntries(
+  res.json(buildHealthBody(
+    Object.fromEntries(
       Object.entries(SOURCES).map(([key, src]) => [key, { configured: src.configured }])
     ),
-  });
+  ));
 });
 
 // Adapter health
@@ -238,7 +248,7 @@ app.get('/api/adapter-health', async (_req, res) => {
     const health = await getAllAdapterHealth()
     res.json({ adapters: health })
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch adapter health', details: err.message })
+    internalError(res, err, 'Failed to fetch adapter health');
   }
 })
 
@@ -327,7 +337,7 @@ app.get('/api/search', async (req, res) => {
       location: location || '',
     });
   } catch (err) {
-    res.status(500).json({ error: 'Search failed', details: err.message });
+    internalError(res, err, 'Search failed');
   }
 });
 
@@ -342,7 +352,7 @@ app.get('/api/registry', async (_req, res) => {
     const stats = await getSourceStats();
     res.json({ firms, stats });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch registry', details: err.message });
+    internalError(res, err, 'Failed to fetch registry');
   }
 });
 
@@ -353,7 +363,7 @@ app.get('/api/registry/:firmId', async (req, res) => {
     if (!firm) return res.status(404).json({ error: 'Firm not found' });
     res.json({ firm });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch firm', details: err.message });
+    internalError(res, err, 'Failed to fetch firm');
   }
 });
 
@@ -370,7 +380,7 @@ app.post('/api/registry/:firmId/toggle', async (req, res) => {
     if (!firm) return res.status(404).json({ error: 'Firm not found' });
     res.json({ firm });
   } catch (err) {
-    res.status(500).json({ error: 'Toggle failed', details: err.message });
+    internalError(res, err, 'Toggle failed');
   }
 });
 
@@ -398,7 +408,7 @@ app.get('/api/jobs', async (req, res) => {
     
     res.json({ jobs, total });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch jobs', details: err.message });
+    internalError(res, err, 'Failed to fetch jobs');
   }
 });
 
@@ -410,7 +420,7 @@ app.get('/api/jobs/:jobId', async (req, res) => {
     const sightings = await getAllSightingsForJob(req.params.jobId);
     res.json({ job, sightings });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch job', details: err.message });
+    internalError(res, err, 'Failed to fetch job');
   }
 });
 
@@ -419,7 +429,7 @@ app.get('/api/jobs/:jobId/observations', async (req, res) => {
     const observations = await getActiveSightingsForJob(req.params.jobId);
     res.json({ observations });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch observations', details: err.message });
+    internalError(res, err, 'Failed to fetch observations');
   }
 });
 
@@ -433,7 +443,7 @@ app.post('/api/jobs/batch', async (req, res) => {
     const jobs = await getActiveSightingsForJobs(jobIds);
     res.json({ jobs });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch batch', details: err.message });
+    internalError(res, err, 'Failed to fetch batch');
   }
 });
 
@@ -445,7 +455,7 @@ app.post('/api/scan', async (req, res) => {
     const result = await scanAll();
     res.json({ result });
   } catch (err) {
-    res.status(500).json({ error: 'Scan failed', details: err.message });
+    internalError(res, err, 'Scan failed');
   }
 });
 
@@ -455,7 +465,7 @@ app.post('/api/scan/:firmId', async (req, res) => {
     const result = await scanSingleFirm(req.params.firmId);
     res.json({ result });
   } catch (err) {
-    res.status(500).json({ error: 'Scan failed', details: err.message });
+    internalError(res, err, 'Scan failed');
   }
 });
 
@@ -479,7 +489,7 @@ app.post('/api/cron/start', async (_req, res) => {
     startCronScan(CRON_INTERVAL_HOURS);
     res.json({ message: `Cron started (every ${CRON_INTERVAL_HOURS}h)` });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to start cron', details: err.message });
+    internalError(res, err, 'Failed to start cron');
   }
 });
 
@@ -491,7 +501,7 @@ app.get('/api/coverage', async (_req, res) => {
     const report = await getCoverageReport();
     res.json({ report });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to get coverage', details: err.message });
+    internalError(res, err, 'Failed to get coverage');
   }
 });
 
@@ -504,7 +514,7 @@ app.get('/api/discovery', async (_req, res) => {
     const stats = await getDiscoveryStats();
     res.json({ discoveries, stats });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to get discoveries', details: err.message });
+    internalError(res, err, 'Failed to get discoveries');
   }
 });
 
@@ -514,7 +524,7 @@ app.post('/api/discovery/run', async (_req, res) => {
     const result = await runDiscovery();
     res.json({ result });
   } catch (err) {
-    res.status(500).json({ error: 'Discovery failed', details: err.message });
+    internalError(res, err, 'Discovery failed');
   }
 });
 
@@ -526,7 +536,7 @@ app.get('/api/pipeline/status', async (_req, res) => {
     const status = await getPipelineStatus();
     res.json({ status });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to get pipeline status', details: err.message });
+    internalError(res, err, 'Failed to get pipeline status');
   }
 });
 
@@ -536,7 +546,7 @@ app.post('/api/pipeline/clear', async (_req, res) => {
     await clearPipelineState();
     res.json({ message: 'Pipeline state cleared' });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to clear pipeline', details: err.message });
+    internalError(res, err, 'Failed to clear pipeline');
   }
 });
 
@@ -548,7 +558,7 @@ app.get('/api/staleness', async (_req, res) => {
     const report = await getStalenessReport();
     res.json({ report });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to get staleness report', details: err.message });
+    internalError(res, err, 'Failed to get staleness report');
   }
 });
 
@@ -561,7 +571,7 @@ app.post('/api/staleness/apply', async (_req, res) => {
     const result = await applyStalenessTransitions(entries);
     res.json({ result });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to apply staleness', details: err.message });
+    internalError(res, err, 'Failed to apply staleness');
   }
 });
 
@@ -573,7 +583,7 @@ app.get('/api/rss/feeds', async (_req, res) => {
     const feeds = await getConfiguredFeeds();
     res.json({ feeds });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to get feeds', details: err.message });
+    internalError(res, err, 'Failed to get feeds');
   }
 });
 
@@ -607,7 +617,7 @@ app.post('/api/rss/feeds', async (req, res) => {
 
     res.status(400).json({ error: 'Invalid action. Use "add", "remove", or "toggle".' });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to modify feeds', details: err.message });
+    internalError(res, err, 'Failed to modify feeds');
   }
 });
 
@@ -622,7 +632,7 @@ app.get('/api/rss/check', async (_req, res) => {
       checkedAt: new Date().toISOString(),
     });
   } catch (err) {
-    res.status(500).json({ error: 'RSS check failed', details: err.message });
+    internalError(res, err, 'RSS check failed');
   }
 });
 
@@ -633,7 +643,7 @@ app.delete('/api/rss/feeds/:feedId', async (req, res) => {
     if (!removed) return res.status(404).json({ error: 'Feed not found' });
     res.json({ message: 'Feed removed' });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to remove feed', details: err.message });
+    internalError(res, err, 'Failed to remove feed');
   }
 });
 
@@ -650,7 +660,7 @@ app.post('/api/rss/feeds/:feedId/toggle', async (req, res) => {
     if (!feed) return res.status(404).json({ error: 'Feed not found' });
     res.json({ feed });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to toggle feed', details: err.message });
+    internalError(res, err, 'Failed to toggle feed');
   }
 });
 
@@ -985,7 +995,7 @@ app.get('/api/opportunities', async (req, res) => {
       metrics,
     });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch opportunities', details: err.message });
+    internalError(res, err, 'Failed to fetch opportunities');
   }
 });
 
@@ -1020,7 +1030,7 @@ app.get('/api/opportunities/metrics', async (_req, res) => {
 
     res.json(metrics);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch metrics', details: err.message });
+    internalError(res, err, 'Failed to fetch metrics');
   }
 });
 
@@ -1033,7 +1043,7 @@ app.post('/api/opportunities/resolve', async (req, res) => {
     const result = await resolveOpportunities({ verify, limit });
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: 'Resolution failed', details: err.message });
+    internalError(res, err, 'Resolution failed');
   }
 });
 
@@ -1044,7 +1054,7 @@ app.get('/api/opportunities/coverage', async (_req, res) => {
     const report = generateCoverageGapReport(entries);
     res.json(report);
   } catch (err) {
-    res.status(500).json({ error: 'Coverage report failed', details: err.message });
+    internalError(res, err, 'Coverage report failed');
   }
 });
 
@@ -1054,7 +1064,7 @@ app.get('/api/opportunities/staleness', async (_req, res) => {
     const report = await getStalenessReport();
     res.json(report);
   } catch (err) {
-    res.status(500).json({ error: 'Staleness report failed', details: err.message });
+    internalError(res, err, 'Staleness report failed');
   }
 });
 
@@ -1067,7 +1077,7 @@ app.post('/api/opportunities/staleness/apply', async (_req, res) => {
     const result = await applyStalenessTransitions(entries);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: 'Apply staleness failed', details: err.message });
+    internalError(res, err, 'Apply staleness failed');
   }
 });
 
@@ -1086,7 +1096,7 @@ app.get('/api/opportunities/:id', async (req, res) => {
     if (!entry) return res.status(404).json({ error: 'Opportunity not found' });
     res.json(deriveOpportunityFromEntry(entry));
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch opportunity', details: err.message });
+    internalError(res, err, 'Failed to fetch opportunity');
   }
 });
 
@@ -1098,7 +1108,7 @@ app.get('/api/health/stats', async (_req, res) => {
     const stats = await getDbStats();
     res.json({ stats });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to get stats', details: err.message });
+    internalError(res, err, 'Failed to get stats');
   }
 });
 
@@ -1111,6 +1121,11 @@ function workspaceError(req, res, err, fallback) {
   // Logs method/path/stack only — never bodies, cookies, or tokens.
   if (!err || err.statusCode !== 400) {
     console.error(`[Workspace] ${req.method} ${req.path} failed:`, err);
+    try {
+      captureTechnicalError(err, { route: req.path, method: req.method });
+    } catch {
+      // Sentry must never break the workspace error path.
+    }
   }
   if (err && err.statusCode === 400) {
     return res.status(400).json({ error: err.message });
@@ -1204,6 +1219,13 @@ app.post('/api/workspace/import', verifyAuth, async (req, res) => {
     workspaceError(req, res, err, 'Workspace import failed');
   }
 });
+
+// ─── Final error boundary ─────────────────────────────────────────
+// Catches errors forwarded via next(err) (e.g. CORS rejections). Generic
+// client message; technical detail stays server-side / Sentry-side.
+// Note: Express 4 does not forward async rejections from routes that
+// catch and respond themselves — those use internalError() at each site.
+app.use(expressErrorMiddleware);
 
 // ─── Start server ───────────────────────────────────────────────
 

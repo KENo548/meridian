@@ -5,6 +5,13 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Narrow client-env allowlist. Vite exposes only VITE_* by default;
+  // Vercel's System Environment Variables (available at build time when the
+  // operator enables "Enable access to System Environment Variables") are
+  // otherwise invisible to client code. We expose exactly two non-secret
+  // values: the deployment commit SHA and the environment label.
+  // Deliberately NOT exposed: author/message/repo system vars.
+  envPrefix: ['VITE_', 'VERCEL_GIT_COMMIT_SHA', 'VERCEL_ENV'],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
