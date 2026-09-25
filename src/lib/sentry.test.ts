@@ -18,6 +18,7 @@ import {
   scrubSentryEvent,
   scrubUrl,
   scrubValue,
+  stripUrlUserinfo,
   withoutContextLines,
 } from './sentry.ts'
 
@@ -209,6 +210,100 @@ describe('URL userinfo stripping (Round 1A repair)', () => {
     assert.ok(!serialized.includes(userMarker), 'URL username leaked')
     assert.ok(!serialized.includes(passMarker), 'URL password leaked')
     assert.ok(serialized.includes('https://example.com/path?limit=10'))
+  })
+})
+
+describe('free-text URL userinfo (Round 1B repair)', () => {
+  const userMarker = 'MARKER-FREETEXT-USER-m1n2'
+  const passMarker = 'MARKER-FREETEXT-PASS-p3q4'
+
+  it('1. strips username + password URL in prose', () => {
+    const out = scrubString(`failed fetching https://${userMarker}:${passMarker}@example.com/path`)
+    assert.ok(!out.includes(userMarker), 'username leaked')
+    assert.ok(!out.includes(passMarker), 'password leaked')
+    assert.ok(out.includes('https://example.com/path'))
+  })
+
+  it('2. strips username-only URL', () => {
+    const out = scrubString(`redirect to https://${userMarker}@example.com/x`)
+    assert.ok(!out.includes(userMarker), 'username leaked')
+    assert.ok(out.includes('https://example.com/x'))
+  })
+
+  it('3. strips encoded userinfo', () => {
+    const out = scrubString(`err https://us%40er:p%40ss@example.com/p`)
+    assert.ok(!out.includes('us%40er'), 'encoded user leaked')
+    assert.ok(!out.includes('p%40ss'), 'encoded pass leaked')
+    assert.ok(out.includes('https://example.com/p'))
+  })
+
+  it('4. preserves port after stripping', () => {
+    assert.equal(
+      scrubString(`up https://${userMarker}:${passMarker}@example.com:8443/a`),
+      'up https://example.com:8443/a',
+    )
+  })
+
+  it('5. strips multiple credential URLs in one string', () => {
+    const out = scrubString(
+      `a https://${userMarker}:${passMarker}@example.com/1 and https://${userMarker}@example.org/2`,
+    )
+    assert.ok(!out.includes(userMarker), 'username leaked')
+    assert.ok(!out.includes(passMarker), 'password leaked')
+    assert.ok(out.includes('https://example.com/1'))
+    assert.ok(out.includes('https://example.org/2'))
+  })
+
+  it('6. handles prose and punctuation around the URL', () => {
+    assert.equal(
+      scrubString(`note: check https://${userMarker}:${passMarker}@example.com/path, then retry.`),
+      'note: check https://example.com/path, then retry.',
+    )
+  })
+
+  it('7. leaves ordinary URLs and bare emails unchanged', () => {
+    assert.equal(
+      scrubString('plain https://example.com/docs?a=1 ok'),
+      'plain https://example.com/docs?a=1 ok',
+    )
+    assert.equal(
+      scrubString('contact jane@example.com for help'),
+      'contact jane@example.com for help',
+    )
+  })
+
+  it('8. existing postgres/Bearer/pair redaction remains intact', () => {
+    const out = scrubString(`db postgres://adm:xyz@db:5432/app with Bearer tok-abc and password=hunter2`)
+    assert.ok(!out.includes('adm:xyz@db'), 'connection userinfo leaked')
+    assert.ok(out.includes(REDACTED))
+    assert.ok(out.includes('Bearer [Redacted]'))
+    assert.ok(out.includes('password=[Redacted]'))
+  })
+
+  it('9. real event locations carry no credential markers', () => {
+    const serialized = JSON.stringify(
+      scrubSentryEvent({
+        exception: {
+          values: [
+            { type: 'Error', value: `fetch failed: https://${userMarker}:${passMarker}@example.com/api` },
+          ],
+        },
+        breadcrumbs: [
+          { message: `navigated from https://${userMarker}@example.com/start` },
+        ],
+        extra: { detail: `retrying https://${userMarker}:${passMarker}@example.com:8443/job` },
+      }),
+    )
+    assert.ok(!serialized.includes(userMarker), 'username leaked via event')
+    assert.ok(!serialized.includes(passMarker), 'password leaked via event')
+    assert.ok(serialized.includes('https://example.com/api'))
+  })
+
+  it('stripUrlUserinfo is the shared primitive behind both paths', () => {
+    assert.equal(
+      stripUrlUserinfo(`x https://${userMarker}:${passMarker}@example.com/p y`),
+      'x https://example.com/p y',
+    )
   })
 })
 

@@ -117,10 +117,22 @@ function isSensitiveParam(name) {
   return SENSITIVE_PARAM_PARTS.some((part) => lower.includes(part));
 }
 
+/**
+ * Strip scheme-URL userinfo (credentials) anywhere in a string:
+ * `https://user:pass@host/` becomes `https://host/`. Shared by scrubUrl
+ * (whole-URL fields) and scrubString (free-text fields) so both paths
+ * agree — userinfo never leaves the process either way. Bare emails
+ * (no `scheme://`) are untouched by construction.
+ */
+export function stripUrlUserinfo(value) {
+  if (typeof value !== 'string' || !value) return value;
+  return value.replace(/((?:[a-z][a-z0-9+.-]*:)?\/\/)[^\/\s"'`<>?#]*@/gi, '$1');
+}
+
 /** Redact connection strings / bearer tokens / secret pairs inside free text. */
 export function scrubString(value) {
   if (typeof value !== 'string') return value;
-  let out = value;
+  let out = stripUrlUserinfo(value);
   // postgres://user:pass@host/db — never ship connection strings.
   out = out.replace(/postgres(?:ql)?:\/\/[^\s"'`]+/gi, REDACTED);
   // Bearer <token>
@@ -140,12 +152,9 @@ export function scrubString(value) {
 export function scrubUrl(rawUrl) {
   if (typeof rawUrl !== 'string' || !rawUrl) return rawUrl;
   try {
-    // Strip URL userinfo (credentials) first: userinfo never leaves the
-    // process. `https://user:pass@host/` becomes `https://host/`.
-    const withoutUserinfo = rawUrl.replace(
-      /^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/?#]*@/i,
-      '$1',
-    );
+    // Strip URL userinfo (credentials) first via the shared helper:
+    // userinfo never leaves the process.
+    const withoutUserinfo = stripUrlUserinfo(rawUrl);
     const hashIndex = withoutUserinfo.indexOf('#');
     const withoutFragment = hashIndex === -1 ? withoutUserinfo : withoutUserinfo.slice(0, hashIndex);
     const queryIndex = withoutFragment.indexOf('?');
