@@ -369,6 +369,77 @@ describe('frame source-context suppression (Round 1A)', () => {
   });
 });
 
+describe('URL userinfo stripping (Round 1A repair)', () => {
+  it('1. removes username + password userinfo', () => {
+    assert.equal(
+      scrubUrl('https://user:pass@example.com/path'),
+      'https://example.com/path',
+    );
+  });
+
+  it('2. removes username-only userinfo', () => {
+    assert.equal(
+      scrubUrl('https://user@example.com/path'),
+      'https://example.com/path',
+    );
+  });
+
+  it('3. removes encoded userinfo', () => {
+    assert.equal(
+      scrubUrl('https://user%40name:p%40ss@example.com/path'),
+      'https://example.com/path',
+    );
+  });
+
+  it('4. preserves port after userinfo removal', () => {
+    assert.equal(
+      scrubUrl('https://user:pass@example.com:8443/path'),
+      'https://example.com:8443/path',
+    );
+  });
+
+  it('5. still redacts sensitive query values after userinfo removal', () => {
+    assert.equal(
+      scrubUrl('https://user:pass@example.com/path?token=abc123&limit=10'),
+      'https://example.com/path?token=[Redacted]&limit=10',
+    );
+  });
+
+  it('6. still removes fragments', () => {
+    assert.equal(
+      scrubUrl('https://user:pass@example.com/path?limit=10#frag'),
+      'https://example.com/path?limit=10',
+    );
+  });
+
+  it('7. existing UUID normalization still works', () => {
+    assert.equal(
+      scrubUrl('https://user:pass@example.com/api/123e4567-e89b-12d3-a456-426614174000?limit=1'),
+      'https://example.com/api/:id?limit=1',
+    );
+  });
+
+  it('8. credential-free URLs keep established behavior; scrubbed events carry no markers', () => {
+    assert.equal(
+      scrubUrl('https://app.example.com/api/jobs?limit=10'),
+      'https://app.example.com/api/jobs?limit=10',
+    );
+    assert.equal(scrubUrl('/api/jobs?limit=10'), '/api/jobs?limit=10');
+    const userMarker = 'MARKER-USERINFO-USER-cd34';
+    const passMarker = 'MARKER-USERINFO-PASS-ef56';
+    const scrubbed = scrubSentryEvent({
+      request: {
+        method: 'GET',
+        url: `https://${userMarker}:${passMarker}@example.com/path?limit=10`,
+      },
+    });
+    const serialized = JSON.stringify(scrubbed);
+    assert.ok(!serialized.includes(userMarker), 'URL username leaked');
+    assert.ok(!serialized.includes(passMarker), 'URL password leaked');
+    assert.ok(serialized.includes('https://example.com/path?limit=10'));
+  });
+});
+
 describe('expressErrorMiddleware status gating (F2)', () => {
   function mockRes() {
     return {

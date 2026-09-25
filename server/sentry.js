@@ -140,8 +140,14 @@ export function scrubString(value) {
 export function scrubUrl(rawUrl) {
   if (typeof rawUrl !== 'string' || !rawUrl) return rawUrl;
   try {
-    const hashIndex = rawUrl.indexOf('#');
-    const withoutFragment = hashIndex === -1 ? rawUrl : rawUrl.slice(0, hashIndex);
+    // Strip URL userinfo (credentials) first: userinfo never leaves the
+    // process. `https://user:pass@host/` becomes `https://host/`.
+    const withoutUserinfo = rawUrl.replace(
+      /^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/?#]*@/i,
+      '$1',
+    );
+    const hashIndex = withoutUserinfo.indexOf('#');
+    const withoutFragment = hashIndex === -1 ? withoutUserinfo : withoutUserinfo.slice(0, hashIndex);
     const queryIndex = withoutFragment.indexOf('?');
     let path = queryIndex === -1 ? withoutFragment : withoutFragment.slice(0, queryIndex);
     // Normalize IDs in paths: UUIDs and long hex runs become templates.
