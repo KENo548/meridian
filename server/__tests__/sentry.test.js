@@ -405,31 +405,37 @@ describe('expressErrorMiddleware status gating (F2)', () => {
     }
   }
 
-  it('400: response preserved, nothing captured', async () => {
+  it('400: generic response, submitted content never reflected, nothing captured', async () => {
     await withCountingClient((count) => {
+      const marker = 'MARKER-REQ-CONTENT-41ab';
       const res = mockRes();
-      const err = new Error('Unexpected token } in JSON at position 12');
+      // Mirrors body-parser strict-violation shape: submitted request
+      // content embedded in the 4xx error message.
+      const err = new Error(`Unexpected token 'x', "${marker}:odied" is not valid JSON`);
       err.status = 400;
-      err.body = '{"notes":"client-supplied junk"}';
+      err.body = `{"notes":"${marker}"}`;
       let nextCalled = false;
       expressErrorMiddleware(err, { path: '/api/jobs', method: 'POST' }, res, () => {
         nextCalled = true;
       });
       assert.equal(res.statusCode, 400);
-      assert.deepEqual(res.body, { error: 'Unexpected token } in JSON at position 12' });
+      assert.deepEqual(res.body, { error: 'Request failed' });
+      assert.ok(!JSON.stringify(res.body).includes(marker));
       assert.equal(count(), 0);
       assert.equal(nextCalled, false);
     });
   });
 
-  it('413: nothing captured', async () => {
+  it('413: generic response, submitted content never reflected, nothing captured', async () => {
     await withCountingClient((count) => {
+      const marker = 'MARKER-REQ-CONTENT-42cd';
       const res = mockRes();
-      const err = new Error('request entity too large');
+      const err = new Error(`request entity too large: ${marker}`);
       err.status = 413;
       expressErrorMiddleware(err, { path: '/api/workspace/import', method: 'POST' }, res, () => {});
       assert.equal(res.statusCode, 413);
-      assert.deepEqual(res.body, { error: 'request entity too large' });
+      assert.deepEqual(res.body, { error: 'Request failed' });
+      assert.ok(!JSON.stringify(res.body).includes(marker));
       assert.equal(count(), 0);
     });
   });

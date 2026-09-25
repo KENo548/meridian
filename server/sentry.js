@@ -497,7 +497,9 @@ export function expressErrorMiddleware(err, req, res, next) {
       }
       return res.status(status).json({ error: 'Internal server error' });
     }
-    return res.status(status).json({ error: (err && err.message) || 'Request failed' });
+    // Generic message only: body-parser can embed submitted request
+    // content in 4xx error messages, so err.message is never returned here.
+    return res.status(status).json({ error: 'Request failed' });
   } catch {
     return undefined;
   }
