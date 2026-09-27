@@ -1,8 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_BASE
-  || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3001'
-    : `http://${window.location.hostname}:3001`)
-
+// Same-origin API: browser calls use relative /api/* paths, routed by the
+// Vercel rewrite to the environment backend. No absolute base is needed
+// (and none is read from the environment).
 import {
   AuthRetryExhaustedError,
   LOGIN_MAX_ATTEMPTS,
@@ -30,7 +28,7 @@ async function apiCall<T>(path: string, options: RequestInit = {}, timeoutMs = 1
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(path, {
       ...options,
       credentials: 'include',
       signal: controller.signal,
