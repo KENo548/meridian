@@ -1,0 +1,653 @@
+/**
+ * Backend Sentry tests (Round 1: requirements A, B, E, F).
+ *
+ * Deterministic: the real SDK is never loaded (injectable loader), and
+ * sentry.io is never contacted. Run with:
+ * `node --test server/__tests__/sentry.test.js`
+ */
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  REDACTED,
+  captureTechnicalError,
+  expressErrorMiddleware,
+  initSentry,
+  isSentryEnabled,
+  resetSentryForTests,
+  scrubCaptureContext,
+  scrubSentryEvent,
+  scrubString,
+  scrubUrl,
+  scrubValue,
+  stripUrlUserinfo,
+  withoutContextLines,
+} from '../sentry.js';
+
+describe('backend Sentry init (A: DSN absent, B: failure fail-open)', () => {
+  it('no DSN → no-op, loader never invoked, server continues', async () => {
+    resetSentryForTests();
+    delete process.env.SENTRY_DSN;
+    let loaderCalls = 0;
+    const enabled = await initSentry({
+      dsn: '',
+      loader: async () => {
+        loaderCalls += 1;
+        throw new Error('must not be called');
+      },
+    });
+    assert.equal(enabled, false);
+    assert.equal(loaderCalls, 0);
+    assert.equal(isSentryEnabled(), false);
+    assert.equal(captureTechnicalError(new Error('boom')), false);
+  });
+
+  it('missing SENTRY_DSN env → initSentry() resolves false without importing the SDK', async () => {
+    resetSentryForTests();
+    delete process.env.SENTRY_DSN;
+    const enabled = await initSentry();
+    assert.equal(enabled, false);
+    assert.equal(isSentryEnabled(), false);
+  });
+
+  it('SDK init throwing → fail-open false, server continues', async () => {
+    resetSentryForTests();
+    const enabled = await initSentry({
+      dsn: 'https://public@example.com/1',
+      loader: async () => {
+        throw new Error('synthetic SDK failure');
+      },
+    });
+    assert.equal(enabled, false);
+    assert.equal(isSentryEnabled(), false);
+    assert.equal(captureTechnicalError(new Error('boom')), false);
+  });
+
+  it('capture throwing inside the client → fail-open false, never throws', async () => {
+    resetSentryForTests();
+    const enabled = await initSentry({
+      dsn: 'https://public@example.com/1',
+      loader: async () => ({
+        init() {},
+        captureException() {
+          throw new Error('synthetic transport failure');
+        },
+      }),
+    });
+    assert.equal(enabled, true);
+    assert.equal(isSentryEnabled(), true);
+    assert.equal(captureTechnicalError(new Error('boom'), { route: '/api/jobs' }), false);
+    resetSentryForTests();
+  });
+
+  it('healthy fake client receives the scrubbed technical context', async () => {
+    resetSentryForTests();
+    const savedDatabaseUrl = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    let seen = null;
+    await initSentry({
+      dsn: 'https://public@example.com/1',
+      loader: async () => ({
+        init() {},
+        captureException(err, context) {
+          seen = { err, context };
+        },
+      }),
+    });
+    assert.equal(captureTechnicalError(new Error('boom'), { route: '/api/jobs', notes: 'x' }), true);
+    assert.equal(seen.context.extra.route, '/api/jobs');
+    assert.equal(seen.context.extra.notes, REDACTED);
+    assert.equal(seen.context.extra.db_driver, 'sqlite');
+    if (savedDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = savedDatabaseUrl;
+    resetSentryForTests();
+  });
+});
+
+describe('backend scrubber (E: secrets + workspace content removed)', () => {
+  it('strips auth headers, cookies, bodies, and user identity', () => {
+    const scrubbed = scrubSentryEvent({
+      user: { email: 'candidate@example.com', id: 'user-1' },
+      request: {
+        method: 'GET',
+        url: 'https://api/api/workspace',
+        headers: {
+          Authorization: 'Bearer secret-jwt',
+          Cookie: 'meridian_token=secret-token',
+          'Content-Type': 'application/json',
+        },
+        data: { records: [{ notes: 'private' }] },
+        cookies: { meridian_token: 'secret-token' },
+      },
+      tags: { environment: 'production' },
+    });
+    assert.equal(scrubbed.user, undefined);
+    assert.equal(scrubbed.request.cookies, undefined);
+    assert.equal(scrubbed.request.data, undefined);
+    assert.equal(scrubbed.request.headers.Authorization, REDACTED);
+    assert.equal(scrubbed.request.headers.Cookie, REDACTED);
+    assert.equal(scrubbed.request.headers['Content-Type'], 'application/json');
+    assert.equal(scrubbed.tags.environment, 'production');
+  });
+
+  it('redacts secret-like and workspace free-text keys', () => {
+    for (const key of [
+      'password',
+      'DATABASE_URL',
+      'database_url',
+      'SESSION_SECRET',
+      'JWT_SECRET',
+      'GMAIL_APP_PASSWORD',
+      'meridian_token',
+      'Authorization',
+      'resetToken',
+      'fileData',
+      'notes',
+      'companyNotes',
+      'visaNotes',
+      'jobDescription',
+      'contacts',
+    ]) {
+      assert.equal(scrubValue('s3cr3t', key), REDACTED, `key not redacted: ${key}`);
+    }
+    // Technical keys survive by name.
+    assert.equal(scrubValue('GET', 'method'), 'GET');
+    assert.equal(scrubValue(500, 'status'), 500);
+    assert.equal(scrubValue('/api/jobs', 'route'), '/api/jobs');
+    assert.equal(scrubValue('pg', 'db_driver'), 'pg');
+    assert.equal(scrubValue('Error', 'errorType'), 'Error');
+  });
+
+  it('scrubs secrets embedded in strings and URLs', () => {
+    assert.ok(!scrubString('failed postgres://user:pass@host/db x').includes('pass@host'));
+    assert.ok(!scrubString('Authorization: Bearer abc.def').includes('abc.def'));
+    const url = scrubUrl('https://api/api/jobs?reset=abc123&limit=10#frag');
+    assert.ok(!url.includes('abc123'));
+    assert.ok(url.includes('limit=10'));
+    assert.ok(!url.includes('frag'));
+  });
+
+  it('capture context always carries db_driver and never secrets', () => {
+    const withDb = scrubCaptureContext({ route: '/api/jobs' }, { DATABASE_URL: 'postgres://u:p@h/d' });
+    assert.equal(withDb.db_driver, 'pg');
+    assert.equal(withDb.route, '/api/jobs');
+    const serialized = JSON.stringify(
+      scrubCaptureContext({ DATABASE_URL: 'postgres://u:p@h/d', notes: 'x' }, {}),
+    );
+    assert.ok(!serialized.includes('postgres://'));
+  });
+});
+
+describe('backend seeded-secret proof (F)', () => {
+  it('serialized scrubbed output contains none of the seeded markers', () => {
+    const markers = [
+      'MARKER-AUTH-aa11',
+      'MARKER-COOKIE-bb22',
+      'MARKER-FILEDATA-cc33',
+      'MARKER-NOTES-dd44',
+      'MARKER-BODY-ee55',
+      'MARKER-EMAIL-ff66',
+      'MARKER-DBURL-0011',
+      'MARKER-JWT-2233',
+      'MARKER-RESET-4455',
+      'MARKER-DBCONN-6677',
+    ];
+    const event = {
+      user: { email: `candidate+${markers[5]}@example.com` },
+      request: {
+        method: 'PUT',
+        url: `https://api/api/workspace/import?reset=${markers[8]}&limit=10`,
+        headers: {
+          Authorization: `Bearer ${markers[0]}`,
+          Cookie: `session=${markers[1]}`,
+        },
+        data: { records: { applications: [{ notes: `private ${markers[3]}`, body: markers[4] }] } },
+        cookies: { session: markers[1] },
+      },
+      exception: {
+        values: [
+          {
+            type: 'Error',
+            value: `connect postgres://meridian:${markers[6]}@db/host failed; token=${markers[7]}`,
+            stacktrace: {
+              frames: [{ filename: 'db-pg.js', function: 'query', lineno: 10 }],
+            },
+          },
+        ],
+      },
+      extra: {
+        fileData: markers[2],
+        DATABASE_URL: `postgres://meridian:${markers[9]}@db/host`,
+        route: '/api/workspace/import',
+        status: 500,
+        db_driver: 'pg',
+      },
+    };
+    const serialized = JSON.stringify(scrubSentryEvent(event));
+    for (const marker of markers) {
+      assert.ok(!serialized.includes(marker), `leaked marker: ${marker}`);
+    }
+    // Technical context survives scrubbing.
+    assert.ok(serialized.includes('/api/workspace/import'));
+    assert.ok(serialized.includes('db-pg.js'));
+    assert.ok(serialized.includes('limit=10'));
+  });
+});
+
+describe('frame source-context suppression (Round 1A)', () => {
+  it('strips pre_context/context_line/post_context everywhere, keeps stack location', () => {
+    const markers = [
+      'MARKER-CTX-PRE-aa11',
+      'MARKER-CTX-LINE-bb22',
+      'MARKER-CTX-POST-cc33',
+      'MARKER-CTX-NESTED-dd44',
+      'MARKER-CTX-THREAD-ee55',
+      'MARKER-CTX-EXTRA-ff66',
+    ];
+    const event = {
+      exception: {
+        values: [
+          {
+            type: 'Error',
+            value: 'synthetic failure',
+            stacktrace: {
+              frames: [
+                {
+                  filename: 'server/sentry.js',
+                  function: 'captureTechnicalError',
+                  module: 'sentry',
+                  lineno: 10,
+                  colno: 5,
+                  in_app: true,
+                  pre_context: [`const x = '${markers[0]}';`],
+                  context_line: `throw new Error('${markers[1]}');`,
+                  post_context: [`// ${markers[2]}`],
+                },
+                {
+                  filename: 'node:internal/modules/run_main',
+                  function: 'run',
+                  lineno: 1,
+                  colno: 1,
+                },
+              ],
+            },
+          },
+          {
+            type: 'Error',
+            value: 'synthetic cause',
+            stacktrace: {
+              frames: [
+                {
+                  filename: 'server/index.js',
+                  function: 'handler',
+                  lineno: 99,
+                  colno: 2,
+                  in_app: true,
+                  pre_context: [`// ${markers[3]}`],
+                  context_line: 'handle();',
+                  post_context: [],
+                },
+              ],
+            },
+          },
+        ],
+      },
+      threads: {
+        values: [
+          {
+            id: '0',
+            stacktrace: {
+              frames: [
+                {
+                  filename: 'server/worker.js',
+                  function: 'work',
+                  lineno: 7,
+                  colno: 3,
+                  in_app: true,
+                  context_line: `// ${markers[4]}`,
+                },
+              ],
+            },
+          },
+        ],
+      },
+      extra: { fileData: markers[5], route: '/synthetic' },
+    };
+    const scrubbed = scrubSentryEvent(event);
+    const serialized = JSON.stringify(scrubbed);
+    for (const marker of markers) {
+      assert.ok(!serialized.includes(marker), `source-context leak: ${marker}`);
+    }
+    // Stack LOCATION is preserved on every frame.
+    const first = scrubbed.exception.values[0].stacktrace.frames[0];
+    assert.equal(first.filename, 'server/sentry.js');
+    assert.equal(first.function, 'captureTechnicalError');
+    assert.equal(first.lineno, 10);
+    assert.equal(first.colno, 5);
+    assert.ok(!('pre_context' in first));
+    assert.ok(!('context_line' in first));
+    assert.ok(!('post_context' in first));
+    const nested = scrubbed.exception.values[1].stacktrace.frames[0];
+    assert.equal(nested.filename, 'server/index.js');
+    assert.equal(nested.lineno, 99);
+    assert.ok(!('pre_context' in nested));
+    const threadFrame = scrubbed.threads.values[0].stacktrace.frames[0];
+    assert.equal(threadFrame.filename, 'server/worker.js');
+    assert.equal(threadFrame.colno, 3);
+    assert.ok(!('context_line' in threadFrame));
+    // Frames without context fields pass through untouched.
+    const runtime = scrubbed.exception.values[0].stacktrace.frames[1];
+    assert.equal(runtime.filename, 'node:internal/modules/run_main');
+    assert.equal(runtime.lineno, 1);
+    // Structured scrubbing still applies alongside frame stripping.
+    assert.equal(scrubbed.extra.fileData, REDACTED);
+    assert.equal(scrubbed.extra.route, '/synthetic');
+  });
+
+  it('withoutContextLines drops only the ContextLines integration', () => {
+    const defaults = [{ name: 'ContextLines' }, { name: 'LinkedErrors' }, { name: 'Http' }];
+    assert.deepEqual(withoutContextLines(defaults), [{ name: 'LinkedErrors' }, { name: 'Http' }]);
+    assert.deepEqual(withoutContextLines([]), []);
+    assert.deepEqual(withoutContextLines(null), []);
+    assert.deepEqual(withoutContextLines(undefined), []);
+  });
+
+  it('initSentry wires the ContextLines-removing integrations filter', async () => {
+    resetSentryForTests();
+    let captured = null;
+    await initSentry({
+      dsn: 'https://public@example.com/1',
+      loader: async () => ({
+        init(options) {
+          captured = options;
+        },
+        captureException() {},
+      }),
+    });
+    assert.equal(typeof captured.integrations, 'function');
+    const filtered = captured.integrations([{ name: 'ContextLines' }, { name: 'Dedupe' }]);
+    assert.deepEqual(filtered, [{ name: 'Dedupe' }]);
+    resetSentryForTests();
+  });
+});
+
+describe('URL userinfo stripping (Round 1A repair)', () => {
+  it('1. removes username + password userinfo', () => {
+    assert.equal(
+      scrubUrl('https://user:pass@example.com/path'),
+      'https://example.com/path',
+    );
+  });
+
+  it('2. removes username-only userinfo', () => {
+    assert.equal(
+      scrubUrl('https://user@example.com/path'),
+      'https://example.com/path',
+    );
+  });
+
+  it('3. removes encoded userinfo', () => {
+    assert.equal(
+      scrubUrl('https://user%40name:p%40ss@example.com/path'),
+      'https://example.com/path',
+    );
+  });
+
+  it('4. preserves port after userinfo removal', () => {
+    assert.equal(
+      scrubUrl('https://user:pass@example.com:8443/path'),
+      'https://example.com:8443/path',
+    );
+  });
+
+  it('5. still redacts sensitive query values after userinfo removal', () => {
+    assert.equal(
+      scrubUrl('https://user:pass@example.com/path?token=abc123&limit=10'),
+      'https://example.com/path?token=[Redacted]&limit=10',
+    );
+  });
+
+  it('6. still removes fragments', () => {
+    assert.equal(
+      scrubUrl('https://user:pass@example.com/path?limit=10#frag'),
+      'https://example.com/path?limit=10',
+    );
+  });
+
+  it('7. existing UUID normalization still works', () => {
+    assert.equal(
+      scrubUrl('https://user:pass@example.com/api/123e4567-e89b-12d3-a456-426614174000?limit=1'),
+      'https://example.com/api/:id?limit=1',
+    );
+  });
+
+  it('8. credential-free URLs keep established behavior; scrubbed events carry no markers', () => {
+    assert.equal(
+      scrubUrl('https://app.example.com/api/jobs?limit=10'),
+      'https://app.example.com/api/jobs?limit=10',
+    );
+    assert.equal(scrubUrl('/api/jobs?limit=10'), '/api/jobs?limit=10');
+    const userMarker = 'MARKER-USERINFO-USER-cd34';
+    const passMarker = 'MARKER-USERINFO-PASS-ef56';
+    const scrubbed = scrubSentryEvent({
+      request: {
+        method: 'GET',
+        url: `https://${userMarker}:${passMarker}@example.com/path?limit=10`,
+      },
+    });
+    const serialized = JSON.stringify(scrubbed);
+    assert.ok(!serialized.includes(userMarker), 'URL username leaked');
+    assert.ok(!serialized.includes(passMarker), 'URL password leaked');
+    assert.ok(serialized.includes('https://example.com/path?limit=10'));
+  });
+});
+
+describe('free-text URL userinfo (Round 1B repair)', () => {
+  const userMarker = 'MARKER-FREETEXT-USER-r5s6';
+  const passMarker = 'MARKER-FREETEXT-PASS-t7u8';
+
+  it('1. strips username + password URL in prose', () => {
+    const out = scrubString(`failed fetching https://${userMarker}:${passMarker}@example.com/path`);
+    assert.ok(!out.includes(userMarker), 'username leaked');
+    assert.ok(!out.includes(passMarker), 'password leaked');
+    assert.ok(out.includes('https://example.com/path'));
+  });
+
+  it('2. strips username-only URL', () => {
+    const out = scrubString(`redirect to https://${userMarker}@example.com/x`);
+    assert.ok(!out.includes(userMarker), 'username leaked');
+    assert.ok(out.includes('https://example.com/x'));
+  });
+
+  it('3. strips encoded userinfo', () => {
+    const out = scrubString('err https://us%40er:p%40ss@example.com/p');
+    assert.ok(!out.includes('us%40er'), 'encoded user leaked');
+    assert.ok(!out.includes('p%40ss'), 'encoded pass leaked');
+    assert.ok(out.includes('https://example.com/p'));
+  });
+
+  it('4. preserves port after stripping', () => {
+    assert.equal(
+      scrubString(`up https://${userMarker}:${passMarker}@example.com:8443/a`),
+      'up https://example.com:8443/a',
+    );
+  });
+
+  it('5. strips multiple credential URLs in one string', () => {
+    const out = scrubString(
+      `a https://${userMarker}:${passMarker}@example.com/1 and https://${userMarker}@example.org/2`,
+    );
+    assert.ok(!out.includes(userMarker), 'username leaked');
+    assert.ok(!out.includes(passMarker), 'password leaked');
+    assert.ok(out.includes('https://example.com/1'));
+    assert.ok(out.includes('https://example.org/2'));
+  });
+
+  it('6. handles prose and punctuation around the URL', () => {
+    assert.equal(
+      scrubString(`note: check https://${userMarker}:${passMarker}@example.com/path, then retry.`),
+      'note: check https://example.com/path, then retry.',
+    );
+  });
+
+  it('7. leaves ordinary URLs and bare emails unchanged', () => {
+    assert.equal(
+      scrubString('plain https://example.com/docs?a=1 ok'),
+      'plain https://example.com/docs?a=1 ok',
+    );
+    assert.equal(
+      scrubString('contact jane@example.com for help'),
+      'contact jane@example.com for help',
+    );
+  });
+
+  it('8. existing postgres/Bearer/pair redaction remains intact', () => {
+    const out = scrubString('db postgres://adm:xyz@db:5432/app with Bearer tok-abc and password=hunter2');
+    assert.ok(!out.includes('adm:xyz@db'), 'connection userinfo leaked');
+    assert.ok(out.includes(REDACTED));
+    assert.ok(out.includes('Bearer [Redacted]'));
+    assert.ok(out.includes('password=[Redacted]'));
+  });
+
+  it('9. real event locations carry no credential markers', () => {
+    const serialized = JSON.stringify(
+      scrubSentryEvent({
+        exception: {
+          values: [
+            { type: 'Error', value: `fetch failed: https://${userMarker}:${passMarker}@example.com/api` },
+          ],
+        },
+        breadcrumbs: [
+          { message: `navigated from https://${userMarker}@example.com/start` },
+        ],
+        extra: { detail: `retrying https://${userMarker}:${passMarker}@example.com:8443/job` },
+      }),
+    );
+    assert.ok(!serialized.includes(userMarker), 'username leaked via event');
+    assert.ok(!serialized.includes(passMarker), 'password leaked via event');
+    assert.ok(serialized.includes('https://example.com/api'));
+  });
+
+  it('stripUrlUserinfo is the shared primitive behind both paths', () => {
+    assert.equal(
+      stripUrlUserinfo(`x https://${userMarker}:${passMarker}@example.com/p y`),
+      'x https://example.com/p y',
+    );
+  });
+});
+
+describe('expressErrorMiddleware status gating (F2)', () => {
+  function mockRes() {
+    return {
+      headersSent: false,
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload) {
+        this.body = payload;
+        return this;
+      },
+    };
+  }
+
+  async function withCountingClient(fn) {
+    resetSentryForTests();
+    let captures = 0;
+    await initSentry({
+      dsn: 'https://public@example.com/1',
+      loader: async () => ({
+        init() {},
+        captureException() {
+          captures += 1;
+        },
+      }),
+    });
+    try {
+      await fn(() => captures);
+    } finally {
+      resetSentryForTests();
+    }
+  }
+
+  it('400: generic response, submitted content never reflected, nothing captured', async () => {
+    await withCountingClient((count) => {
+      const marker = 'MARKER-REQ-CONTENT-41ab';
+      const res = mockRes();
+      // Mirrors body-parser strict-violation shape: submitted request
+      // content embedded in the 4xx error message.
+      const err = new Error(`Unexpected token 'x', "${marker}:odied" is not valid JSON`);
+      err.status = 400;
+      err.body = `{"notes":"${marker}"}`;
+      let nextCalled = false;
+      expressErrorMiddleware(err, { path: '/api/jobs', method: 'POST' }, res, () => {
+        nextCalled = true;
+      });
+      assert.equal(res.statusCode, 400);
+      assert.deepEqual(res.body, { error: 'Request failed' });
+      assert.ok(!JSON.stringify(res.body).includes(marker));
+      assert.equal(count(), 0);
+      assert.equal(nextCalled, false);
+    });
+  });
+
+  it('413: generic response, submitted content never reflected, nothing captured', async () => {
+    await withCountingClient((count) => {
+      const marker = 'MARKER-REQ-CONTENT-42cd';
+      const res = mockRes();
+      const err = new Error(`request entity too large: ${marker}`);
+      err.status = 413;
+      expressErrorMiddleware(err, { path: '/api/workspace/import', method: 'POST' }, res, () => {});
+      assert.equal(res.statusCode, 413);
+      assert.deepEqual(res.body, { error: 'Request failed' });
+      assert.ok(!JSON.stringify(res.body).includes(marker));
+      assert.equal(count(), 0);
+    });
+  });
+
+  it('500: captured exactly once, generic body, internal text absent', async () => {
+    await withCountingClient((count) => {
+      const marker = 'MARKER-MW-500-77zz';
+      const res = mockRes();
+      const err = new Error(`synthetic failure ${marker}: postgres://u:p@h/d`);
+      err.status = 500;
+      expressErrorMiddleware(err, { path: '/api/jobs', method: 'GET' }, res, () => {});
+      assert.equal(count(), 1);
+      assert.equal(res.statusCode, 500);
+      assert.deepEqual(res.body, { error: 'Internal server error' });
+      assert.ok(!JSON.stringify(res.body).includes(marker));
+    });
+  });
+
+  it('status-less error: defaults to 500, captured once, generic response', async () => {
+    await withCountingClient((count) => {
+      const res = mockRes();
+      expressErrorMiddleware(
+        new Error('Not allowed by CORS'),
+        { path: '/api/jobs', method: 'GET' },
+        res,
+        () => {},
+      );
+      assert.equal(count(), 1);
+      assert.equal(res.statusCode, 500);
+      assert.deepEqual(res.body, { error: 'Internal server error' });
+    });
+  });
+
+  it('headersSent: delegates to next without responding', async () => {
+    await withCountingClient((count) => {
+      const res = mockRes();
+      res.headersSent = true;
+      let nextErr = null;
+      const err = new Error('late failure');
+      err.status = 500;
+      expressErrorMiddleware(err, { path: '/x', method: 'GET' }, res, (e) => {
+        nextErr = e;
+      });
+      assert.equal(nextErr, err);
+      assert.equal(res.statusCode, null);
+      assert.equal(count(), 1);
+    });
+  });
+});

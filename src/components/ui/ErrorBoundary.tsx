@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { captureTechnicalError } from '@/lib/sentry'
 
 interface Props {
   children: ReactNode
@@ -22,6 +23,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[ErrorBoundary]', error, errorInfo)
+    // Privacy-safe technical capture (fail-open; never throws).
+    captureTechnicalError(error, {
+      component: 'ErrorBoundary',
+      errorType: error?.name,
+      route: typeof window !== 'undefined' ? window.location.pathname : undefined,
+    })
   }
 
   render() {
